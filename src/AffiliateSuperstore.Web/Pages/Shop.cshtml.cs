@@ -26,6 +26,7 @@ public sealed class ShopModel(
     public string? Category { get; private set; }
     public IReadOnlyList<string> Categories { get; private set; } = [];
     public int SavedCount { get; private set; }
+    public int ResultCount { get; private set; }
     public bool IsIndexable { get; private set; }
     public bool HasActiveFilters { get; private set; }
     public string CanonicalUrl { get; private set; } = string.Empty;
@@ -55,7 +56,8 @@ public sealed class ShopModel(
         Sort = sort is "price-asc" or "price-desc" or "newest" ? sort : "popular";
         HasActiveFilters = Query is not null || Category is not null || MinimumPrice is not null || MaximumPrice is not null || Sort != "popular";
         CanonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}{shop.PathPrefix}";
-        SavedCount = basketStore.Get(HttpContext, shop.Slug).Count;
+        var savedProductIds = basketStore.Get(HttpContext, shop.Slug);
+        SavedCount = savedProductIds.Count;
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         var query = context.ShopProducts.AsNoTracking()
             .Where(item =>
@@ -105,6 +107,8 @@ public sealed class ShopModel(
             query = query.Where(item => item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault() <= MaximumPrice);
         }
 
+        ResultCount = await query.CountAsync(cancellationToken);
+
         query = Sort switch
         {
             "price-asc" => query.OrderBy(item => item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault()),
@@ -115,15 +119,23 @@ public sealed class ShopModel(
                 .ThenByDescending(item => item.Product.Snapshots.Max(snapshot => snapshot.RecentSalesVolume))
         };
 
-        Products = await query
+        var products = await query
             .Take(48)
             .Select(item => new ShopProductCard(
                 item.ProductId,
                 item.EditorialTitle ?? item.Product.Title,
                 item.Product.MainImageUrl,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
-                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault()))
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.EvaluationRate).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
+                item.Product.SellerName,
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.FetchedUtc).FirstOrDefault(),
+                false))
             .ToListAsync(cancellationToken);
+        Products = products
+            .Select(product => product with { IsSaved = savedProductIds.Contains(product.ProductId, StringComparer.Ordinal) })
+            .ToArray();
         if (!HasActiveFilters && Products.Count > 0)
         {
             StructuredDataJson = JsonSerializer.Serialize(new Dictionary<string, object?>
@@ -146,5 +158,15 @@ public sealed class ShopModel(
         return Page();
     }
 
-    public sealed record ShopProductCard(string ProductId, string Title, string? ImageUrl, decimal? Price, string? Currency);
+    public sealed record ShopProductCard(
+        string ProductId,
+        string Title,
+        string? ImageUrl,
+        decimal? Price,
+        string? Currency,
+        decimal? EvaluationRate,
+        long? RecentSalesVolume,
+        string? SellerName,
+        DateTimeOffset LastCheckedUtc,
+        bool IsSaved);
 }

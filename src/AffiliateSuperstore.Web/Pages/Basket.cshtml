@@ -7,36 +7,50 @@
 }
 
 <div class="shop-shell basket-shell" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
+    <header class="product-shop-header"><a href="@Model.Shop.PathPrefix"><span aria-hidden="true">←</span> @Model.Shop.Theme.LogoText</a><span>Saved list</span></header>
     <header class="basket-header">
-        <div><p class="shop-kicker">Anonymous shopping list</p><h1>Your saved plushies</h1><p>Saved in this browser for 90 days. No account is required.</p></div>
+        <div><p class="shop-kicker">Anonymous comparison list</p><h1>Your saved plushies</h1><p>Saved in this browser for 90 days. No account required.</p></div>
         <a href="@Model.Shop.PathPrefix">Continue browsing</a>
     </header>
 
     @if (Model.Products.Count == 0)
     {
-        <section class="basket-empty"><span aria-hidden="true">♡</span><h2>Your list is empty</h2><p>Approve products in the admin, then save the ones you want to compare.</p><a href="@Model.Shop.PathPrefix">Browse @Model.Shop.DisplayName</a></section>
+        <section class="basket-empty"><span aria-hidden="true">♡</span><h2>Your saved list is empty</h2><p>Save your favourite plushies to compare them here without creating an account.</p><a href="@Model.Shop.PathPrefix">Browse plushies</a></section>
     }
     else
     {
-        <div class="basket-guidance">
-            <div><strong>@Model.Products.Count saved @(Model.Products.Count == 1 ? "item" : "items")</strong><p>AliExpress completes each purchase. Open items one at a time; availability, final price, delivery and checkout are confirmed there.</p></div>
-            <a class="basket-next" href="/go/@Model.Shop.Slug/@Model.Products[0].ProductId?placement=basket-next" rel="sponsored nofollow noopener">Open next item <span aria-hidden="true">↗</span></a>
-        </div>
+        <aside class="partner-notice basket-guidance" aria-label="Buying through a partner"><span class="partner-notice-icon" aria-hidden="true">◇</span><div><strong>Buying through a partner</strong><p>Final price and availability are confirmed at AliExpress. Each saved item opens separately.</p></div><span class="basket-count">@Model.Products.Count saved @(Model.Products.Count == 1 ? "item" : "items")</span></aside>
         <section class="basket-list" aria-label="Saved products">
             @foreach (var product in Model.Products)
             {
-                <article class="basket-item">
-                    @if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }
-                    <div class="basket-item-copy"><h2>@product.Title</h2><p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p></div>
+                <article class="basket-item @(!product.IsAvailable ? "is-unavailable" : null)">
+                    <div class="basket-item-media">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /> } else { <span aria-hidden="true">♡</span> }@if (!product.IsAvailable) { <strong>Currently unavailable</strong> }</div>
+                    <div class="basket-item-copy">
+                        <h2>@product.Title</h2>
+                        <p class="basket-item-price">@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p>
+                        @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
+                        {
+                            <p class="basket-item-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>
+                        }
+                        @if (product.LastCheckedUtc is not null) { <p class="basket-item-freshness">Price checked <time datetime="@product.LastCheckedUtc.Value.ToString("O")">@product.LastCheckedUtc.Value.ToLocalTime().ToString("d MMM yyyy HH:mm")</time></p> }
+                    </div>
                     <div class="basket-item-actions">
-                        <a href="/go/@Model.Shop.Slug/@product.ProductId?placement=basket" rel="sponsored nofollow noopener">Open on AliExpress <span aria-hidden="true">↗</span></a>
+                        @if (product.IsAvailable)
+                        {
+                            <a href="/go/@Model.Shop.Slug/@product.ProductId?placement=basket" rel="sponsored nofollow noopener">Check at AliExpress <span aria-hidden="true">↗</span></a>
+                        }
+                        else
+                        {
+                            <span class="basket-unavailable">Partner listing unavailable</span>
+                            <a class="basket-find-similar" href="@Model.Shop.PathPrefix">Find similar</a>
+                        }
                         <form method="post" asp-page-handler="Remove" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button type="submit">Remove</button></form>
                     </div>
                 </article>
             }
         </section>
-        <form method="post" asp-page-handler="Clear" asp-route-shopSlug="@Model.Shop.Slug" class="basket-clear"><button type="submit">Clear saved list</button></form>
+        <form method="post" asp-page-handler="Clear" asp-route-shopSlug="@Model.Shop.Slug" class="basket-clear"><button type="submit">Remove all saved items</button></form>
     }
 
-    <aside class="affiliate-disclosure"><strong>Affiliate disclosure</strong><p>We may earn a commission from qualifying purchases. We are not the seller and do not receive your payment or AliExpress account details.</p></aside>
+    <aside class="affiliate-disclosure"><strong>Affiliate disclosure</strong><p>We may earn a commission from qualifying purchases. Affiliate Superstore is not the seller and does not receive your payment or AliExpress account details.</p></aside>
 </div>

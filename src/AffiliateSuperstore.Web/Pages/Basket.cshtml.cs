@@ -29,20 +29,35 @@ public sealed class BasketModel(
         var products = await context.ShopProducts.AsNoTracking()
             .Where(item =>
                 item.Shop.Slug == shopSlug &&
-                productIds.Contains(item.ProductId) &&
-                item.Shop.IsEnabled &&
-                item.IsActive &&
-                item.ReviewStatus == ProductReviewStatus.Approved &&
-                item.Product.IsEligible &&
-                item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active))
+                productIds.Contains(item.ProductId))
             .Select(item => new BasketProduct(
                 item.ProductId,
                 item.EditorialTitle ?? item.Product.Title,
                 item.Product.MainImageUrl,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
-                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault()))
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.EvaluationRate).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => (DateTimeOffset?)snapshot.FetchedUtc).FirstOrDefault(),
+                item.Shop.IsEnabled &&
+                item.IsActive &&
+                item.ReviewStatus == ProductReviewStatus.Approved &&
+                item.Product.IsEligible &&
+                item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active)))
             .ToListAsync(cancellationToken);
-        Products = productIds.Join(products, id => id, product => product.ProductId, (_, product) => product).ToArray();
+        var productsById = products.ToDictionary(product => product.ProductId, StringComparer.Ordinal);
+        Products = productIds
+            .Select(productId => productsById.GetValueOrDefault(productId) ?? new BasketProduct(
+                productId,
+                "Saved product",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false))
+            .ToArray();
         return Page();
     }
 
@@ -80,5 +95,14 @@ public sealed class BasketModel(
     private ShopDefinition? FindShop(string shopSlug) => superstoreOptions.Shops.SingleOrDefault(
         shop => shop.IsEnabled && string.Equals(shop.Slug, shopSlug, StringComparison.OrdinalIgnoreCase));
 
-    public sealed record BasketProduct(string ProductId, string Title, string? ImageUrl, decimal? Price, string? Currency);
+    public sealed record BasketProduct(
+        string ProductId,
+        string Title,
+        string? ImageUrl,
+        decimal? Price,
+        string? Currency,
+        decimal? EvaluationRate,
+        long? RecentSalesVolume,
+        DateTimeOffset? LastCheckedUtc,
+        bool IsAvailable);
 }

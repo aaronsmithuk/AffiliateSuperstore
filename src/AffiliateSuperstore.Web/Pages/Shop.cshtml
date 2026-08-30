@@ -9,54 +9,117 @@
 }
 
 <div class="shop-shell" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
-    <section class="shop-hero">
-        <p class="shop-kicker">First shop configuration is live</p>
-        <h1>@Model.Shop.Theme.LogoText</h1>
-        <p>@Model.Shop.SeoDescription</p>
-        <form class="shop-search" method="get" action="@Model.Shop.PathPrefix">
+    <header class="shop-hero">
+        <div class="shop-hero-copy">
+            <nav class="shop-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><span>@Model.Shop.DisplayName</span></nav>
+            <p class="shop-kicker">Curated plush companions</p>
+            <h1>@Model.Shop.Theme.LogoText</h1>
+            <p class="shop-tagline">Find your next favourite</p>
+            <p class="shop-description">@Model.Shop.SeoDescription</p>
+        </div>
+        <div class="shop-hero-visual" aria-hidden="true"><span>✦</span><span>♡</span><span>✧</span></div>
+        <form class="shop-search" method="get" action="@Model.Shop.PathPrefix" role="search">
             <label class="visually-hidden" for="shop-search">Search @Model.Shop.DisplayName</label>
             <input id="shop-search" name="q" value="@(Model.Query ?? string.Empty)" placeholder="Search plushies" />
-            <button type="submit">Search catalogue</button>
+            <button type="submit">Search</button>
         </form>
-        <a class="saved-list-link" href="/basket/@Model.Shop.Slug">Saved list <span>@Model.SavedCount</span></a>
-    </section>
+        <a class="saved-list-link" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♡</span> Saved <strong>@Model.SavedCount</strong></a>
+    </header>
 
-    <form class="catalogue-filter-bar" method="get" action="@Model.Shop.PathPrefix">
-        @if (Model.Query is not null) { <input type="hidden" name="q" value="@Model.Query" /> }
-        <label>Category<select name="category"><option value="">All categories</option>@foreach (var category in Model.Categories) { <option value="@category" selected="@(category == Model.Category)">@category</option> }</select></label>
-        <label>Minimum price<input type="number" name="minPrice" value="@Model.MinimumPrice" min="0" max="10000" step="0.01" placeholder="£0" /></label>
-        <label>Maximum price<input type="number" name="maxPrice" value="@Model.MaximumPrice" min="0" max="10000" step="0.01" placeholder="Any" /></label>
-        <label>Sort<select name="sort"><option value="popular" selected="@(Model.Sort == "popular")">Most popular</option><option value="price-asc" selected="@(Model.Sort == "price-asc")">Price: low to high</option><option value="price-desc" selected="@(Model.Sort == "price-desc")">Price: high to low</option><option value="newest" selected="@(Model.Sort == "newest")">Recently refreshed</option></select></label>
-        <button type="submit">Apply filters</button>
-        @if (Model.Query is not null || Model.Category is not null || Model.MinimumPrice is not null || Model.MaximumPrice is not null || Model.Sort != "popular") { <a href="@Model.Shop.PathPrefix">Clear</a> }
-    </form>
+    <nav class="shop-categories" aria-label="Browse plush categories">
+        <a class="shop-category-link @(Model.Category is null ? "is-active" : null)" href="@Model.Shop.PathPrefix" aria-current="@(Model.Category is null ? "page" : null)"><span aria-hidden="true">✦</span> Curator's picks</a>
+        @foreach (var category in Model.Categories)
+        {
+            <a class="shop-category-link @(category == Model.Category ? "is-active" : null)" href="@($"{Model.Shop.PathPrefix}?category={Uri.EscapeDataString(category)}")" aria-current="@(category == Model.Category ? "page" : null)">@category</a>
+        }
+    </nav>
 
-    @if (Model.Products.Count == 0)
-    {
-        <section class="shop-progress" aria-label="MVP progress">
-            <article><span>01</span><strong>Catalogue review</strong><p>Imported products stay private until they pass curation in the admin.</p></article>
-            <article><span>02</span><strong>Shopping list</strong><p>Keep interesting products together without creating an account.</p></article>
-            <article><span>03</span><strong>AliExpress checkout</strong><p>Each purchase is completed directly and securely on AliExpress.</p></article>
-        </section>
-    }
-    else
-    {
-        <section class="product-grid" aria-label="Plush products">
-            @foreach (var product in Model.Products)
+    <aside class="partner-notice" aria-label="Buying through a partner">
+        <span class="partner-notice-icon" aria-hidden="true">◇</span>
+        <div><strong>Buying through a partner</strong><p>Checkout, payment, delivery and returns are handled by AliExpress. We may earn a commission.</p></div>
+    </aside>
+
+    <div class="catalogue-layout">
+        <details class="catalogue-filters" open>
+            <summary><span>Filters</span>@if (Model.HasActiveFilters) { <strong>Active</strong> }</summary>
+            <form class="catalogue-filter-bar" method="get" action="@Model.Shop.PathPrefix">
+                @if (Model.Query is not null) { <input type="hidden" name="q" value="@Model.Query" /> }
+                <label>Category<select name="category"><option value="">All categories</option>@foreach (var category in Model.Categories) { <option value="@category" selected="@(category == Model.Category)">@category</option> }</select></label>
+                <div class="filter-price-range">
+                    <label>Minimum price<input type="number" name="minPrice" value="@Model.MinimumPrice" min="0" max="10000" step="0.01" placeholder="£0" /></label>
+                    <label>Maximum price<input type="number" name="maxPrice" value="@Model.MaximumPrice" min="0" max="10000" step="0.01" placeholder="Any" /></label>
+                </div>
+                <label>Sort<select name="sort"><option value="popular" selected="@(Model.Sort == "popular")">Most popular</option><option value="price-asc" selected="@(Model.Sort == "price-asc")">Price: low to high</option><option value="price-desc" selected="@(Model.Sort == "price-desc")">Price: high to low</option><option value="newest" selected="@(Model.Sort == "newest")">Recently refreshed</option></select></label>
+                <div class="filter-actions"><button type="submit">Apply filters</button>@if (Model.HasActiveFilters) { <a href="@Model.Shop.PathPrefix">Clear all</a> }</div>
+            </form>
+        </details>
+
+        <section class="catalogue-results" aria-labelledby="catalogue-heading">
+            <header class="catalogue-results-header">
+                <div><p class="shop-kicker">Curator's picks</p><h2 id="catalogue-heading">@(Model.Query is null ? "Plushies chosen with care" : $"Results for “{Model.Query}”")</h2></div>
+                <p><strong>@Model.ResultCount</strong> @(Model.ResultCount == 1 ? "result" : "results")</p>
+            </header>
+
+            @if (Model.HasActiveFilters)
             {
-                <article class="product-card">
-                    @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                <div class="active-filters" aria-label="Active filters">
+                    @if (Model.Query is not null) { <span>Search: @Model.Query</span> }
+                    @if (Model.Category is not null) { <span>@Model.Category</span> }
+                    @if (Model.MinimumPrice is not null) { <span>From £@Model.MinimumPrice.Value.ToString("N2")</span> }
+                    @if (Model.MaximumPrice is not null) { <span>To £@Model.MaximumPrice.Value.ToString("N2")</span> }
+                    <a href="@Model.Shop.PathPrefix">Clear all</a>
+                </div>
+            }
+
+            @if (Model.Products.Count == 0)
+            {
+                <section class="catalogue-empty" aria-labelledby="empty-heading"><span aria-hidden="true">♡</span><h2 id="empty-heading">No plushies found</h2><p>Try a different search or clear your filters to see the full curated collection.</p><a href="@Model.Shop.PathPrefix">Clear filters</a></section>
+            }
+            else
+            {
+                <section class="product-grid" aria-label="Plush products">
+                    @foreach (var product in Model.Products)
                     {
-                        <a class="product-image-link" href="/@Model.Shop.Slug/product/@product.ProductId"><img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /></a>
+                        <article class="product-card @(product.IsSaved ? "is-saved" : null)">
+                            <div class="product-card-media">
+                                @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                                {
+                                    <a class="product-image-link" href="/@Model.Shop.Slug/product/@product.ProductId"><img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /></a>
+                                }
+                                else
+                                {
+                                    <a class="product-image-link product-image-placeholder" href="/@Model.Shop.Slug/product/@product.ProductId">
+                                        <span>Image unavailable</span>
+                                    </a>
+                                }
+                                @if (product.IsSaved)
+                                {
+                                    <a class="product-save-control is-saved" href="/basket/@Model.Shop.Slug" aria-label="@product.Title is saved"><span aria-hidden="true">♥</span><span class="visually-hidden">Saved</span></a>
+                                }
+                                else
+                                {
+                                    <form class="product-save-form" method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button class="product-save-control" type="submit" aria-label="Save @product.Title to your list"><span aria-hidden="true">♡</span></button></form>
+                                }
+                            </div>
+                            <div class="product-card-copy">
+                                <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId">@product.Title</a></h3>
+                                <p class="product-card-price">@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p>
+                                @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
+                                {
+                                    <p class="product-card-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(product.SellerName)) { <p class="product-card-seller">@product.SellerName</p> }
+                                <a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">Check at AliExpress <span aria-hidden="true">↗</span></a>
+                            </div>
+                        </article>
                     }
-                    <div><h2><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId">@product.Title</a></h2><p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p><a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">View on AliExpress <span aria-hidden="true">↗</span></a><form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button type="submit">Save to your list</button></form></div>
-                </article>
+                </section>
             }
         </section>
-    }
+    </div>
 
     <aside class="affiliate-disclosure">
-        <strong>How this shop works</strong>
-        <p>This is an affiliate shop, not the seller. Product purchases and checkout take place on AliExpress. We may earn a commission from qualifying purchases at no extra cost to you.</p>
+        <strong>Affiliate disclosure</strong>
+        <p>Affiliate Superstore is not the seller. We may earn a commission from qualifying purchases at no extra cost to you.</p>
     </aside>
 </div>

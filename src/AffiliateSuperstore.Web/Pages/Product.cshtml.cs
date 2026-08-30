@@ -19,7 +19,9 @@ public sealed class ProductModel(
 {
     public ShopDefinition Shop { get; private set; } = null!;
     public ProductView Product { get; private set; } = null!;
+    public IReadOnlyList<RelatedProduct> RelatedProducts { get; private set; } = [];
     public int SavedCount { get; private set; }
+    public bool IsSaved { get; private set; }
     public bool IsIndexable { get; private set; }
     public string CanonicalUrl { get; private set; } = string.Empty;
     public string? StructuredDataJson { get; private set; }
@@ -69,7 +71,29 @@ public sealed class ProductModel(
             product.SalePrice,
             product.LastCheckedUtc);
         StructuredDataJson = BuildStructuredData(product);
-        SavedCount = basketStore.Get(HttpContext, shop.Slug).Count;
+        var savedProductIds = basketStore.Get(HttpContext, shop.Slug);
+        SavedCount = savedProductIds.Count;
+        IsSaved = savedProductIds.Contains(product.ProductId, StringComparer.Ordinal);
+        RelatedProducts = await context.ShopProducts.AsNoTracking()
+            .Where(item =>
+                item.Shop.Slug == shop.Slug &&
+                item.ProductId != product.ProductId &&
+                item.Shop.IsEnabled &&
+                item.IsActive &&
+                item.ReviewStatus == ProductReviewStatus.Approved &&
+                item.Product.IsEligible &&
+                item.Product.SecondLevelCategoryName == product.SecondCategory &&
+                item.Product.AffiliateLinks.Any(link => item.ShopId == link.ShopId && link.Status == AffiliateLinkStatus.Active))
+            .OrderByDescending(item => item.IsFeatured)
+            .ThenByDescending(item => item.Product.Snapshots.Max(snapshot => snapshot.RecentSalesVolume))
+            .Take(4)
+            .Select(item => new RelatedProduct(
+                item.ProductId,
+                item.EditorialTitle ?? item.Product.Title,
+                item.Product.MainImageUrl,
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault()))
+            .ToListAsync(cancellationToken);
         return Page();
     }
 
@@ -123,4 +147,11 @@ public sealed class ProductModel(
     {
         public string Title => EditorialTitle ?? SourceTitle;
     }
+
+    public sealed record RelatedProduct(
+        string ProductId,
+        string Title,
+        string? ImageUrl,
+        decimal? Price,
+        string? Currency);
 }

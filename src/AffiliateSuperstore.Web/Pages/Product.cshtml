@@ -9,24 +9,51 @@
 }
 
 <article class="shop-shell product-detail" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
-    <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="@Model.Shop.PathPrefix">@Model.Shop.DisplayName</a><span aria-hidden="true">/</span><span>@(Model.Product.SecondCategory ?? "Product")</span></nav>
+    <header class="product-shop-header"><a href="@Model.Shop.PathPrefix"><span aria-hidden="true">←</span> @Model.Shop.Theme.LogoText</a><a href="/basket/@Model.Shop.Slug">Saved list <strong>@Model.SavedCount</strong></a></header>
+    <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><a href="@Model.Shop.PathPrefix">@Model.Shop.DisplayName</a><span aria-hidden="true">/</span><span>@(Model.Product.SecondCategory ?? "Product")</span></nav>
     <div class="product-detail-grid">
-        <div class="product-detail-media">@if (!string.IsNullOrWhiteSpace(Model.Product.ImageUrl)) { <img src="@Model.Product.ImageUrl" alt="@Model.Product.Title" referrerpolicy="no-referrer" /> }</div>
+        <div class="product-detail-media">@if (!string.IsNullOrWhiteSpace(Model.Product.ImageUrl)) { <img src="@Model.Product.ImageUrl" alt="@Model.Product.Title" referrerpolicy="no-referrer" /> } else { <div class="product-image-placeholder">Image unavailable</div> }</div>
         <div class="product-detail-copy">
-            <p class="shop-kicker">Curated affiliate listing</p>
+            <p class="shop-kicker">Curated find</p>
             <h1>@Model.Product.Title</h1>
-            @if (!string.IsNullOrWhiteSpace(Model.Product.EditorialDescription)) { <p class="product-description">@Model.Product.EditorialDescription</p> }
+            @if (Model.Product.EvaluationRate is not null || Model.Product.RecentSalesVolume is not null)
+            {
+                <p class="product-confidence">@if (Model.Product.EvaluationRate is not null) { <span>★ @Model.Product.EvaluationRate.Value.ToString("P0") positive</span> }@if (Model.Product.RecentSalesVolume is not null) { <span>@Model.Product.RecentSalesVolume.Value.ToString("N0") sold recently</span> }</p>
+            }
             <div class="product-price"><strong>@(Model.Product.SalePrice is null ? "Check current price" : $"{Model.Product.Currency ?? "GBP"} {Model.Product.SalePrice:N2}")</strong>@if (Model.Product.OriginalPrice > Model.Product.SalePrice) { <del>@(Model.Product.Currency ?? "GBP") @Model.Product.OriginalPrice?.ToString("N2")</del> }@if (!string.IsNullOrWhiteSpace(Model.Product.Discount)) { <span>@Model.Product.Discount</span> }</div>
+            @if (!string.IsNullOrWhiteSpace(Model.Product.EditorialDescription)) { <p class="product-description">@Model.Product.EditorialDescription</p> }
             <dl class="product-facts">
-                @if (Model.Product.RecentSalesVolume is not null) { <div><dt>Recent sales</dt><dd>@Model.Product.RecentSalesVolume.Value.ToString("N0")</dd></div> }
-                @if (Model.Product.EvaluationRate is not null) { <div><dt>Positive rating</dt><dd>@Model.Product.EvaluationRate.Value.ToString("P0")</dd></div> }
                 @if (!string.IsNullOrWhiteSpace(Model.Product.SellerName)) { <div><dt>AliExpress seller</dt><dd>@Model.Product.SellerName</dd></div> }
                 <div><dt>Price checked</dt><dd>@Model.Product.LastCheckedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</dd></div>
             </dl>
-            <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener">Check price and availability on AliExpress <span aria-hidden="true">↗</span></a>
-            <form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@Model.Product.ProductId"><button class="product-save-button" type="submit">Save to your list (@Model.SavedCount saved)</button></form>
-            <p class="checkout-note">You will leave this shop and complete any purchase directly with AliExpress. Final price, variants, delivery and seller terms are confirmed there.</p>
+            <div class="product-actions">
+                <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
+                @if (Model.IsSaved)
+                {
+                    <a class="product-save-button is-saved" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♥</span> Saved to your list</a>
+                }
+                else
+                {
+                    <form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@Model.Product.ProductId"><button class="product-save-button" type="submit"><span aria-hidden="true">♡</span> Save for later</button></form>
+                }
+            </div>
+            <aside class="partner-notice product-handoff" aria-label="Buying through a partner"><span class="partner-notice-icon" aria-hidden="true">◇</span><div><strong>Buying through a partner</strong><p>You’ll leave this shop to complete checkout with AliExpress.</p></div></aside>
         </div>
     </div>
-    <aside class="affiliate-disclosure"><strong>Affiliate disclosure</strong><p>We may earn a commission from qualifying purchases at no extra cost to you. We are not the seller and do not handle payment, delivery or returns.</p></aside>
+    @if (Model.RelatedProducts.Count > 0)
+    {
+        <section class="related-products" aria-labelledby="related-heading">
+            <header><p class="shop-kicker">Keep exploring</p><h2 id="related-heading">You might also like</h2></header>
+            <div class="related-product-grid">
+                @foreach (var product in Model.RelatedProducts)
+                {
+                    <article class="related-product-card">
+                        <a href="/@Model.Shop.Slug/product/@product.ProductId">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /> }<strong>@product.Title</strong></a>
+                        <p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+    <aside class="affiliate-disclosure"><strong>Affiliate disclosure</strong><p>We may earn a commission from qualifying purchases at no extra cost to you. Affiliate Superstore is not the seller and does not handle payment, delivery or returns.</p></aside>
 </article>
