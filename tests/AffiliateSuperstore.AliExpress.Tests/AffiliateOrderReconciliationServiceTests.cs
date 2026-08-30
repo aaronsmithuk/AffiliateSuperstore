@@ -43,8 +43,8 @@ public sealed class AffiliateOrderReconciliationServiceTests
 
         Assert.Equal(IngestionJobStatus.Succeeded, second.Status);
         Assert.False(second.WasFullBackfill);
-        Assert.All(client.QueryStartTimes.Take(4), start => Assert.Equal(Now.AddDays(-180).AddHours(-8), start));
-        Assert.All(client.QueryStartTimes.Skip(4), start => Assert.Equal(Now.AddHours(-48).AddHours(-8), start));
+        Assert.All(client.QueryStartTimes.Take(4), start => Assert.Equal(new DateTime(2026, 3, 3, 12, 0, 0), start));
+        Assert.All(client.QueryStartTimes.Skip(4), start => Assert.Equal(new DateTime(2026, 8, 28, 13, 0, 0), start));
         await using var verification = factory.CreateDbContext();
         Assert.Equal(1, await verification.AffiliateOrders.CountAsync());
         Assert.Equal(2, await verification.IngestionJobs.CountAsync());
@@ -130,7 +130,7 @@ public sealed class AffiliateOrderReconciliationServiceTests
         public string DiscoveryStatus { get; set; } = AliExpressOrderStatuses.PaymentCompleted;
         public bool FailQueries { get; set; }
         public List<string> QueriedStatuses { get; } = [];
-        public List<DateTimeOffset> QueryStartTimes { get; } = [];
+        public List<DateTime> QueryStartTimes { get; } = [];
         public List<string> RefreshedOrderIds { get; } = [];
         public IReadOnlyList<AliExpressApiMethodDescriptor> Methods => [];
 
