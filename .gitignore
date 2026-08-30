@@ -1,0 +1,54 @@
+# .NET build output
+**/bin/
+**/obj/
+artifacts/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local configuration and secrets
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.*
+secrets.json
+*.pfx
+*.p12
+*.key
+*.pem
+*.cer
+
+# Local databases and data-protection material
+*.db
+*.db-shm
+*.db-wal
+*.mdf
+*.ldf
+keys/
+
+# Local research evidence: retain locally, do not republish third-party captures
+docs/aliexpress/affiliate-program/archive/
+docs/aliexpress/affiliate-program/sources/
+docs/aliexpress/open-platform/api-reference.md
+docs/aliexpress/open-platform/getting-started.md
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Publish output and logs
+publish/
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\AffiliateSuperstore.Application\AffiliateSuperstore.Application.csproj" />
+    <ProjectReference Include="..\AffiliateSuperstore.AliExpress\AffiliateSuperstore.AliExpress.csproj" />
+    <ProjectReference Include="..\AffiliateSuperstore.Core\AffiliateSuperstore.Core.csproj" />
+    <ProjectReference Include="..\AffiliateSuperstore.Persistence\AffiliateSuperstore.Persistence.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>10e779f6-e439-4040-af2c-ecdb003998f9</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

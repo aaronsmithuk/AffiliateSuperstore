@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+
+<div class="admin-shell">
+    <aside class="admin-sidebar">
+        <a class="admin-brand" href="/admin/api-test">
+            <span class="brand-mark">AS</span>
+            <span>
+                <strong>Affiliate Superstore</strong>
+                <small>Control room</small>
+            </span>
+        </a>
+
+        <nav class="admin-nav" aria-label="Admin navigation">
+            <NavLink href="/admin/api-test">
+                <span aria-hidden="true">⌁</span>
+                API test lab
+            </NavLink>
+            <NavLink href="/admin/database">
+                <span aria-hidden="true">◉</span>
+                Database
+            </NavLink>
+            <NavLink href="/admin/catalogue">
+                <span aria-hidden="true">▦</span>
+                Catalogue
+            </NavLink>
+            <NavLink href="/admin/automation">
+                <span aria-hidden="true">◷</span>
+                Automation
+            </NavLink>
+            <span class="nav-placeholder">
+                <span aria-hidden="true">↗</span>
+                Affiliate links <small>later</small>
+            </span>
+            <span class="nav-placeholder">
+                <span aria-hidden="true">◫</span>
+                Orders <small>later</small>
+            </span>
+        </nav>
+
+        <div class="admin-sidebar-note">
+            <strong>Local development only</strong>
+            <span>Authentication has deliberately not been added yet.</span>
+        </div>
+    </aside>
+
+    <main class="admin-main">
+        @Body
+    </main>
+</div>

@@ -1,0 +1,49 @@
+@page "/{shopSlug}"
+@model AffiliateSuperstore.Web.Pages.ShopModel
+@{
+    ViewData["Title"] = Model.Shop.SeoTitle;
+    ViewData["Description"] = Model.Shop.SeoDescription;
+    ViewData["Robots"] = "noindex,nofollow";
+}
+
+<div class="shop-shell" style="--shop-primary:@Model.Shop.Theme.PrimaryColour; --shop-accent:@Model.Shop.Theme.AccentColour">
+    <section class="shop-hero">
+        <p class="shop-kicker">First shop configuration is live</p>
+        <h1>@Model.Shop.Theme.LogoText</h1>
+        <p>@Model.Shop.SeoDescription</p>
+        <form class="shop-search" method="get" action="@Model.Shop.PathPrefix">
+            <label class="visually-hidden" for="shop-search">Search @Model.Shop.DisplayName</label>
+            <input id="shop-search" name="q" value="@(Model.Query ?? string.Empty)" placeholder="Search plushies" />
+            <button type="submit">Search catalogue</button>
+        </form>
+    </section>
+
+    @if (Model.Products.Count == 0)
+    {
+        <section class="shop-progress" aria-label="MVP progress">
+            <article><span>01</span><strong>Catalogue review</strong><p>Imported products stay private until they pass curation in the admin.</p></article>
+            <article><span>02</span><strong>Shopping list</strong><p>Keep interesting products together without creating an account.</p></article>
+            <article><span>03</span><strong>AliExpress checkout</strong><p>Each purchase is completed directly and securely on AliExpress.</p></article>
+        </section>
+    }
+    else
+    {
+        <section class="product-grid" aria-label="Plush products">
+            @foreach (var product in Model.Products)
+            {
+                <article class="product-card">
+                    @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                    {
+                        <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                    }
+                    <div><h2>@product.Title</h2><p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p><a href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">View on AliExpress <span aria-hidden="true">↗</span></a><form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button type="submit">Save to your list</button></form></div>
+                </article>
+            }
+        </section>
+    }
+
+    <aside class="affiliate-disclosure">
+        <strong>How this shop works</strong>
+        <p>This is an affiliate shop, not the seller. Product purchases and checkout take place on AliExpress. We may earn a commission from qualifying purchases at no extra cost to you.</p>
+    </aside>
+</div>

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AffiliateSuperstore.Application/AffiliateSuperstore.Application.csproj" />
+    <Project Path="src/AffiliateSuperstore.AliExpress/AffiliateSuperstore.AliExpress.csproj" />
+    <Project Path="src/AffiliateSuperstore.Core/AffiliateSuperstore.Core.csproj" />
+    <Project Path="src/AffiliateSuperstore.Persistence/AffiliateSuperstore.Persistence.csproj" />
+    <Project Path="src/AffiliateSuperstore.Web/AffiliateSuperstore.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AffiliateSuperstore.AliExpress.Tests/AffiliateSuperstore.AliExpress.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/AffiliateSuperstore.CatalogueIngest/AffiliateSuperstore.CatalogueIngest.csproj" />
+    <Project Path="tools/AffiliateSuperstore.ApiSmokeTest/AffiliateSuperstore.ApiSmokeTest.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,391 @@
+@page "/admin"
+@page "/admin/api-test"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using System.Text.Json
+@inject IAliExpressClient AliExpressClient
+@inject IOptions<AliExpressOptions> AliExpressConfiguration
+
+<PageTitle>AliExpress API workbench</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Integration workspace</p>
+        <h1>AliExpress API workbench</h1>
+        <p class="lede">Exercise every published affiliate method and inspect the application's normalised view.</p>
+    </div>
+    <a class="public-site-link" href="/">View public shell <span aria-hidden="true">↗</span></a>
+</header>
+
+<div class="status-strip">
+    <div class="status-item"><span class="status-dot @(Options.HasAppKey ? "ready" : "missing")"></span><span><strong>App key</strong>@(Options.HasAppKey ? "Configured" : "Missing")</span></div>
+    <div class="status-item"><span class="status-dot @(Options.HasAppSecret ? "ready" : "missing")"></span><span><strong>App secret</strong>@(Options.HasAppSecret ? "Stored locally" : "Add to User Secrets")</span></div>
+    <div class="status-item"><span class="status-dot @(Options.HasTrackingId ? "ready" : "missing")"></span><span><strong>Tracking ID</strong>@(Options.HasTrackingId ? Options.TrackingId : "Missing")</span></div>
+    <span class="permission-chip granted">Standard API</span>
+    <span class="permission-chip @(Options.AdvancedApiEnabled ? "granted" : "unavailable")">Advanced @(Options.AdvancedApiEnabled ? "enabled" : "not granted")</span>
+    <span class="permission-chip @(Options.SkuDimensionApiEnabled ? "granted" : "unavailable")">SKU @(Options.SkuDimensionApiEnabled ? "enabled" : "not granted")</span>
+    <div class="market-chip">@Options.ShipToCountry · @Options.TargetCurrency · @Options.TargetLanguage</div>
+</div>
+
+<div class="method-overview">
+    @foreach (var group in Operations.GroupBy(item => item.Descriptor.Group))
+    {
+        <div class="method-group"><strong>@group.Key</strong><span>@group.Count() method@(group.Count() == 1 ? null : "s")</span></div>
+    }
+</div>
+
+<div class="lab-grid">
+    <section class="panel request-panel">
+        <div class="panel-heading">
+            <div><p class="eyebrow">Request</p><h2>@Selected.Descriptor.Name</h2></div>
+            <span class="method-badge">POST</span>
+        </div>
+
+        <EditForm Model="Model" OnValidSubmit="RunTestAsync" FormName="ali-api-workbench">
+            <DataAnnotationsValidator />
+
+            <div class="form-field">
+                <label for="operation">API method</label>
+                <InputSelect id="operation" @bind-Value="Model.Operation" @bind-Value:after="OperationChanged">
+                    @foreach (var group in Operations.GroupBy(item => item.Descriptor.Group))
+                    {
+                        <optgroup label="@group.Key">
+                            @foreach (var operation in group)
+                            {
+                                <option value="@operation.Operation">@operation.Descriptor.Name</option>
+                            }
+                        </optgroup>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="method-description">
+                <span class="permission-badge @PermissionClass(Selected.Descriptor.Permission)">@PermissionLabel(Selected.Descriptor.Permission)</span>
+                <code>@Selected.Descriptor.Method</code>
+                <p>@Selected.Descriptor.Description</p>
+            </div>
+
+            @if (!PermissionAvailable(Selected.Descriptor.Permission))
+            {
+                <div class="alert-card warning-card"><strong>This permission is not currently granted</strong><span>You can still run it to inspect AliExpress's permission response.</span></div>
+            }
+
+            @switch (Model.Operation)
+            {
+                case ApiOperation.Categories:
+                case ApiOperation.FeaturedPromotions:
+                    <div class="request-note">No business parameters are required. This is a useful credential and signing check.</div>
+                    break;
+
+                case ApiOperation.ProductSearch:
+                case ApiOperation.HotProductSearch:
+                    <div class="form-field"><label for="keywords">Keywords</label><InputText id="keywords" @bind-Value="Model.Keywords" /></div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="categories">Category IDs</label><InputText id="categories" @bind-Value="Model.CategoryIds" /></div>
+                        <div class="form-field"><label for="page-size">Page size</label><InputNumber id="page-size" @bind-Value="Model.PageSize" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="min-price">Minimum price (pence)</label><InputNumber id="min-price" @bind-Value="Model.MinimumPrice" /></div>
+                        <div class="form-field"><label for="max-price">Maximum price (pence)</label><InputNumber id="max-price" @bind-Value="Model.MaximumPrice" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="sort">Sort</label><InputSelect id="sort" @bind-Value="Model.Sort"><option value="LAST_VOLUME_DESC">Best selling</option><option value="SALE_PRICE_ASC">Lowest price</option><option value="SALE_PRICE_DESC">Highest price</option></InputSelect></div>
+                        <div class="form-field"><label for="delivery-days">Delivery days</label><InputSelect id="delivery-days" @bind-Value="Model.DeliveryDays"><option value="">Any</option><option value="3">3</option><option value="5">5</option><option value="7">7</option><option value="10">10</option></InputSelect></div>
+                    </div>
+                    <div class="form-field"><label for="query-fields">Fields (optional)</label><InputText id="query-fields" @bind-Value="Model.Fields" /></div>
+                    break;
+
+                case ApiOperation.GenerateLinks:
+                    <div class="form-field"><label for="source-urls">AliExpress URLs (one per line, maximum 50)</label><InputTextArea id="source-urls" @bind-Value="Model.SourceValues" rows="4" /></div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="tracking-id">Tracking ID override</label><InputText id="tracking-id" @bind-Value="Model.TrackingId" /></div>
+                        <div class="form-field"><label for="link-type">Link type</label><InputSelect id="link-type" @bind-Value="Model.LinkType"><option value="0">Standard</option><option value="2">Hot product</option></InputSelect></div>
+                    </div>
+                    break;
+
+                case ApiOperation.ProductDetails:
+                    <IdList Id="product-ids" Label="Product IDs (maximum 50)" @bind-Value="Model.ProductIds" />
+                    <div class="form-field"><label for="detail-fields">Fields (optional)</label><InputText id="detail-fields" @bind-Value="Model.Fields" /></div>
+                    break;
+
+                case ApiOperation.FeaturedPromotionProducts:
+                    <div class="form-field"><label for="promotion-name">Promotion name</label><InputText id="promotion-name" @bind-Value="Model.PromotionName" /></div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="promo-category">Category ID</label><InputText id="promo-category" @bind-Value="Model.CategoryIds" /></div>
+                        <div class="form-field"><label for="promo-page-size">Page size</label><InputNumber id="promo-page-size" @bind-Value="Model.PageSize" /></div>
+                    </div>
+                    <div class="form-field"><label for="promo-fields">Fields (optional)</label><InputText id="promo-fields" @bind-Value="Model.Fields" /></div>
+                    break;
+
+                case ApiOperation.PromotionInfo:
+                    <IdList Id="coupon-product-ids" Label="Product IDs (maximum 10)" @bind-Value="Model.ProductIds" />
+                    break;
+
+                case ApiOperation.HotProductDownload:
+                    <div class="form-field"><label for="download-category">Category ID</label><InputText id="download-category" @bind-Value="Model.CategoryIds" /></div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="download-page">Page number</label><InputNumber id="download-page" @bind-Value="Model.PageNumber" /></div>
+                        <div class="form-field"><label for="download-size">Page size</label><InputNumber id="download-size" @bind-Value="Model.PageSize" /></div>
+                    </div>
+                    break;
+
+                case ApiOperation.SmartMatch:
+                    <div class="form-row">
+                        <div class="form-field"><label for="smart-product">Product ID</label><InputText id="smart-product" @bind-Value="Model.ProductIds" /></div>
+                        <div class="form-field"><label for="device-id">Anonymous device ID</label><InputText id="device-id" @bind-Value="Model.DeviceId" /></div>
+                    </div>
+                    <div class="form-field"><label for="smart-keywords">Keywords</label><InputText id="smart-keywords" @bind-Value="Model.Keywords" /></div>
+                    break;
+
+                case ApiOperation.Shipping:
+                    <div class="form-row">
+                        <div class="form-field"><label for="shipping-product">Product ID</label><InputText id="shipping-product" @bind-Value="Model.ProductIds" /></div>
+                        <div class="form-field"><label for="shipping-sku">SKU ID</label><InputText id="shipping-sku" @bind-Value="Model.SkuIds" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field"><label for="sale-price">Target sale price</label><InputText id="sale-price" @bind-Value="Model.TargetSalePrice" /></div>
+                        <div class="form-field"><label for="tax-rate">Tax rate</label><InputText id="tax-rate" @bind-Value="Model.TaxRate" /></div>
+                    </div>
+                    break;
+
+                case ApiOperation.SkuDetails:
+                    <div class="form-field"><label for="sku-product">Product ID</label><InputText id="sku-product" @bind-Value="Model.ProductIds" /></div>
+                    <IdList Id="sku-ids" Label="SKU IDs (optional, maximum 20)" @bind-Value="Model.SkuIds" />
+                    <label class="check-field"><InputCheckbox @bind-Value="Model.IncludeDelivery" /> Include delivery information</label>
+                    break;
+
+                case ApiOperation.OrdersById:
+                    <IdList Id="order-ids" Label="Order IDs (maximum 50)" @bind-Value="Model.OrderIds" />
+                    <div class="form-field"><label for="order-fields">Fields (optional)</label><InputText id="order-fields" @bind-Value="Model.Fields" /></div>
+                    break;
+
+                case ApiOperation.OrderList:
+                case ApiOperation.OrderListByIndex:
+                    <div class="form-row">
+                        <div class="form-field"><label for="start-time">Start (Pacific)</label><InputDate id="start-time" Type="InputDateType.DateTimeLocal" @bind-Value="Model.StartTime" /></div>
+                        <div class="form-field"><label for="end-time">End (Pacific)</label><InputDate id="end-time" Type="InputDateType.DateTimeLocal" @bind-Value="Model.EndTime" /></div>
+                    </div>
+                    <div class="form-field"><label for="order-status">Status</label><InputSelect id="order-status" @bind-Value="Model.OrderStatus">@foreach (var status in AliExpressOrderStatuses.All) { <option value="@status">@status</option> }</InputSelect></div>
+                    <div class="form-field"><label for="time-type">Time type</label><InputSelect id="time-type" @bind-Value="Model.OrderTimeType">@foreach (var type in AliExpressOrderTimeTypes.All) { <option value="@type">@type</option> }</InputSelect></div>
+                    @if (Model.Operation == ApiOperation.OrderListByIndex)
+                    {
+                        <div class="form-field"><label for="query-index">Start query index (optional)</label><InputText id="query-index" @bind-Value="Model.QueryIndex" /></div>
+                    }
+                    break;
+
+                case ApiOperation.MerchantLicense:
+                    <div class="form-row">
+                        <div class="form-field"><label for="seller-seq">Seller admin sequence</label><InputText id="seller-seq" @bind-Value="Model.SellerSequence" /></div>
+                        <div class="form-field"><label for="channel">Channel (optional)</label><InputText id="channel" @bind-Value="Model.Channel" /></div>
+                    </div>
+                    break;
+            }
+
+            <div class="fixed-parameters">
+                <span>Gateway <strong>@(Selected.Descriptor.IsSystemMethod ? Options.SystemGateway.Host : Options.Gateway.Host)</strong></span>
+                <span>Country <strong>@Options.ShipToCountry</strong></span>
+                <span>Currency <strong>@Options.TargetCurrency</strong></span>
+                <span>Language <strong>@Options.TargetLanguage</strong></span>
+            </div>
+
+            <button class="button button-primary run-button" type="submit" disabled="@IsRunning">
+                @if (IsRunning) { <span class="spinner" aria-hidden="true"></span><span>Calling AliExpress…</span> }
+                else { <span>Run live API test</span><span aria-hidden="true">→</span> }
+            </button>
+        </EditForm>
+    </section>
+
+    <section class="panel response-panel">
+        <div class="panel-heading">
+            <div><p class="eyebrow">Response</p><h2>What AliExpress returned</h2></div>
+            @if (Result is not null) { <span class="result-badge @(Result.IsSuccess ? "success" : "failure")">@(Result.IsSuccess ? "Success" : "Failed")</span> }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="alert-card error-card"><strong>The request did not run</strong><span>@ErrorMessage</span></div>
+        }
+        else if (Result is null)
+        {
+            <div class="empty-response"><div class="pulse-orbit"><span></span></div><h3>Ready when you are</h3><p>The parsed summary, timing, non-secret request parameters and raw response will appear here.</p></div>
+        }
+        else
+        {
+            <div class="response-meta">
+                <span><strong>HTTP @((int)Result.HttpStatusCode)</strong> transport</span>
+                <span><strong>@(Result.PlatformResponseCode ?? "No code")</strong> AliExpress</span>
+                <span><strong>@Result.Duration.TotalMilliseconds.ToString("N0") ms</strong> duration</span>
+                <span><strong>@Result.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss")</strong> local time</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Result.PlatformResponseMessage)) { <div class="platform-message @(Result.IsSuccess ? "success" : "failure")"><strong>AliExpress:</strong> @Result.PlatformResponseMessage</div> }
+            @if (ResponseSummary.Count > 0)
+            {
+                <div class="normalised-summary"><p class="eyebrow">Normalised result</p>@foreach (var item in ResponseSummary) { <div><strong>@item.Label</strong><span>@item.Value</span></div> }</div>
+            }
+            <details class="request-details">
+                <summary>Request parameters (signature redacted)</summary>
+                <dl>@foreach (var parameter in Result.RequestParameters.OrderBy(item => item.Key, StringComparer.Ordinal)) { <dt>@parameter.Key</dt><dd>@parameter.Value</dd> }</dl>
+            </details>
+            <div class="json-heading"><h3>Formatted response</h3><span>@Result.RawResponse.Length.ToString("N0") characters</span></div>
+            <pre class="json-output"><code>@Result.FormattedResponse</code></pre>
+        }
+    </section>
+</div>
+
+@code {
+    private readonly ApiTestModel Model = new();
+    private AliExpressApiCallResult? Result;
+    private string? ErrorMessage;
+    private bool IsRunning;
+    private List<SummaryItem> ResponseSummary = [];
+
+    private AliExpressOptions Options => AliExpressConfiguration.Value;
+    private OperationChoice Selected => Operations.Single(item => item.Operation == Model.Operation);
+    private IReadOnlyList<OperationChoice> Operations => AliExpressClient.Methods.Select(descriptor => new OperationChoice(OperationByMethod[descriptor.Method], descriptor)).ToArray();
+
+    private static readonly IReadOnlyDictionary<string, ApiOperation> OperationByMethod = new Dictionary<string, ApiOperation>(StringComparer.Ordinal)
+    {
+        ["aliexpress.affiliate.category.get"] = ApiOperation.Categories,
+        ["aliexpress.affiliate.product.query"] = ApiOperation.ProductSearch,
+        ["aliexpress.affiliate.productdetail.get"] = ApiOperation.ProductDetails,
+        ["aliexpress.affiliate.link.generate"] = ApiOperation.GenerateLinks,
+        ["aliexpress.affiliate.featuredpromo.get"] = ApiOperation.FeaturedPromotions,
+        ["aliexpress.affiliate.featuredpromo.products.get"] = ApiOperation.FeaturedPromotionProducts,
+        ["aliexpress.affiliate.promotion.info.get"] = ApiOperation.PromotionInfo,
+        ["aliexpress.affiliate.hotproduct.query"] = ApiOperation.HotProductSearch,
+        ["aliexpress.affiliate.hotproduct.download"] = ApiOperation.HotProductDownload,
+        ["aliexpress.affiliate.product.smartmatch"] = ApiOperation.SmartMatch,
+        ["aliexpress.affiliate.product.shipping.get"] = ApiOperation.Shipping,
+        ["aliexpress.affiliate.product.sku.detail.get"] = ApiOperation.SkuDetails,
+        ["aliexpress.affiliate.order.get"] = ApiOperation.OrdersById,
+        ["aliexpress.affiliate.order.list"] = ApiOperation.OrderList,
+        ["aliexpress.affiliate.order.listbyindex"] = ApiOperation.OrderListByIndex,
+        ["/aliexpress/xinghe/merchant/license/get"] = ApiOperation.MerchantLicense
+    };
+
+    private Task OperationChanged()
+    {
+        Result = null; ErrorMessage = null; ResponseSummary = [];
+        return Task.CompletedTask;
+    }
+
+    private async Task RunTestAsync()
+    {
+        IsRunning = true; Result = null; ErrorMessage = null; ResponseSummary = [];
+        try
+        {
+            Result = await ExecuteSelectedAsync();
+            if (Result.IsSuccess) ResponseSummary = CreateSummary(Model.Operation, Result.RawResponse);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException) { ErrorMessage = exception.Message; }
+        finally { IsRunning = false; }
+    }
+
+    private Task<AliExpressApiCallResult> ExecuteSelectedAsync() => Model.Operation switch
+    {
+        ApiOperation.Categories => AliExpressClient.GetCategoriesAsync(),
+        ApiOperation.ProductSearch => AliExpressClient.SearchProductsAsync(ProductQuery()),
+        ApiOperation.ProductDetails => AliExpressClient.GetProductDetailsAsync(new() { ProductIds = Values(Model.ProductIds), Fields = Model.Fields }),
+        ApiOperation.GenerateLinks => AliExpressClient.GenerateAffiliateLinksAsync(new() { SourceUrls = Lines(Model.SourceValues), TrackingId = Model.TrackingId, PromotionLinkType = Model.LinkType }),
+        ApiOperation.FeaturedPromotions => AliExpressClient.GetFeaturedPromotionsAsync(),
+        ApiOperation.FeaturedPromotionProducts => AliExpressClient.GetFeaturedPromotionProductsAsync(new() { PromotionName = Model.PromotionName, CategoryId = Model.CategoryIds, Fields = Model.Fields, PageNumber = Model.PageNumber, PageSize = Model.PageSize, Sort = Model.Sort }),
+        ApiOperation.PromotionInfo => AliExpressClient.GetPromotionInfoAsync(new() { ProductIds = Values(Model.ProductIds) }),
+        ApiOperation.HotProductSearch => AliExpressClient.QueryHotProductsAsync(ProductQuery()),
+        ApiOperation.HotProductDownload => AliExpressClient.DownloadHotProductsAsync(new() { CategoryId = Model.CategoryIds, Fields = Model.Fields, PageNumber = Model.PageNumber, PageSize = Model.PageSize }),
+        ApiOperation.SmartMatch => AliExpressClient.SmartMatchAsync(new() { DeviceId = Model.DeviceId, ProductId = First(Model.ProductIds), Keywords = Model.Keywords, Fields = Model.Fields, PageNumber = Model.PageNumber }),
+        ApiOperation.Shipping => AliExpressClient.GetProductShippingAsync(new() { ProductId = First(Model.ProductIds), SkuId = First(Model.SkuIds), TargetSalePrice = Model.TargetSalePrice, TaxRate = Model.TaxRate }),
+        ApiOperation.SkuDetails => AliExpressClient.GetSkuDetailsAsync(new() { ProductId = First(Model.ProductIds), SkuIds = Values(Model.SkuIds), IncludeDeliveryInformation = Model.IncludeDelivery }),
+        ApiOperation.OrdersById => AliExpressClient.GetOrdersAsync(new() { OrderIds = Values(Model.OrderIds), Fields = Model.Fields }),
+        ApiOperation.OrderList => AliExpressClient.ListOrdersAsync(new() { StartTimePacific = Model.StartTime, EndTimePacific = Model.EndTime, Status = Model.OrderStatus, TimeType = Model.OrderTimeType, Fields = Model.Fields, PageNumber = Model.PageNumber, PageSize = Model.PageSize }),
+        ApiOperation.OrderListByIndex => AliExpressClient.ListOrdersByIndexAsync(new() { StartTimePacific = Model.StartTime, EndTimePacific = Model.EndTime, Status = Model.OrderStatus, TimeType = Model.OrderTimeType, Fields = Model.Fields, PageSize = Model.PageSize, StartQueryIndexId = Model.QueryIndex }),
+        ApiOperation.MerchantLicense => AliExpressClient.GetMerchantLicenseAsync(new() { SellerAdminSequence = Model.SellerSequence, Channel = Model.Channel }),
+        _ => throw new InvalidOperationException("Unknown API test operation.")
+    };
+
+    private AliExpressProductSearchRequest ProductQuery() => new()
+    {
+        Keywords = Model.Keywords, CategoryIds = Model.CategoryIds, Fields = Model.Fields,
+        MinimumSalePriceInCents = Model.MinimumPrice, MaximumSalePriceInCents = Model.MaximumPrice,
+        PageNumber = Model.PageNumber, PageSize = Model.PageSize, Sort = Model.Sort, DeliveryDays = Model.DeliveryDays
+    };
+
+    private static List<SummaryItem> CreateSummary(ApiOperation operation, string json)
+    {
+        try
+        {
+            return operation switch
+            {
+                ApiOperation.Categories => CategorySummary(AliExpressResponseReader.ReadCategories(json)),
+                ApiOperation.FeaturedPromotions => PromotionSummary(AliExpressResponseReader.ReadFeaturedPromotions(json)),
+                ApiOperation.GenerateLinks => LinkSummary(AliExpressResponseReader.ReadPromotionLinks(json)),
+                ApiOperation.ProductSearch or ApiOperation.ProductDetails or ApiOperation.FeaturedPromotionProducts or ApiOperation.HotProductSearch or ApiOperation.HotProductDownload or ApiOperation.SmartMatch => ProductSummary(AliExpressResponseReader.ReadProducts(json)),
+                ApiOperation.OrdersById or ApiOperation.OrderList or ApiOperation.OrderListByIndex => OrderSummary(AliExpressResponseReader.ReadOrders(json)),
+                _ => []
+            };
+        }
+        catch (JsonException) { return []; }
+    }
+
+    private static List<SummaryItem> CategorySummary(IReadOnlyList<AliExpressCategory> items) => [new("Categories", items.Count.ToString("N0")), new("First", items.FirstOrDefault()?.Name ?? "No categories")];
+    private static List<SummaryItem> ProductSummary(AliExpressPage<AliExpressProduct> page) => [new("Products", page.Items.Count.ToString("N0")), new("Total records", page.TotalRecords?.ToString("N0") ?? "Not supplied"), new("First", page.Items.FirstOrDefault()?.Title ?? "No products")];
+    private static List<SummaryItem> LinkSummary(IReadOnlyList<AliExpressPromotionLink> items) => [new("Links", items.Count.ToString("N0")), new("First tracked URL", items.FirstOrDefault()?.PromotionUrl ?? "No links")];
+    private static List<SummaryItem> PromotionSummary(IReadOnlyList<AliExpressFeaturedPromotion> items) => [new("Promotions", items.Count.ToString("N0")), new("First", items.FirstOrDefault()?.Name ?? "No promotions")];
+    private static List<SummaryItem> OrderSummary(AliExpressPage<AliExpressOrder> page) => [new("Orders", page.Items.Count.ToString("N0")), new("Total records", page.TotalRecords?.ToString("N0") ?? "Not supplied")];
+
+    private bool PermissionAvailable(AliExpressApiPermission permission) => permission switch
+    {
+        AliExpressApiPermission.Standard => true,
+        AliExpressApiPermission.AdditionalApproval => Options.PromotionInfoApiEnabled,
+        AliExpressApiPermission.Advanced => Options.AdvancedApiEnabled,
+        AliExpressApiPermission.SkuDimension => Options.SkuDimensionApiEnabled,
+        AliExpressApiPermission.SystemTool => Options.SystemToolEnabled,
+        _ => false
+    };
+
+    private string PermissionClass(AliExpressApiPermission permission) => PermissionAvailable(permission) ? "granted" : "unavailable";
+    private string PermissionLabel(AliExpressApiPermission permission) => permission switch
+    {
+        AliExpressApiPermission.Standard => "Standard API", AliExpressApiPermission.AdditionalApproval => "Additional approval",
+        AliExpressApiPermission.SkuDimension => "SKU Dimension API", AliExpressApiPermission.SystemTool => "System Tool", _ => permission.ToString()
+    };
+
+    private static string[] Values(string? value) => (value ?? string.Empty).Split([',', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    private static string[] Lines(string? value) => (value ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    private static string First(string? value) => Values(value).FirstOrDefault() ?? string.Empty;
+
+    private sealed class ApiTestModel
+    {
+        public ApiOperation Operation { get; set; } = ApiOperation.Categories;
+        public string Keywords { get; set; } = "plush toy";
+        public string CategoryIds { get; set; } = string.Empty;
+        public string Fields { get; set; } = string.Empty;
+        public int? MinimumPrice { get; set; }
+        public int? MaximumPrice { get; set; }
+        [Range(1, 100)] public int PageNumber { get; set; } = 1;
+        [Range(1, 50)] public int PageSize { get; set; } = 10;
+        public string Sort { get; set; } = "LAST_VOLUME_DESC";
+        public int? DeliveryDays { get; set; }
+        public string ProductIds { get; set; } = string.Empty;
+        public string SkuIds { get; set; } = string.Empty;
+        public string OrderIds { get; set; } = string.Empty;
+        public string SourceValues { get; set; } = "https://www.aliexpress.com";
+        public string TrackingId { get; set; } = string.Empty;
+        public int LinkType { get; set; }
+        public string PromotionName { get; set; } = string.Empty;
+        public string DeviceId { get; set; } = string.Empty;
+        public string TargetSalePrice { get; set; } = "10.00";
+        public string TaxRate { get; set; } = "0";
+        public bool IncludeDelivery { get; set; }
+        public DateTime StartTime { get; set; } = DateTime.Today.AddDays(-7);
+        public DateTime EndTime { get; set; } = DateTime.Today.AddDays(1);
+        public string OrderStatus { get; set; } = AliExpressOrderStatuses.PaymentCompleted;
+        public string OrderTimeType { get; set; } = AliExpressOrderTimeTypes.PaymentCompleted;
+        public string QueryIndex { get; set; } = string.Empty;
+        public string SellerSequence { get; set; } = string.Empty;
+        public string Channel { get; set; } = string.Empty;
+    }
+
+    private enum ApiOperation { Categories, ProductSearch, ProductDetails, GenerateLinks, FeaturedPromotions, FeaturedPromotionProducts, PromotionInfo, HotProductSearch, HotProductDownload, SmartMatch, Shipping, SkuDetails, OrdersById, OrderList, OrderListByIndex, MerchantLicense }
+    private sealed record OperationChoice(ApiOperation Operation, AliExpressApiMethodDescriptor Descriptor);
+    private sealed record SummaryItem(string Label, string Value);
+}

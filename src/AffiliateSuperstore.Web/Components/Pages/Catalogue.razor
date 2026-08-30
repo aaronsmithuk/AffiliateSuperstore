@@ -1,0 +1,155 @@
+@page "/admin/catalogue"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject CatalogueIngestionService IngestionService
+@inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
+
+<PageTitle>Catalogue operations</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Catalogue</p>
+        <h1>Product ingestion</h1>
+        <p class="lede">Discover, snapshot and link products for the configured plushies shop.</p>
+    </div>
+    <a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a>
+</header>
+
+<div class="catalogue-grid">
+    <section class="panel catalogue-runner">
+        <div class="panel-heading"><div><p class="eyebrow">Manual job</p><h2>Discover products</h2></div><span class="method-badge">LIVE</span></div>
+        <EditForm Model="Model" OnValidSubmit="RunAsync" FormName="catalogue-ingestion">
+            <DataAnnotationsValidator />
+            <div class="form-field"><label for="shop">Shop</label><InputText id="shop" @bind-Value="Model.ShopSlug" disabled /></div>
+            <div class="form-field"><label for="ingest-keywords">Search keywords</label><InputText id="ingest-keywords" @bind-Value="Model.Keywords" /></div>
+            <div class="form-row">
+                <div class="form-field"><label for="ingest-page">Page</label><InputNumber id="ingest-page" @bind-Value="Model.PageNumber" /></div>
+                <div class="form-field"><label for="ingest-size">Results</label><InputNumber id="ingest-size" @bind-Value="Model.PageSize" /></div>
+            </div>
+            <div class="alert-card warning-card"><strong>This performs real work</strong><span>It calls AliExpress, stores product snapshots and generates tracked links using the shop Tracking ID.</span></div>
+            <button class="button button-primary run-button" type="submit" disabled="@IsRunning">
+                @if (IsRunning) { <span class="spinner"></span><span>Running ingestion…</span> }
+                else { <span>Run catalogue job</span><span>→</span> }
+            </button>
+        </EditForm>
+    </section>
+
+    <section class="panel catalogue-result">
+        <div class="panel-heading"><div><p class="eyebrow">Latest run</p><h2>Job result</h2></div>@if (LastResult is not null) { <span class="result-badge @(LastResult.Status == IngestionJobStatus.Failed ? "failure" : "success")">@LastResult.Status</span> }</div>
+        @if (LastResult is null)
+        {
+            <div class="empty-response compact"><h3>No catalogue job recorded</h3><p>Run the first product discovery job when ready.</p></div>
+        }
+        else
+        {
+            <div class="job-metrics">
+                <div><strong>@LastResult.ProductsRead</strong><span>Read</span></div>
+                <div><strong>@LastResult.ProductsWritten</strong><span>Written</span></div>
+                <div><strong>@LastResult.ProductsRejected</strong><span>Rejected</span></div>
+                <div><strong>@LastResult.LinksCreatedOrRefreshed</strong><span>Links</span></div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(LastResult.Error)) { <div class="alert-card error-card"><strong>Job failed</strong><span>@LastResult.Error</span></div> }
+            <p class="job-id">Job @LastResult.JobId</p>
+        }
+    </section>
+</div>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Local catalogue</p><h2>Recently refreshed products</h2></div><span class="count-badge">@Products.Count</span></div>
+    @if (Products.Count == 0)
+    {
+        <p class="database-empty">No products have been ingested yet.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Review</th><th>Link</th><th>Refreshed</th><th>Actions</th></tr></thead><tbody>
+        @foreach (var product in Products)
+        {
+            <tr><td><strong>@product.Title</strong><small>@product.ProductId</small></td><td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td><td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td><td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td><td>@product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</td><td><div class="review-actions"><button aria-label="Approve @product.Title for the public shop" title="Approve for the public shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.Title as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.Title from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td></tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+@code {
+    private readonly IngestionForm Model = new();
+    private CatalogueIngestionResult? LastResult;
+    private List<ProductRow> Products = [];
+    private bool IsRunning;
+
+    protected override Task OnInitializedAsync() => LoadProductsAsync();
+
+    private async Task RunAsync()
+    {
+        IsRunning = true;
+        try
+        {
+            LastResult = await IngestionService.RunAsync(new CatalogueIngestionRequest(Model.ShopSlug, Model.Keywords, Model.PageNumber, Model.PageSize));
+            await LoadProductsAsync();
+        }
+        finally { IsRunning = false; }
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        await using var context = await ContextFactory.CreateDbContextAsync();
+        if (LastResult is null)
+        {
+            var latestJob = await context.IngestionJobs.AsNoTracking()
+                .Where(job => job.Type == IngestionJobType.CatalogueDiscovery)
+                .OrderByDescending(job => job.QueuedUtc)
+                .FirstOrDefaultAsync();
+            if (latestJob is not null)
+            {
+                LastResult = new CatalogueIngestionResult(
+                    latestJob.Id,
+                    latestJob.Status,
+                    latestJob.ItemsRead,
+                    latestJob.ItemsWritten,
+                    latestJob.ItemsRejected,
+                    latestJob.LinksCreatedOrRefreshed,
+                    latestJob.ErrorSummary);
+            }
+        }
+
+        Products = await context.ShopProducts.AsNoTracking()
+            .Where(item => item.Shop.Slug == "plushies" && item.IsActive)
+            .OrderByDescending(item => item.Product.LastRefreshedUtc)
+            .Take(50)
+            .Select(item => new ProductRow(
+                item.ProductId,
+                item.EditorialTitle ?? item.Product.Title,
+                item.Product.LastRefreshedUtc,
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.CommissionRate).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
+                item.ReviewStatus,
+                item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active)))
+            .ToListAsync();
+    }
+
+    private async Task SetReviewAsync(string productId, ProductReviewStatus status)
+    {
+        await using var context = await ContextFactory.CreateDbContextAsync();
+        var item = await context.ShopProducts.SingleAsync(
+            product => product.ProductId == productId && product.Shop.Slug == "plushies");
+        item.ReviewStatus = status;
+        item.DisabledReason = status == ProductReviewStatus.Rejected ? "Rejected during catalogue review." : null;
+        await context.SaveChangesAsync();
+        await LoadProductsAsync();
+    }
+
+    private static string Money(decimal? value, string? currency) => value is null ? "—" : $"{currency ?? "GBP"} {value:N2}";
+    private static string Percent(decimal? value) => value is null ? "—" : $"{value:P1}";
+
+    private sealed class IngestionForm
+    {
+        [Required] public string ShopSlug { get; set; } = "plushies";
+        [Required] public string Keywords { get; set; } = "plush toy";
+        [Range(1, 100)] public int PageNumber { get; set; } = 1;
+        [Range(1, 50)] public int PageSize { get; set; } = 20;
+    }
+
+    private sealed record ProductRow(string ProductId, string Title, DateTimeOffset RefreshedUtc, decimal? SalePrice, string? Currency, decimal? CommissionRate, long? Volume, ProductReviewStatus ReviewStatus, bool HasActiveLink);
+}

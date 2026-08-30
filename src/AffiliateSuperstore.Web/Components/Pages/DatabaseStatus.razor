@@ -1,0 +1,78 @@
+@page "/admin/database"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject DatabaseStatusService DatabaseStatusService
+
+<PageTitle>Database status</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Persistence</p>
+        <h1>Database status</h1>
+        <p class="lede">Connection, schema migration and operational record counts.</p>
+    </div>
+    <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsLoading">Refresh</button>
+</header>
+
+@if (IsLoading && Report is null)
+{
+    <section class="panel database-loading"><span class="spinner dark" aria-hidden="true"></span> Checking SQL Server…</section>
+}
+else if (Report is not null)
+{
+    <section class="database-hero @(Report.CanConnect ? "healthy" : "unhealthy")">
+        <div>
+            <p class="eyebrow">Connection</p>
+            <h2>@(Report.CanConnect ? "SQL Server is ready" : "SQL Server needs attention")</h2>
+            <p>@Report.DatabaseName · @FriendlyProvider(Report.Provider)</p>
+        </div>
+        <span class="database-health">@(Report.CanConnect ? "Healthy" : "Unavailable")</span>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(Report.Error))
+    {
+        <div class="alert-card error-card"><strong>Database check failed</strong><span>@Report.Error</span></div>
+    }
+
+    <section class="metric-grid" aria-label="Database record counts">
+        <article class="metric-card"><strong>@Report.ShopCount.ToString("N0")</strong><span>Shops</span></article>
+        <article class="metric-card"><strong>@Report.ProductCount.ToString("N0")</strong><span>Products</span></article>
+        <article class="metric-card"><strong>@Report.SnapshotCount.ToString("N0")</strong><span>Snapshots</span></article>
+        <article class="metric-card"><strong>@Report.LinkCount.ToString("N0")</strong><span>Affiliate links</span></article>
+        <article class="metric-card"><strong>@Report.ClickCount.ToString("N0")</strong><span>Outbound clicks</span></article>
+        <article class="metric-card"><strong>@Report.OrderCount.ToString("N0")</strong><span>Orders</span></article>
+        <article class="metric-card"><strong>@Report.QueuedOrRunningJobCount.ToString("N0")</strong><span>Active jobs</span></article>
+    </section>
+
+    <div class="database-grid">
+        <section class="panel database-panel">
+            <div class="panel-heading"><div><p class="eyebrow">Schema</p><h2>Applied migrations</h2></div><span class="count-badge">@Report.AppliedMigrations.Count</span></div>
+            @if (Report.AppliedMigrations.Count == 0) { <p class="database-empty">No migrations have been applied.</p> }
+            else { <ol class="migration-list">@foreach (var migration in Report.AppliedMigrations) { <li><code>@migration</code></li> }</ol> }
+        </section>
+        <section class="panel database-panel">
+            <div class="panel-heading"><div><p class="eyebrow">Deployment safety</p><h2>Pending migrations</h2></div><span class="count-badge @(Report.PendingMigrations.Count == 0 ? "success" : "warning")">@Report.PendingMigrations.Count</span></div>
+            @if (Report.PendingMigrations.Count == 0) { <p class="database-empty">Database and application schema agree.</p> }
+            else { <ol class="migration-list warning">@foreach (var migration in Report.PendingMigrations) { <li><code>@migration</code></li> }</ol> }
+        </section>
+    </div>
+
+    <p class="checked-time">Last checked @Report.CheckedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</p>
+}
+
+@code {
+    private DatabaseStatusReport? Report;
+    private bool IsLoading;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try { Report = await DatabaseStatusService.GetAsync(); }
+        finally { IsLoading = false; }
+    }
+
+    private static string FriendlyProvider(string provider) => provider.EndsWith("SqlServer", StringComparison.Ordinal) ? "Entity Framework Core SQL Server" : provider;
+
+}

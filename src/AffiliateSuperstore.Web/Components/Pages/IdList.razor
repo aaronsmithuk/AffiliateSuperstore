@@ -1,0 +1,13 @@
+<div class="form-field">
+    <label for="@Id">@Label</label>
+    <textarea id="@Id" rows="3" value="@Value" @onchange="Changed"></textarea>
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    private Task Changed(ChangeEventArgs args) => ValueChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+}

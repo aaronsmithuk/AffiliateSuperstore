@@ -1,0 +1,114 @@
+@page "/admin/automation"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
+@inject IOptions<CatalogueAutomationOptions> AutomationOptions
+@inject TimeProvider TimeProvider
+
+<PageTitle>Catalogue automation</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Operations</p>
+        <h1>Catalogue automation</h1>
+        <p class="lede">Restart-safe scheduling driven by the ingestion history stored in SQL Server.</p>
+    </div>
+    <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsLoading">Refresh</button>
+</header>
+
+<section class="database-hero @(Options.Enabled ? "healthy" : "unhealthy")">
+    <div>
+        <p class="eyebrow">Worker</p>
+        <h2>@(Options.Enabled ? "Automatic refresh is enabled" : "Automatic refresh is disabled")</h2>
+        <p>The worker checks every @Options.PollEveryMinutes minutes and refreshes successful catalogues every @Options.RefreshEveryHours hours.</p>
+    </div>
+    <span class="database-health">@(Options.Enabled ? "Running" : "Off")</span>
+</section>
+
+<section class="metric-grid" aria-label="Automation settings">
+    <article class="metric-card"><strong>@Options.PageSize</strong><span>Products per run</span></article>
+    <article class="metric-card"><strong>@Options.RefreshEveryHours h</strong><span>Normal refresh</span></article>
+    <article class="metric-card"><strong>@Options.FailureRetryMinutes min</strong><span>Failure retry</span></article>
+    <article class="metric-card"><strong>@Options.StaleJobHours h</strong><span>Stale-job threshold</span></article>
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Schedule</p><h2>Shop refresh state</h2></div><span class="count-badge">@Shops.Count</span></div>
+    @if (IsLoading && Shops.Count == 0)
+    {
+        <p class="database-empty">Loading schedule…</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Shop</th><th>Last status</th><th>Last completed</th><th>Next normal refresh</th><th>Due now</th></tr></thead><tbody>
+        @foreach (var shop in Shops)
+        {
+            <tr>
+                <td><strong>@shop.DisplayName</strong><small>/@shop.Slug</small></td>
+                <td><span class="result-badge @StatusClass(shop.Status)">@(shop.Status?.ToString() ?? "Never run")</span></td>
+                <td>@LocalTime(shop.CompletedUtc ?? shop.StartedUtc)</td>
+                <td>@LocalTime(shop.NextDueUtc)</td>
+                <td><span class="table-status @(shop.IsDue ? "missing" : "ready")">@(shop.IsDue ? "Due" : "Scheduled")</span></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<div class="alert-card warning-card automation-note">
+    <strong>Configuration-owned for now</strong>
+    <span>Scheduling is deliberately changed through configuration, not this unauthenticated admin. Manual catalogue runs remain available on the Catalogue page.</span>
+</div>
+
+@code {
+    private CatalogueAutomationOptions Options => AutomationOptions.Value;
+    private List<ShopScheduleRow> Shops = [];
+    private bool IsLoading;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            await using var context = await ContextFactory.CreateDbContextAsync();
+            var now = TimeProvider.GetUtcNow();
+            var shops = await context.Shops.AsNoTracking().Where(shop => shop.IsEnabled).OrderBy(shop => shop.DisplayName).ToListAsync();
+            var rows = new List<ShopScheduleRow>();
+            foreach (var shop in shops)
+            {
+                var job = await context.IngestionJobs.AsNoTracking()
+                    .Where(item => item.ShopId == shop.Id && item.Type == IngestionJobType.CatalogueDiscovery)
+                    .OrderByDescending(item => item.QueuedUtc)
+                    .FirstOrDefaultAsync();
+                var isDue = CatalogueAutomationPlanner.IsDue(job?.Status, job?.StartedUtc, job?.CompletedUtc, now, Options);
+                rows.Add(new ShopScheduleRow(
+                    shop.Slug,
+                    shop.DisplayName,
+                    job?.Status,
+                    job?.StartedUtc,
+                    job?.CompletedUtc,
+                    NextDue(job),
+                    isDue));
+            }
+            Shops = rows;
+        }
+        finally { IsLoading = false; }
+    }
+
+    private DateTimeOffset? NextDue(IngestionJobRecord? job)
+    {
+        if (job is null) return TimeProvider.GetUtcNow();
+        var activity = job.CompletedUtc ?? job.StartedUtc;
+        if (activity is null) return TimeProvider.GetUtcNow();
+        if (job.Status == IngestionJobStatus.Running) return activity.Value.AddHours(Options.StaleJobHours);
+        return job.Status == IngestionJobStatus.Failed
+            ? activity.Value.AddMinutes(Options.FailureRetryMinutes)
+            : activity.Value.AddHours(Options.RefreshEveryHours);
+    }
+
+    private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    private static string StatusClass(IngestionJobStatus? status) => status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded ? "success" : status is null ? string.Empty : "failure";
+    private sealed record ShopScheduleRow(string Slug, string DisplayName, IngestionJobStatus? Status, DateTimeOffset? StartedUtc, DateTimeOffset? CompletedUtc, DateTimeOffset? NextDueUtc, bool IsDue);
+}

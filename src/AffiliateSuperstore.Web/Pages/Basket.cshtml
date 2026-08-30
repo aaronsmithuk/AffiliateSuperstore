@@ -1,0 +1,39 @@
+@page "/basket/{shopSlug}"
+@model AffiliateSuperstore.Web.Pages.BasketModel
+@{
+    ViewData["Title"] = $"Your list · {Model.Shop.DisplayName}";
+    ViewData["Description"] = $"Products saved from {Model.Shop.DisplayName}. Purchases are completed on AliExpress.";
+    ViewData["Robots"] = "noindex,nofollow";
+}
+
+<div class="shop-shell basket-shell" style="--shop-primary:@Model.Shop.Theme.PrimaryColour; --shop-accent:@Model.Shop.Theme.AccentColour">
+    <header class="basket-header">
+        <div><p class="shop-kicker">Anonymous shopping list</p><h1>Your saved plushies</h1><p>Saved in this browser for 90 days. No account is required.</p></div>
+        <a href="@Model.Shop.PathPrefix">Continue browsing</a>
+    </header>
+
+    @if (Model.Products.Count == 0)
+    {
+        <section class="basket-empty"><span aria-hidden="true">♡</span><h2>Your list is empty</h2><p>Approve products in the admin, then save the ones you want to compare.</p><a href="@Model.Shop.PathPrefix">Browse @Model.Shop.DisplayName</a></section>
+    }
+    else
+    {
+        <div class="basket-guidance"><strong>AliExpress completes each purchase</strong><p>Open items one at a time. Availability, final price, delivery and checkout are confirmed by AliExpress.</p></div>
+        <section class="basket-list" aria-label="Saved products">
+            @foreach (var product in Model.Products)
+            {
+                <article class="basket-item">
+                    @if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }
+                    <div class="basket-item-copy"><h2>@product.Title</h2><p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p></div>
+                    <div class="basket-item-actions">
+                        <a href="/go/@Model.Shop.Slug/@product.ProductId?placement=basket" rel="sponsored nofollow noopener">Open on AliExpress <span aria-hidden="true">↗</span></a>
+                        <form method="post" asp-page-handler="Remove" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button type="submit">Remove</button></form>
+                    </div>
+                </article>
+            }
+        </section>
+        <form method="post" asp-page-handler="Clear" asp-route-shopSlug="@Model.Shop.Slug" class="basket-clear"><button type="submit">Clear saved list</button></form>
+    }
+
+    <aside class="affiliate-disclosure"><strong>Affiliate disclosure</strong><p>We may earn a commission from qualifying purchases. We are not the seller and do not receive your payment or AliExpress account details.</p></aside>
+</div>
