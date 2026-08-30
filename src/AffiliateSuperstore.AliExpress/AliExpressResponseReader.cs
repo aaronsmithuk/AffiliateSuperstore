@@ -73,7 +73,9 @@ public static class AliExpressResponseReader
             items.Select(ReadOrder).Where(order => order.SubOrderId.Length > 0).ToArray(),
             GetInt(result, "current_page_no"),
             GetInt(result, "total_page_no"),
-            GetInt(result, "total_record_count"));
+            GetInt(result, "total_record_count"),
+            GetString(result, "min_query_index_id"),
+            GetString(result, "max_query_index_id"));
     }
 
     public static JsonElement GetResponseEnvelope(JsonElement root)
@@ -140,7 +142,14 @@ public static class AliExpressResponseReader
             GetString(item, "completed_settlement_time"),
             GetString(item, "ship_to_country"),
             GetYNBoolean(item, "is_affiliate_product"),
-            GetYNBoolean(item, "is_hot_product"));
+            GetYNBoolean(item, "is_hot_product"),
+            item.GetRawText(),
+            GetString(item, "incentive_commission_rate"),
+            GetDecimal(item, "estimated_incentive_paid_commission"),
+            GetDecimal(item, "new_buyer_bonus_commission"),
+            GetYNBoolean(item, "is_new_buyer"),
+            GetString(item, "order_platform"),
+            GetString(item, "order_type"));
 
     private static JsonElement GetResult(JsonElement root)
     {

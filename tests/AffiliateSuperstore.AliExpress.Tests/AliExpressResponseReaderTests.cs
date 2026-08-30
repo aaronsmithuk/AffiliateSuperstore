@@ -57,7 +57,7 @@ public sealed class AliExpressResponseReaderTests
     public void ReadOrders_ParsesAmountsAndYNFlags()
     {
         const string json = """
-            {"aliexpress_affiliate_order_list_response":{"resp_result":{"result":{"orders":{"order":[{"sub_order_id":"123","order_status":"Payment Completed","estimated_paid_commission":"1.25","is_affiliate_product":"Y","is_hot_product":"N"}]}}}}}
+            {"aliexpress_affiliate_order_list_response":{"resp_result":{"result":{"orders":{"order":[{"sub_order_id":"123","order_status":"Payment Completed","estimated_paid_commission":"1.25","incentive_commission_rate":"2%","estimated_incentive_paid_commission":"0.35","new_buyer_bonus_commission":"0.50","is_new_buyer":"Y","order_platform":"affiliate_platform","order_type":"global","is_affiliate_product":"Y","is_hot_product":"N"}]}}}}}
             """;
 
         var order = Assert.Single(AliExpressResponseReader.ReadOrders(json).Items);
@@ -65,5 +65,24 @@ public sealed class AliExpressResponseReaderTests
         Assert.Equal(1.25m, order.EstimatedPaidCommission);
         Assert.True(order.IsAffiliateProduct);
         Assert.False(order.IsHotProduct);
+        Assert.Equal("2%", order.IncentiveCommissionRate);
+        Assert.Equal(.35m, order.EstimatedIncentivePaidCommission);
+        Assert.Equal(.50m, order.NewBuyerBonusCommission);
+        Assert.True(order.IsNewBuyer);
+        Assert.Equal("affiliate_platform", order.OrderPlatform);
+    }
+
+    [Fact]
+    public void ReadOrders_PreservesIndexCursorAndRawOrder()
+    {
+        const string json = """
+            {"resp_result":{"result":{"min_query_index_id":"first","max_query_index_id":"next","orders":[{"sub_order_id":"456","order_status":"Completed Settlement"}]}}}
+            """;
+
+        var page = AliExpressResponseReader.ReadOrders(json);
+
+        Assert.Equal("first", page.MinimumQueryIndexId);
+        Assert.Equal("next", page.MaximumQueryIndexId);
+        Assert.Contains("\"sub_order_id\":\"456\"", Assert.Single(page.Items).RawJson, StringComparison.Ordinal);
     }
 }

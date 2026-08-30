@@ -58,10 +58,19 @@ public sealed record AliExpressOrder(
     string? CompletedSettlementTime,
     string? ShipToCountry,
     bool? IsAffiliateProduct,
-    bool? IsHotProduct);
+    bool? IsHotProduct,
+    string? RawJson = null,
+    string? IncentiveCommissionRate = null,
+    decimal? EstimatedIncentivePaidCommission = null,
+    decimal? NewBuyerBonusCommission = null,
+    bool? IsNewBuyer = null,
+    string? OrderPlatform = null,
+    string? OrderType = null);
 
 public sealed record AliExpressPage<T>(
     IReadOnlyList<T> Items,
     int? CurrentPage,
     int? TotalPages,
-    int? TotalRecords);
+    int? TotalRecords,
+    string? MinimumQueryIndexId = null,
+    string? MaximumQueryIndexId = null);

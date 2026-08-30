@@ -14,6 +14,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<OutboundClickRecord> OutboundClicks => Set<OutboundClickRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
     public DbSet<AffiliateOrderRecord> AffiliateOrders => Set<AffiliateOrderRecord>();
+    public DbSet<AffiliateS2sEventRecord> AffiliateS2sEvents => Set<AffiliateS2sEventRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +26,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureOutboundClick(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
         ConfigureAffiliateOrder(modelBuilder);
+        ConfigureAffiliateS2sEvent(modelBuilder);
     }
 
     private static void ConfigureShop(ModelBuilder modelBuilder)
@@ -177,14 +179,45 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.CommissionRate).HasPrecision(9, 6);
         entity.Property(item => item.EstimatedPaidCommission).HasPrecision(18, 4);
         entity.Property(item => item.EstimatedFinishedCommission).HasPrecision(18, 4);
+        entity.Property(item => item.IncentiveCommissionRate).HasPrecision(9, 6);
+        entity.Property(item => item.EstimatedIncentivePaidCommission).HasPrecision(18, 4);
+        entity.Property(item => item.NewBuyerBonusCommission).HasPrecision(18, 4);
         entity.Property(item => item.PaidAmount).HasPrecision(18, 4);
         entity.Property(item => item.FinishedAmount).HasPrecision(18, 4);
         entity.Property(item => item.SettledCurrency).HasMaxLength(3);
         entity.Property(item => item.ShipToCountry).HasMaxLength(2);
+        entity.Property(item => item.OrderPlatform).HasMaxLength(50);
+        entity.Property(item => item.OrderType).HasMaxLength(50);
         entity.Property(item => item.RowVersion).IsRowVersion();
         entity.HasOne(item => item.Click).WithMany(click => click.Orders).HasForeignKey(item => item.ClickId).OnDelete(DeleteBehavior.SetNull);
         entity.HasIndex(item => item.ClickId);
         entity.HasIndex(item => new { item.Status, item.LastSeenUtc });
         entity.HasIndex(item => item.CompletedSettlementUtc);
+    }
+
+    private static void ConfigureAffiliateS2sEvent(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<AffiliateS2sEventRecord>();
+        entity.ToTable("AffiliateS2sEvents");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.EventKey).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.SubOrderId).HasMaxLength(100).IsRequired();
+        entity.Property(item => item.ClickId).HasMaxLength(64);
+        entity.Property(item => item.ProductId).HasMaxLength(64);
+        entity.Property(item => item.TrackingId).HasMaxLength(100);
+        entity.Property(item => item.OrderAmount).HasPrecision(18, 4);
+        entity.Property(item => item.CommissionRate).HasPrecision(9, 6);
+        entity.Property(item => item.EstimatedCommission).HasPrecision(18, 4);
+        entity.Property(item => item.IncentiveCommissionRate).HasPrecision(9, 6);
+        entity.Property(item => item.IncentiveCommission).HasPrecision(18, 4);
+        entity.Property(item => item.NewBuyerBonus).HasPrecision(18, 4);
+        entity.Property(item => item.Currency).HasMaxLength(3);
+        entity.Property(item => item.ShipToCountry).HasMaxLength(2);
+        entity.Property(item => item.OrderPlatform).HasMaxLength(50);
+        entity.Property(item => item.OrderType).HasMaxLength(50);
+        entity.Property(item => item.PayloadJson).IsRequired();
+        entity.HasIndex(item => item.EventKey).IsUnique();
+        entity.HasIndex(item => new { item.SubOrderId, item.ReceivedUtc });
+        entity.HasIndex(item => item.ClickId);
     }
 }

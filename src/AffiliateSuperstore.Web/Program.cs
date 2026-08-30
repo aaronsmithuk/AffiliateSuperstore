@@ -2,6 +2,7 @@ using AffiliateSuperstore.AliExpress;
 using AffiliateSuperstore.Application.Catalogue;
 using AffiliateSuperstore.Application.Basket;
 using AffiliateSuperstore.Application.Tracking;
+using AffiliateSuperstore.Application.Orders;
 using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Core.Tracking;
 using AffiliateSuperstore.Persistence;
@@ -39,6 +40,16 @@ builder.Services
     .Bind(builder.Configuration.GetSection(CatalogueSeoOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
     serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<CatalogueSeoOptions>>().Value);
+builder.Services
+    .AddOptions<OrderReconciliationOptions>()
+    .Bind(builder.Configuration.GetSection(OrderReconciliationOptions.SectionName));
+builder.Services.AddSingleton(serviceProvider =>
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<OrderReconciliationOptions>>().Value);
+builder.Services
+    .AddOptions<AffiliateS2sOptions>()
+    .Bind(builder.Configuration.GetSection(AffiliateS2sOptions.SectionName));
+builder.Services.AddSingleton(serviceProvider =>
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AffiliateS2sOptions>>().Value);
 var databaseConnection = builder.Configuration.GetConnectionString("AffiliateSuperstore");
 if (string.IsNullOrWhiteSpace(databaseConnection))
 {
@@ -67,11 +78,14 @@ builder.Services.AddTransient<ProductQualityAssessmentService>();
 builder.Services.AddTransient<CatalogueEditorialService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<OutboundRedirectService>();
+builder.Services.AddTransient<AffiliateOrderReconciliationService>();
+builder.Services.AddTransient<AffiliateS2sIngestionService>();
 builder.Services.AddSingleton<AnonymousBasketCodec>();
 builder.Services.AddSingleton<AnonymousBasketStore>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     builder.Services.AddHostedService<CatalogueAutomationWorker>();
+    builder.Services.AddHostedService<OrderReconciliationWorker>();
 }
 
 var app = builder.Build();
@@ -107,5 +121,38 @@ app.MapRazorPages()
    .WithStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapMethods("/integrations/aliexpress/s2s", ["GET", "POST"], async (
+    HttpRequest request,
+    AffiliateS2sIngestionService ingestion,
+    CancellationToken cancellationToken) =>
+{
+    if (!ingestion.IsEnabled) return Results.NotFound();
+    if (!ingestion.IsConfigured) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+
+    var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var pair in request.Query)
+    {
+        if (pair.Value.Count > 0) values[pair.Key] = pair.Value[0] ?? string.Empty;
+    }
+
+    if (request.HasFormContentType)
+    {
+        var form = await request.ReadFormAsync(cancellationToken);
+        foreach (var pair in form)
+        {
+            if (pair.Value.Count > 0) values[pair.Key] = pair.Value[0] ?? string.Empty;
+        }
+    }
+
+    values.TryGetValue("verification_token", out var suppliedToken);
+    if (!ingestion.IsAuthorized(suppliedToken)) return Results.Unauthorized();
+    values.Remove("verification_token");
+
+    var result = await ingestion.IngestAsync(values, cancellationToken);
+    return result.Disposition == AffiliateS2sDisposition.Rejected
+        ? Results.BadRequest(new { error = result.Error })
+        : Results.Text("ok", "text/plain");
+});
 
 app.Run();

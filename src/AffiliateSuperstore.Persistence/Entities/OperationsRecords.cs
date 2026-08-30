@@ -101,6 +101,9 @@ public sealed class AffiliateOrderRecord
     public decimal? CommissionRate { get; set; }
     public decimal? EstimatedPaidCommission { get; set; }
     public decimal? EstimatedFinishedCommission { get; set; }
+    public decimal? IncentiveCommissionRate { get; set; }
+    public decimal? EstimatedIncentivePaidCommission { get; set; }
+    public decimal? NewBuyerBonusCommission { get; set; }
     public decimal? PaidAmount { get; set; }
     public decimal? FinishedAmount { get; set; }
     public string? SettledCurrency { get; set; }
@@ -110,10 +113,40 @@ public sealed class AffiliateOrderRecord
     public string? ShipToCountry { get; set; }
     public bool? IsAffiliateProduct { get; set; }
     public bool? IsHotProduct { get; set; }
+    public bool? IsNewBuyer { get; set; }
+    public string? OrderPlatform { get; set; }
+    public string? OrderType { get; set; }
     public DateTimeOffset FirstSeenUtc { get; set; }
     public DateTimeOffset LastSeenUtc { get; set; }
     public string? RawJson { get; set; }
     public byte[] RowVersion { get; set; } = [];
 
     public OutboundClickRecord? Click { get; set; }
+}
+
+public sealed class AffiliateS2sEventRecord
+{
+    public Guid Id { get; set; }
+    public string EventKey { get; set; } = string.Empty;
+    public string SubOrderId { get; set; } = string.Empty;
+    public string? ClickId { get; set; }
+    public string? ProductId { get; set; }
+    public string? TrackingId { get; set; }
+    public decimal? OrderAmount { get; set; }
+    public decimal? CommissionRate { get; set; }
+    public decimal? EstimatedCommission { get; set; }
+    public decimal? IncentiveCommissionRate { get; set; }
+    public decimal? IncentiveCommission { get; set; }
+    public decimal? NewBuyerBonus { get; set; }
+    public string? Currency { get; set; }
+    public string? ShipToCountry { get; set; }
+    public bool? IsAffiliateProduct { get; set; }
+    public bool? IsHotProduct { get; set; }
+    public bool? IsNewBuyer { get; set; }
+    public string? OrderPlatform { get; set; }
+    public string? OrderType { get; set; }
+    public DateTimeOffset? EffectPayUtc { get; set; }
+    public DateTimeOffset ReceivedUtc { get; set; }
+    public DateTimeOffset ProcessedUtc { get; set; }
+    public string PayloadJson { get; set; } = string.Empty;
 }

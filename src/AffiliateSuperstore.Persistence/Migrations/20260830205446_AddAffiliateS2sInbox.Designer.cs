@@ -4,6 +4,7 @@ using AffiliateSuperstore.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AffiliateSuperstore.Persistence.Migrations
 {
     [DbContext(typeof(AffiliateSuperstoreDbContext))]
-    partial class AffiliateSuperstoreDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830205446_AddAffiliateS2sInbox")]
+    partial class AddAffiliateS2sInbox
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -113,10 +116,6 @@ namespace AffiliateSuperstore.Persistence.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<decimal?>("EstimatedIncentivePaidCommission")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
                     b.Property<decimal?>("EstimatedPaidCommission")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -131,33 +130,14 @@ namespace AffiliateSuperstore.Persistence.Migrations
                     b.Property<DateTimeOffset>("FirstSeenUtc")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<decimal?>("IncentiveCommissionRate")
-                        .HasPrecision(9, 6)
-                        .HasColumnType("decimal(9,6)");
-
                     b.Property<bool?>("IsAffiliateProduct")
                         .HasColumnType("bit");
 
                     b.Property<bool?>("IsHotProduct")
                         .HasColumnType("bit");
 
-                    b.Property<bool?>("IsNewBuyer")
-                        .HasColumnType("bit");
-
                     b.Property<DateTimeOffset>("LastSeenUtc")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<decimal?>("NewBuyerBonusCommission")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("OrderPlatform")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("OrderType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<decimal?>("PaidAmount")
                         .HasPrecision(18, 4)
@@ -245,38 +225,15 @@ namespace AffiliateSuperstore.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<decimal?>("IncentiveCommission")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal?>("IncentiveCommissionRate")
-                        .HasPrecision(9, 6)
-                        .HasColumnType("decimal(9,6)");
-
                     b.Property<bool?>("IsAffiliateProduct")
                         .HasColumnType("bit");
 
                     b.Property<bool?>("IsHotProduct")
                         .HasColumnType("bit");
 
-                    b.Property<bool?>("IsNewBuyer")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal?>("NewBuyerBonus")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
                     b.Property<decimal?>("OrderAmount")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("OrderPlatform")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("OrderType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()

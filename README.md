@@ -15,7 +15,7 @@ catalogue review and automation schedule.
 - .NET 10
 - Configurable Razor Pages shop shell at `/plushies`
 - Blazor admin API workbench at `/admin/api-test`
-- Blazor database, catalogue and automation pages
+- Blazor database, catalogue, automation and affiliate-order pages
 - Reusable HMAC-SHA256 AliExpress client covering all 16 published methods
 - Typed request models, response normalisation and permission visibility
 - Domain/path-aware shop resolution, theming and SEO metadata
@@ -34,6 +34,10 @@ catalogue review and automation schedule.
 - Canonical URLs, safe robots rules, quality-gated XML sitemap and Product /
   ItemList structured data, with production indexing disabled by default
 - Auditable `/go/{shop}/{product}` redirect
+- Restart-safe paid-order discovery across all four AliExpress lifecycle
+  states, open-order refresh, click attribution and commission reporting
+- Guarded, idempotent S2S paid-order inbox, disabled until its production HTTPS
+  URL and fixed verification secret are configured
 - Protected 90-day anonymous shopping list with item count and one-by-one
   AliExpress hand-off
 - GB shipping market, GBP and English defaults
@@ -62,7 +66,7 @@ dotnet run --project ./src/AffiliateSuperstore.Web
 
 Open the URL printed by ASP.NET Core, followed by `/admin/api-test`. The
 other current operations pages are `/admin/database`, `/admin/catalogue` and
-`/admin/automation`. The public shop is at `/plushies`, and its anonymous saved
+`/admin/automation` and `/admin/orders`. The public shop is at `/plushies`, and its anonymous saved
 list is at `/basket/plushies`. Public pages remain `noindex` until the first
 safe catalogue is curated.
 
@@ -81,6 +85,12 @@ page every 24 hours. It checks persisted job history every 15 minutes, so an
 application restart does not duplicate a recent run. Production automation is
 off by default.
 
+Development also reconciles affiliate orders every 60 minutes. Its first run
+queries the documented 180-day window; later runs use a 48-hour overlap and
+refresh every locally open sub-order by ID. Production order automation is off
+by default. S2S production setup is documented in
+[`docs/S2S-SETUP.md`](docs/S2S-SETUP.md).
+
 ## Verify
 
 ```powershell
@@ -90,7 +100,8 @@ dotnet test ./AffiliateSuperstore.slnx
 The current suite covers request signing and normalisation, shop resolution,
 database constraints and configuration sync, ingestion success/failure and its
 quality gate, automation timing, approved-only redirect behaviour and anonymous
-list state.
+list state, cursor-based order reconciliation, S2S idempotency and click
+attribution.
 
 After configuring User Secrets, the live smoke test exercises categories, a
 five-item UK plush search, product details, tracked-link generation, featured

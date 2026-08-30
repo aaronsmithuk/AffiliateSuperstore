@@ -95,7 +95,7 @@ The MVP is complete when:
 | 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, retry, quality assessment, guarded editorial approval and audited link renewal are working |
 | 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
-| 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Planned |
+| 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | In progress; restart-safe pull reconciliation, guarded S2S inbox, click attribution and commission dashboard are working; production S2S setup and long-term retention/export remain |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
 
@@ -178,6 +178,9 @@ Implemented operational surfaces:
   filters, job result, guarded approval actions and a curation drawer for
   public titles, descriptions, featuring and display order.
 - `/admin/automation` — schedule, retry policy, next-run and due-state visibility.
+- `/admin/orders` — paid/confirmed/settled/invalid lifecycle totals, base and
+  incentive commission reporting, click attribution, S2S readiness and an
+  audited manual reconciliation action.
 - `/plushies` — SQL-backed approved-only catalogue with local search,
   category, price and popularity sorting.
 - `/plushies/product/{productId}` — approved-only product detail with current
@@ -224,10 +227,27 @@ enabled only after domain, content, privacy and release review. Local
 development enables the switch so the eligible and ineligible paths can be
 verified.
 
+Development order reconciliation is enabled on a 60-minute schedule. The first
+run walks all four documented order states through the index cursor over the
+180-day retention window; later discovery runs overlap by 48 hours and every
+known non-terminal sub-order is refreshed directly until Completed Settlement
+or Invalid. Checkpoints and metrics are stored in the shared ingestion-job
+history. A live account run on 30 August 2026 completed successfully and found
+no orders in the current retention window; AliExpress's platform code 405 / "The
+result is empty" is normalised only for that exact benign response.
+
+The S2S paid-order route has an immutable, duplicate-suppressed inbox and feeds
+the same order/click model, including base commission, CPX incentive and new-
+buyer bonus fields. Because AliExpress documents no callback signature, it is
+disabled by default and additionally requires a fixed secret parameter. It
+must not be enabled until the application has an authenticated admin, a public
+HTTPS endpoint and protected production configuration. See `docs/S2S-SETUP.md`.
+
 ## Next milestone
 
-Build S2S order ingestion/reconciliation. In parallel, capture the current
-affiliate agreement and determine whether delivery estimates are available
-through the permitted API surface. Indexing and public deployment remain
-blocked on a sufficiently deep curated catalogue, admin authentication and
-production release checks.
+Complete conversion operations with long-term monthly order retention/export
+and link/click performance reporting, then continue catalogue depth and visual
+system work. In parallel, capture the current affiliate agreement and determine
+whether delivery estimates are available through the permitted API surface.
+Indexing and public deployment remain blocked on a sufficiently deep curated
+catalogue, admin authentication and production release checks.

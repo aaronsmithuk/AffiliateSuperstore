@@ -1,0 +1,221 @@
+@page "/admin/orders"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
+@inject AffiliateOrderReconciliationService ReconciliationService
+@inject OrderReconciliationOptions ReconciliationOptions
+@inject AffiliateS2sIngestionService S2sService
+
+<PageTitle>Affiliate orders</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Revenue operations</p>
+        <h1>Affiliate orders</h1>
+        <p class="lede">Paid-order discovery, click attribution and settlement reconciliation from the AliExpress affiliate API.</p>
+    </div>
+    <div class="button-row">
+        <button class="button secondary-button" type="button" @onclick="LoadAsync" disabled="@IsBusy">Refresh</button>
+        <button class="button" type="button" @onclick="RunAsync" disabled="@IsBusy">@(IsRunning ? "Reconciling…" : "Run reconciliation")</button>
+    </div>
+</header>
+
+@if (LastRunResult is not null)
+{
+    <div class="alert-card @(LastRunResult.Status == IngestionJobStatus.Failed ? "error-card" : "success-card")">
+        <strong>Reconciliation @LastRunResult.Status.ToString().ToLowerInvariant()</strong>
+        <span>@LastRunResult.OrdersRead read, @LastRunResult.OrdersWritten persisted, @LastRunResult.OrdersRejected rejected. @LastRunResult.Error</span>
+    </div>
+}
+
+<section class="database-hero @(ReconciliationOptions.Enabled ? "healthy" : "unhealthy")">
+    <div>
+        <p class="eyebrow">Reconciliation worker</p>
+        <h2>@(ReconciliationOptions.Enabled ? "Automatic reconciliation is enabled" : "Automatic reconciliation is disabled")</h2>
+        <p>New orders are discovered with a @ReconciliationOptions.IncrementalLookbackHours-hour overlap. Open orders are then refreshed by sub-order ID until settlement or invalidation.</p>
+    </div>
+    <span class="database-health">@(ReconciliationOptions.Enabled ? $"Every {ReconciliationOptions.RefreshEveryMinutes} min" : "Manual")</span>
+</section>
+
+<section class="database-hero @(S2sService.IsConfigured ? "healthy" : "unhealthy")">
+    <div>
+        <p class="eyebrow">Near-real-time paid orders</p>
+        <h2>@(S2sService.IsConfigured ? "S2S inbox is ready" : "S2S inbox is safely disabled")</h2>
+        <p>The callback accepts only documented order fields, requires a fixed secret parameter and suppresses duplicate delivery before updating order state.</p>
+    </div>
+    <span class="database-health">@(S2sService.IsConfigured ? "Ready" : "Needs production setup")</span>
+</section>
+
+<section class="metric-grid" aria-label="Order totals">
+    <article class="metric-card"><strong>@TotalOrders</strong><span>Orders stored</span></article>
+    <article class="metric-card"><strong>@PaidOrders</strong><span>Payment completed</span></article>
+    <article class="metric-card"><strong>@ReceiptOrders</strong><span>Receipt confirmed</span></article>
+    <article class="metric-card"><strong>@SettledOrders</strong><span>Settled</span></article>
+    <article class="metric-card"><strong>@InvalidOrders</strong><span>Invalid</span></article>
+    <article class="metric-card"><strong>@AttributedOrders</strong><span>Matched to click</span></article>
+    <article class="metric-card"><strong>@S2sEvents</strong><span>S2S events accepted</span></article>
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading">
+        <div><p class="eyebrow">Commission</p><h2>Currency totals</h2></div>
+        <span class="count-badge">@CommissionTotals.Count</span>
+    </div>
+    @if (CommissionTotals.Count == 0)
+    {
+        <p class="database-empty">No commission-bearing orders have been ingested yet.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Currency</th><th>Base estimate</th><th>Incentives / bonuses</th><th>Settled base</th><th>Orders</th></tr></thead><tbody>
+        @foreach (var total in CommissionTotals)
+        {
+            <tr><td><strong>@total.Currency</strong></td><td>@FormatAmount(total.EstimatedPaid)</td><td>@FormatAmount(total.IncentivesAndBonuses)</td><td>@FormatAmount(total.EstimatedSettled)</td><td>@total.OrderCount</td></tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading">
+        <div><p class="eyebrow">Lifecycle</p><h2>Latest sub-orders</h2></div>
+        <span class="count-badge">@RecentOrders.Count</span>
+    </div>
+    @if (IsLoading && RecentOrders.Count == 0)
+    {
+        <p class="database-empty">Loading orders…</p>
+    }
+    else if (RecentOrders.Count == 0)
+    {
+        <p class="database-empty">No orders were returned for the account in the current API retention window.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Order</th><th>Product</th><th>Status</th><th>Paid</th><th>Commission</th><th>Attribution</th></tr></thead><tbody>
+        @foreach (var order in RecentOrders)
+        {
+            <tr>
+                <td><strong>@order.SubOrderId</strong><small>@(order.TrackingId ?? "No tracking ID")</small></td>
+                <td><strong>@(order.ProductTitle ?? "Product title unavailable")</strong><small>@(order.ProductId ?? "No product ID")</small></td>
+                <td><span class="result-badge @StatusClass(order.Status)">@order.Status</span></td>
+                <td>@LocalTime(order.PaidUtc)</td>
+                <td>@FormatMoney(order)</td>
+                <td><span class="table-status @(order.ClickId is null ? "missing" : "ready")">@(order.ClickId is null ? "Unmatched" : "Matched")</span><small>@(order.ClickId ?? "dp not recognised")</small></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading">
+        <div><p class="eyebrow">Audit trail</p><h2>Recent reconciliation jobs</h2></div>
+        <span class="count-badge">@Jobs.Count</span>
+    </div>
+    @if (Jobs.Count == 0)
+    {
+        <p class="database-empty">No reconciliation jobs have run yet.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Started</th><th>Status</th><th>Read</th><th>Written</th><th>Checkpoint / error</th></tr></thead><tbody>
+        @foreach (var job in Jobs)
+        {
+            <tr><td>@LocalTime(job.StartedUtc)</td><td><span class="result-badge @JobStatusClass(job.Status)">@job.Status</span></td><td>@job.ItemsRead</td><td>@job.ItemsWritten</td><td><small>@(job.ErrorSummary ?? job.Checkpoint ?? "—")</small></td></tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<div class="alert-card warning-card automation-note">
+    <strong>Payment is not settlement</strong>
+    <span>S2S and Payment Completed are estimated conversions. Revenue is treated as final only after AliExpress reports Completed Settlement; Invalid orders are excluded.</span>
+</div>
+
+@code {
+    private List<AffiliateOrderRecord> RecentOrders = [];
+    private List<IngestionJobRecord> Jobs = [];
+    private List<CommissionTotal> CommissionTotals = [];
+    private int TotalOrders;
+    private int PaidOrders;
+    private int ReceiptOrders;
+    private int SettledOrders;
+    private int InvalidOrders;
+    private int AttributedOrders;
+    private int S2sEvents;
+    private bool IsLoading;
+    private bool IsRunning;
+    private bool IsBusy => IsLoading || IsRunning;
+    private OrderReconciliationResult? LastRunResult;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task RunAsync()
+    {
+        IsRunning = true;
+        try
+        {
+            LastRunResult = await ReconciliationService.RunAsync();
+            await LoadCoreAsync();
+        }
+        finally { IsRunning = false; }
+    }
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try { await LoadCoreAsync(); }
+        finally { IsLoading = false; }
+    }
+
+    private async Task LoadCoreAsync()
+    {
+        await using var context = await ContextFactory.CreateDbContextAsync();
+        TotalOrders = await context.AffiliateOrders.CountAsync();
+        PaidOrders = await context.AffiliateOrders.CountAsync(order => order.Status == AliExpressOrderStatuses.PaymentCompleted);
+        ReceiptOrders = await context.AffiliateOrders.CountAsync(order => order.Status == AliExpressOrderStatuses.BuyerConfirmedReceipt);
+        SettledOrders = await context.AffiliateOrders.CountAsync(order => order.Status == AliExpressOrderStatuses.CompletedSettlement);
+        InvalidOrders = await context.AffiliateOrders.CountAsync(order => order.Status == AliExpressOrderStatuses.Invalid);
+        AttributedOrders = await context.AffiliateOrders.CountAsync(order => order.ClickId != null);
+        S2sEvents = await context.AffiliateS2sEvents.CountAsync();
+        RecentOrders = await context.AffiliateOrders.AsNoTracking()
+            .OrderByDescending(order => order.PaidUtc ?? order.LastSeenUtc)
+            .Take(100)
+            .ToListAsync();
+        Jobs = await context.IngestionJobs.AsNoTracking()
+            .Where(job => job.Type == IngestionJobType.OrderReconciliation)
+            .OrderByDescending(job => job.QueuedUtc)
+            .Take(20)
+            .ToListAsync();
+        var commissionOrders = await context.AffiliateOrders.AsNoTracking()
+            .Where(order => order.Status != AliExpressOrderStatuses.Invalid && order.SettledCurrency != null)
+            .Select(order => new { order.SettledCurrency, order.Status, order.EstimatedPaidCommission, order.EstimatedFinishedCommission, order.EstimatedIncentivePaidCommission, order.NewBuyerBonusCommission })
+            .ToListAsync();
+        CommissionTotals = commissionOrders
+            .GroupBy(order => order.SettledCurrency!)
+            .Select(group => new CommissionTotal(
+                group.Key,
+                group.Sum(order => order.EstimatedPaidCommission ?? 0),
+                group.Sum(order => (order.EstimatedIncentivePaidCommission ?? 0) + (order.NewBuyerBonusCommission ?? 0)),
+                group.Where(order => order.Status == AliExpressOrderStatuses.CompletedSettlement).Sum(order => order.EstimatedFinishedCommission ?? 0),
+                group.Count()))
+            .OrderBy(total => total.Currency)
+            .ToList();
+    }
+
+    private static string FormatMoney(AffiliateOrderRecord order)
+    {
+        var amount = order.Status == AliExpressOrderStatuses.CompletedSettlement
+            ? order.EstimatedFinishedCommission
+            : order.EstimatedPaidCommission;
+        if (amount is null && order.EstimatedIncentivePaidCommission is null && order.NewBuyerBonusCommission is null) return "—";
+        var total = (amount ?? 0) + (order.EstimatedIncentivePaidCommission ?? 0) + (order.NewBuyerBonusCommission ?? 0);
+        return $"{order.SettledCurrency ?? ""} {total:N2}".Trim();
+    }
+
+    private static string FormatAmount(decimal amount) => amount.ToString("N2");
+    private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    private static string StatusClass(string status) => status == AliExpressOrderStatuses.CompletedSettlement ? "success" : status == AliExpressOrderStatuses.Invalid ? "failure" : string.Empty;
+    private static string JobStatusClass(IngestionJobStatus status) => status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded ? "success" : status is IngestionJobStatus.Failed or IngestionJobStatus.Cancelled ? "failure" : string.Empty;
+    private sealed record CommissionTotal(string Currency, decimal EstimatedPaid, decimal IncentivesAndBonuses, decimal EstimatedSettled, int OrderCount);
+}
