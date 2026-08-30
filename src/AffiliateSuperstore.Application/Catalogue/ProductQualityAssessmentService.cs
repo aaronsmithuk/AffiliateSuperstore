@@ -25,8 +25,11 @@ public sealed partial class ProductQualityAssessmentService(
         (PetProductPattern(), new("scope.pet-product", "Likely pet toy rather than a collectable plush.")),
         (BabyProductPattern(), new("scope.baby-product", "Baby, cot or stroller product needs additional safety and scope review.")),
         (ThirdPartyCharacterPattern(), new("ip.third-party-character", "Title references a character, celebrity or entertainment property; verify licensing before publication.")),
+        (LicensingClaimPattern(), new("ip.licensing-claim", "Title claims an original, genuine or official branded product; verify the seller and licensing before publication.")),
         (TobaccoPattern(), new("safety.tobacco-themed", "Tobacco-themed product is unsuitable for the initial shop.")),
-        (AmbiguousQuantityPattern(), new("listing.ambiguous-quantity", "Listing advertises multiple possible quantities; check that the displayed price is not misleading."))
+        (AmbiguousQuantityPattern(), new("listing.ambiguous-quantity", "Listing advertises multiple possible quantities; check that the displayed price is not misleading.")),
+        (VariantSizePattern(), new("listing.variant-dependent-price", "Listing advertises multiple sizes; verify that the displayed price represents the pictured option.")),
+        (NonPlushProductPattern(), new("scope.non-plush-product", "Listing appears to be an accessory, material or non-plush product outside the initial catalogue focus."))
     ];
 
     public ProductQualityAssessment Assess(
@@ -115,20 +118,29 @@ public sealed partial class ProductQualityAssessmentService(
         catch (JsonException) { return [new ProductQualityFlag("review.invalid-flags", "Stored quality flags could not be read.")]; }
     }
 
-    [GeneratedRegex(@"\b(catnip|dog\s+toy|cat\s+toy|pet\s+toy|for\s+cats|for\s+dogs|teeth\s+grinding|pet\s+interactive)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(catnip|dog\s+toys?|cat\s+toys?|pet\s+toys?|for\s+cats|for\s+dogs|teeth\s+grinding|pet\s+interactive)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PetProductPattern();
 
-    [GeneratedRegex(@"\b(newborn|baby\s+rattle|stroller|crib|bassinet|teether|cot\s+mobile)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(newborn|bab(?:y|ies)|baby\s+rattle|stroller|crib|bassinet|teether|cot\s+mobile)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BabyProductPattern();
 
-    [GeneratedRegex(@"\b(mimikyu|eevee|pokemon|pokémon|fnaf|five\s+nights?\s+at\s+freddy|freddy|michael\s+jackson|domo\s+kun|hello\s+kitty|sanrio|disney|marvel|anime\s+(character|peripheral)|game\s+(character|doll)|cosplay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(mimikyu|eevee|pokemon|pokémon|fnaf|five\s+nights?\s+at\s+freddy|freddy|michael\s+jackson|domo\s+kun|hello\s+kitty|sanrio|kuromi|cinnamoroll|my\s+melody|pompompurin|pochacco|disney|stitch|lilo|marvel|star\s+wars|harry\s+potter|totoro|ghibli|kirby|mario|luigi|sonic|minecraft|creeper|poppy\s+playtime|huggy\s+wuggy|squishmallows?|care\s+bears?|winnie|pooh|one\s+piece|naruto|dragon\s+ball|demon\s+slayer|genshin|honkai|hazbin|labubu|pop\s+mart|minions?|garfield|snoopy|miffy|rilakkuma|pusheen|kermits?|smiling\s+friends|om\s+nom|cut\s+the\s+rope|bad\s+bunny|kinitopet|crayon\s+shinchan|shinchan|anime|game|cosplay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ThirdPartyCharacterPattern();
+
+    [GeneratedRegex(@"\b(official|genuine|original)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LicensingClaimPattern();
 
     [GeneratedRegex(@"\b(cigar|cigarette|tobacco)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TobaccoPattern();
 
     [GeneratedRegex(@"\b\d+\s*(pcs|pieces)\b|\b\d+\s*[~-]\s*\d+\s*pcs\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AmbiguousQuantityPattern();
+
+    [GeneratedRegex(@"\b\d+\s*[-/]\s*\d+\s*(cm|inches?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex VariantSizePattern();
+
+    [GeneratedRegex(@"\b(plush\s+fabric|doll\s+(shoes|slippers|accessories)|squeeze\s+ball|squishy\s+stress|plush\s+(backpack|crossbody|shoulder\s+bag|pencil\s+case|coin\s+purse)|slap\s+snap\s+wrap|wristband\s+bracelet)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NonPlushProductPattern();
 
     [GeneratedRegex(@"\b(pet\s+supplies|dog\s+toys?|cat\s+toys?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PetCategoryPattern();

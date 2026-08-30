@@ -213,7 +213,7 @@ public sealed class CatalogueIngestionService(
         job.LinksCreatedOrRefreshed = linksWritten;
         job.Status = job.ItemsRejected == 0 ? IngestionJobStatus.Succeeded : IngestionJobStatus.PartiallySucceeded;
         job.CompletedUtc = now;
-        job.Checkpoint = $"page={request.PageNumber};complete=true";
+        job.Checkpoint = $"page={request.PageNumber};keywords={request.Keywords};complete=true";
         await context.SaveChangesAsync(cancellationToken);
         return linksWritten;
     }

@@ -2,9 +2,13 @@
 @layout AdminLayout
 @rendermode InteractiveServer
 @inject CatalogueIngestionService IngestionService
+@inject CatalogueDiscoveryPlanService DiscoveryPlanService
+@inject CatalogueReadinessService ReadinessService
 @inject ProductQualityAssessmentService QualityAssessmentService
 @inject CatalogueEditorialService EditorialService
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
+@inject IOptions<CatalogueAutomationOptions> AutomationOptions
+@inject AffiliateSuperstoreOptions SuperstoreOptions
 
 <PageTitle>Catalogue operations</PageTitle>
 
@@ -14,9 +18,13 @@
         <h1>Product ingestion</h1>
         <p class="lede">Discover, snapshot and link products for the configured plushies shop.</p>
     </div>
-    <div class="topbar-actions"><button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsAssessing">@(IsAssessing ? "Checking…" : "Run quality checks")</button><a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a></div>
+    <div class="topbar-actions"><button class="button" type="button" @onclick="RunDiscoveryPlanAsync" disabled="@IsBusy">@(IsRunningPlan ? "Expanding…" : $"Run full discovery plan ({ConfiguredRequestCount})")</button><button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsBusy">@(IsAssessing ? "Checking…" : "Run quality checks")</button><a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a></div>
 </header>
 
+@if (PlanResult is not null)
+{
+    <div class="alert-card @(PlanResult.Status == IngestionJobStatus.Failed ? "error-card" : "success-card") quality-result" role="status"><strong>Discovery plan @PlanResult.Status.ToString().ToLowerInvariant()</strong><span>@PlanResult.RequestsCompleted of @PlanResult.RequestsPlanned requests completed · @PlanResult.ProductsRead read · @PlanResult.ProductsWritten written · @PlanResult.LinksCreatedOrRefreshed links. @PlanResult.Error</span></div>
+}
 @if (Reassessment is not null)
 {
     <div class="alert-card success-card quality-result"><strong>Quality checks complete</strong><span>@Reassessment.ProductsChecked products checked · @Reassessment.ProductsFlagged flagged · @Reassessment.ProductsDemoted previously approved products returned to review.</span></div>
@@ -24,6 +32,29 @@
 @if (CommandResult is not null)
 {
     <div class="alert-card @(CommandResult.Succeeded ? "success-card" : "error-card") quality-result" role="status"><strong>@(CommandResult.Succeeded ? "Catalogue updated" : "Update blocked")</strong><span>@CommandResult.Message</span></div>
+}
+
+@if (Readiness is not null)
+{
+    <section class="database-hero @(Readiness.ShopIsIndexable ? "healthy" : "unhealthy")">
+        <div>
+            <p class="eyebrow">Publication readiness</p>
+            <h2>@(Readiness.ShopIsIndexable ? "Catalogue depth target reached" : $"{Readiness.ProductsNeededForIndexing} more indexable products needed")</h2>
+            <p>Products count only when approved, quality-clear, linked, freshly checked and supplied with original editorial content. Search indexing remains separately controlled by configuration.</p>
+        </div>
+        <span class="database-health">@Readiness.IndexableProducts / @Readiness.IndexingTarget indexable</span>
+    </section>
+
+    <section class="metric-grid" aria-label="Catalogue readiness totals">
+        <article class="metric-card"><strong>@Readiness.ActiveProducts</strong><span>Active products</span></article>
+        <article class="metric-card"><strong>@Readiness.QualityClearProducts</strong><span>Quality-clear</span></article>
+        <article class="metric-card"><strong>@Readiness.FlaggedProducts</strong><span>Flagged</span></article>
+        <article class="metric-card"><strong>@Readiness.ApprovedProducts</strong><span>Approved</span></article>
+        <article class="metric-card"><strong>@Readiness.EditoriallyCompleteProducts</strong><span>Editorially complete</span></article>
+        <article class="metric-card"><strong>@Readiness.ProductsWithActiveLinks</strong><span>Active links</span></article>
+        <article class="metric-card"><strong>@Readiness.PendingProducts</strong><span>Pending review</span></article>
+        <article class="metric-card"><strong>@Readiness.StaleProducts</strong><span>Stale products</span></article>
+    </section>
 }
 
 <div class="catalogue-grid">
@@ -38,7 +69,7 @@
                 <div class="form-field"><label for="ingest-size">Results</label><InputNumber id="ingest-size" @bind-Value="Model.PageSize" /></div>
             </div>
             <div class="alert-card warning-card"><strong>This performs real work</strong><span>It calls AliExpress, stores product snapshots and generates tracked links using the shop Tracking ID.</span></div>
-            <button class="button button-primary run-button" type="submit" disabled="@IsRunning">
+            <button class="button button-primary run-button" type="submit" disabled="@IsBusy">
                 @if (IsRunning) { <span class="spinner"></span><span>Running ingestion…</span> }
                 else { <span>Run catalogue job</span><span>→</span> }
             </button>
@@ -95,6 +126,7 @@
         <div class="catalogue-filters">
             <label>Review <select @bind="ReviewFilter"><option value="All">All</option>@foreach (var status in Enum.GetValues<ProductReviewStatus>()) { <option value="@status">@status</option> }</select></label>
             <label class="flag-filter"><input type="checkbox" @bind="FlaggedOnly" /> Flagged only</label>
+            <label class="flag-filter"><input type="checkbox" @bind="ReadyToReviewOnly" /> Clear candidates</label>
             <span class="count-badge">@DisplayedProducts.Count / @Products.Count</span>
         </div>
     </div>
@@ -123,19 +155,31 @@
 @code {
     private readonly IngestionForm Model = new();
     private CatalogueIngestionResult? LastResult;
+    private CatalogueDiscoveryPlanResult? PlanResult;
+    private CatalogueReadinessReport? Readiness;
     private ProductReassessmentResult? Reassessment;
     private List<ProductRow> Products = [];
     private bool IsRunning;
+    private bool IsRunningPlan;
     private bool IsAssessing;
     private bool IsSaving;
     private string ReviewFilter = "All";
     private bool FlaggedOnly;
+    private bool ReadyToReviewOnly;
     private EditorialForm? Editor;
     private CatalogueCommandResult? CommandResult;
+
+    private bool IsBusy => IsRunning || IsRunningPlan || IsAssessing || IsSaving;
+    private CatalogueAutomationOptions Options => AutomationOptions.Value;
+    private ShopDefinition ConfiguredShop => SuperstoreOptions.Shops.Single(shop => string.Equals(shop.Slug, "plushies", StringComparison.OrdinalIgnoreCase));
+    private int ConfiguredRequestCount => CatalogueDiscoveryPlanner.Build(ConfiguredShop, Options.PageSize).Count;
 
     private IReadOnlyList<ProductRow> DisplayedProducts => Products
         .Where(product => ReviewFilter == "All" || string.Equals(product.ReviewStatus.ToString(), ReviewFilter, StringComparison.Ordinal))
         .Where(product => !FlaggedOnly || product.Flags.Count > 0)
+        .Where(product => !ReadyToReviewOnly || product.IsClearReviewCandidate)
+        .OrderByDescending(product => product.IsClearReviewCandidate)
+        .ThenByDescending(product => product.Volume)
         .ToArray();
 
     protected override Task OnInitializedAsync() => LoadProductsAsync();
@@ -149,6 +193,18 @@
             await LoadProductsAsync();
         }
         finally { IsRunning = false; }
+    }
+
+    private async Task RunDiscoveryPlanAsync()
+    {
+        IsRunningPlan = true;
+        try
+        {
+            PlanResult = await DiscoveryPlanService.RunAsync("plushies", Options.PageSize);
+            LastResult = PlanResult.Runs.LastOrDefault();
+            await LoadProductsAsync();
+        }
+        finally { IsRunningPlan = false; }
     }
 
     private async Task LoadProductsAsync()
@@ -176,7 +232,7 @@
         Products = await context.ShopProducts.AsNoTracking()
             .Where(item => item.Shop.Slug == "plushies" && item.IsActive)
             .OrderByDescending(item => item.Product.LastRefreshedUtc)
-            .Take(50)
+            .Take(500)
             .Select(item => new ProductRow(
                 item.ProductId,
                 item.Product.Title,
@@ -194,6 +250,7 @@
                 item.DisplayOrder,
                 item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active)))
             .ToListAsync();
+        Readiness = await ReadinessService.GetAsync("plushies");
     }
 
     private async Task ReassessAsync()
@@ -292,5 +349,6 @@
         public string DisplayTitle => EditorialTitle ?? SourceTitle;
         public bool HasEditorialContent => !string.IsNullOrWhiteSpace(EditorialTitle) || !string.IsNullOrWhiteSpace(EditorialDescription);
         public bool CanApprove => Flags.Count == 0 && HasActiveLink;
+        public bool IsClearReviewCandidate => Flags.Count == 0 && HasActiveLink && ReviewStatus is ProductReviewStatus.Pending or ProductReviewStatus.NeedsReview;
     }
 }

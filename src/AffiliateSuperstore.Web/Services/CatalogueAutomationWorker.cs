@@ -69,31 +69,17 @@ public sealed class CatalogueAutomationWorker(
                 continue;
             }
 
-            var plan = CatalogueDiscoveryPlanner.Build(configuredShop, _options.PageSize);
-            logger.LogInformation(
-                "Starting {RequestCount} scheduled catalogue discovery requests for shop {ShopSlug}.",
-                plan.Count,
-                shop.Slug);
             using var scope = scopeFactory.CreateScope();
-            var ingestion = scope.ServiceProvider.GetRequiredService<CatalogueIngestionService>();
-            foreach (var request in plan)
-            {
-                var result = await ingestion.RunAsync(request, cancellationToken);
-                logger.LogInformation(
-                    "Scheduled catalogue ingestion {JobId} for {ShopSlug}, query {Keywords}, page {Page} finished with {Status}: {Written} products and {Links} links.",
-                    result.JobId,
-                    shop.Slug,
-                    request.Keywords,
-                    request.PageNumber,
-                    result.Status,
-                    result.ProductsWritten,
-                    result.LinksCreatedOrRefreshed);
-                if (result.Status == IngestionJobStatus.Failed)
-                {
-                    logger.LogWarning("Stopping the remaining discovery plan for {ShopSlug} after a failed API request.", shop.Slug);
-                    break;
-                }
-            }
+            var discovery = scope.ServiceProvider.GetRequiredService<CatalogueDiscoveryPlanService>();
+            var discoveryResult = await discovery.RunAsync(shop.Slug, _options.PageSize, cancellationToken);
+            logger.LogInformation(
+                "Scheduled catalogue discovery plan for {ShopSlug} finished with {Status}: {Completed}/{Planned} requests, {Written} products and {Links} links.",
+                shop.Slug,
+                discoveryResult.Status,
+                discoveryResult.RequestsCompleted,
+                discoveryResult.RequestsPlanned,
+                discoveryResult.ProductsWritten,
+                discoveryResult.LinksCreatedOrRefreshed);
 
             var renewal = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
             var renewalResult = await renewal.RunAsync(

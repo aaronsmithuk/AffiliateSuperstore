@@ -20,10 +20,16 @@ public sealed class ProductQualityAssessmentServiceTests
 
     [Theory]
     [InlineData("Mimikyu Eevee anime plush doll", "ip.third-party-character")]
+    [InlineData("Cute Stitch and Cinnamoroll plush doll", "ip.third-party-character")]
     [InlineData("Interactive catnip plush toy for cats", "scope.pet-product")]
     [InlineData("Newborn stroller plush baby rattle", "scope.baby-product")]
     [InlineData("Funny cigar design plush toy", "safety.tobacco-themed")]
     [InlineData("2Pcs plush keychain set", "listing.ambiguous-quantity")]
+    [InlineData("Kermit The Frog plush hand puppet", "ip.third-party-character")]
+    [InlineData("Blue axolotl soft game peluche", "ip.third-party-character")]
+    [InlineData("Genuine YELL original otter capsule figure", "ip.licensing-claim")]
+    [InlineData("Cute frog plush toy 25/35cm", "listing.variant-dependent-price")]
+    [InlineData("Otter plush backpack crossbody bag", "scope.non-plush-product")]
     public void Assess_RiskyOrOutOfScopeTitle_ReturnsExpectedFlag(string title, string expectedCode)
     {
         var service = new ProductQualityAssessmentService(null!, TimeProvider.System);
@@ -96,15 +102,15 @@ public sealed class ProductQualityAssessmentServiceTests
         string productId,
         ProductReviewStatus status,
         string? editorialTitle = null) => new()
-    {
-        ShopId = shopId,
-        ProductId = productId,
-        IsActive = true,
-        ReviewStatus = status,
-        EditorialTitle = editorialTitle,
-        FirstIncludedUtc = DateTimeOffset.UtcNow,
-        LastIncludedUtc = DateTimeOffset.UtcNow
-    };
+        {
+            ShopId = shopId,
+            ProductId = productId,
+            IsActive = true,
+            ReviewStatus = status,
+            EditorialTitle = editorialTitle,
+            FirstIncludedUtc = DateTimeOffset.UtcNow,
+            LastIncludedUtc = DateTimeOffset.UtcNow
+        };
 
     private sealed class InMemoryFactory(string databaseName) : IDbContextFactory<AffiliateSuperstoreDbContext>
     {

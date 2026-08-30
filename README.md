@@ -24,6 +24,8 @@ catalogue review and automation schedule.
 - EF Core SQL Server model and migrations for shops, products, immutable
   snapshots, review state, links, clicks, jobs and affiliate orders
 - Live catalogue ingestion through the API with tracked-link generation
+- A guarded 12-request full-discovery plan and publication-readiness report,
+  with a single-run lock and stop-on-failure behaviour
 - Restart-safe multi-query discovery with normal refresh, failure retry,
   stale-job recovery and audited proactive affiliate-link renewal
 - Mandatory persisted product-quality checks with a human approval gate
@@ -71,8 +73,9 @@ dotnet run --project ./src/AffiliateSuperstore.Web
 Open the URL printed by ASP.NET Core, followed by `/admin/api-test`. The
 other current operations pages are `/admin/database`, `/admin/catalogue` and
 `/admin/automation`, `/admin/orders` and `/admin/performance`. The public shop is at `/plushies`, and its anonymous saved
-list is at `/basket/plushies`. Public pages remain `noindex` until the first
-safe catalogue is curated.
+list is at `/basket/plushies`. The local catalogue now has a 12-product
+quality-gated launch set; production pages remain `noindex` until the domain,
+content and release review deliberately enables indexing.
 
 Development uses SQL Server LocalDB database `AffiliateSuperstoreLocal` and
 applies checked-in migrations on application startup. A production connection
@@ -84,10 +87,12 @@ To run a catalogue job from the command line instead of the admin:
 dotnet run --project ./tools/AffiliateSuperstore.CatalogueIngest -- plushies "plush toy" 1 20
 ```
 
-Development automation is enabled and normally refreshes the first configured
-page every 24 hours. It checks persisted job history every 15 minutes, so an
-application restart does not duplicate a recent run. Production automation is
-off by default.
+Development automation is enabled and runs the configured discovery plan every
+24 hours. The current plushies plan searches six controlled themes across two
+pages (12 sequential API calls), stops on the first failure and cannot overlap
+another plan in the same application process. It checks persisted job history
+every 15 minutes, so an application restart does not duplicate a recent run.
+Production automation is off by default.
 
 Development also reconciles affiliate orders every 60 minutes. Its first run
 queries the documented 180-day window; later runs use a 48-hour overlap,
@@ -106,8 +111,9 @@ dotnet test ./AffiliateSuperstore.slnx
 
 The current suite covers request signing and normalisation, shop resolution,
 database constraints and configuration sync, ingestion success/failure and its
-quality gate, automation timing, approved-only redirect behaviour and anonymous
-list state, cursor-based order reconciliation, S2S idempotency and click
+quality gate, guarded discovery-plan execution, publication readiness,
+automation timing, approved-only redirect behaviour and anonymous list state,
+cursor-based order reconciliation, S2S idempotency and click
 attribution, archive export safety and click/link performance aggregation.
 
 After configuring User Secrets, the live smoke test exercises categories, a

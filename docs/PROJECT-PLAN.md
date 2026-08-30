@@ -96,7 +96,7 @@ The MVP is complete when:
 | 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
-| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working |
+| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
 
 ## Phase 1 acceptance criteria
@@ -149,14 +149,14 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
 - The account's commission model should be rechecked after its verified-site
   classification finishes updating.
 - Automated quality screening now catches common prohibited, off-niche,
-  ambiguous-quantity and third-party-character risks, but it deliberately does
-  not replace human editorial approval.
+  ambiguous-quantity, variant-pricing and third-party-character risks, but it
+  deliberately does not replace human editorial and image review.
 - Public admin access is forbidden until authentication and authorisation are
   implemented.
-- The first live discovery results include pet toys and likely third-party
-  character or celebrity merchandise. Fifteen of 18 products are automatically
-  held in `NeedsReview`; only one visually checked generic product has been
-  approved for the local end-to-end test.
+- The expanded live discovery pool still includes pet toys, variant-price
+  listings and likely third-party-character merchandise. Those products are
+  held from publication by persisted flags or manual review; the local launch
+  set contains only 12 individually checked and edited products.
 - ASP.NET Core Data Protection keys must be stored persistently on the
   production host so protected shopping-list cookies survive application
   restarts and deployments.
@@ -164,19 +164,22 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
 ## Current implementation snapshot
 
 As of 30 August 2026, the local SQL Server database contains one configured
-shop, 18 products, 36 immutable price/commission snapshots, 18 active affiliate
-links and two successful live discovery jobs. Both jobs read and wrote 18
-products and refreshed 18 links. Automated reassessment records durable flag
-reasons and timestamps: 15 products need review, two remain pending and one
-visually checked generic Highland-cattle plush is approved locally.
+shop, 211 products, 232 immutable price/commission snapshots, 211 active
+affiliate links and 18 successful ingestion jobs. The guarded full-discovery
+run completed all 12 planned API requests, reading and writing 196 products and
+refreshing 196 links. Automated reassessment leaves 119 products quality-clear
+and flags 92 for persisted review reasons. Human review has produced a
+12-product editorially complete, approved and indexable local launch set; 93
+products need review, 102 remain pending and four have been rejected.
 
 Implemented operational surfaces:
 
 - `/admin/api-test` — permission-aware workbench for all 16 documented methods.
 - `/admin/database` — connectivity, migrations and operational counts.
-- `/admin/catalogue` — live discovery, persisted automated quality flags,
-  filters, job result, guarded approval actions and a curation drawer for
-  public titles, descriptions, featuring and display order.
+- `/admin/catalogue` — live discovery, a guarded full-plan action, publication
+  readiness totals, persisted automated quality flags, prioritised filters,
+  guarded approval actions and a curation drawer for public titles,
+  descriptions, featuring and display order.
 - `/admin/automation` — schedule, retry policy, next-run and due-state visibility.
 - `/admin/orders` — paid/confirmed/settled/invalid lifecycle totals, base and
   incentive commission reporting, click attribution, S2S readiness, safe
@@ -207,14 +210,18 @@ Editorial approval is enforced below the UI: inactive or ineligible products,
 products with automated quality flags, and products without an active affiliate
 link cannot be approved. Quality reassessment always includes the original
 AliExpress title as well as any editorial title, so rewriting visible copy
-cannot hide a source-listing risk. The locally approved Highland-cattle product
-now provides an end-to-end curated title, description, feature and ordering
-example on both the catalogue and product-detail pages.
+cannot hide a source-listing risk. The 12 locally approved products now provide
+a meaningful end-to-end curated catalogue on both the catalogue and
+product-detail pages. Approval followed source-title screening, offer-shape
+checks and individual image review; source risks and misleading images were not
+papered over with editorial copy.
 
 Development catalogue automation is enabled with a 24-hour refresh, 15-minute
 poll, 60-minute failure retry and two-hour stale-job recovery. The plushies
-shop currently expands four controlled discovery queries into four sequential
-API requests per refresh. Every result still passes the persisted quality gate.
+shop currently expands six controlled discovery queries across two pages into
+12 sequential API requests per refresh. A process-wide guard prevents
+overlapping manual and scheduled plans, and a failed request stops the
+remaining plan. Every result still passes the persisted quality gate.
 Active product links older than 120 hours are revalidated in batches of 50;
 changed URLs replace and expire the previous link through an audited
 `LinkRefresh` job. The worker reads SQL job history on startup, so restarting
@@ -258,10 +265,10 @@ HTTPS endpoint and protected production configuration. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Continue catalogue depth and the visual-system work, then add admin
-authentication and complete the production S2S/release configuration. In
-parallel, capture the current affiliate agreement and determine whether
-delivery estimates are available through the permitted API surface. Impression
-tracking can be added when a real CTR is operationally useful. Indexing and
-public deployment remain blocked on a sufficiently deep curated catalogue,
-admin authentication and production release checks.
+Integrate the reviewed visual-system work, then add admin authentication and
+complete the production S2S/release configuration. In parallel, capture the
+current affiliate agreement and determine whether delivery estimates are
+available through the permitted API surface. Impression tracking can be added
+when a real CTR is operationally useful. The local catalogue-depth gate has
+been met; indexing and public deployment remain blocked on visual/content
+review, admin authentication and production release checks.
