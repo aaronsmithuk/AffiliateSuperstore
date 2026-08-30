@@ -21,6 +21,7 @@ public sealed class AffiliateOrderReconciliationServiceTests
         var result = await service.RunAsync();
 
         Assert.Equal(IngestionJobStatus.Succeeded, result.Status);
+        Assert.True(result.WasFullBackfill);
         Assert.Equal(1, result.AttributedOrders);
         Assert.Equal(AliExpressOrderStatuses.All, client.QueriedStatuses);
         Assert.Single(client.RefreshedOrderIds);
@@ -41,6 +42,9 @@ public sealed class AffiliateOrderReconciliationServiceTests
         var second = await service.RunAsync();
 
         Assert.Equal(IngestionJobStatus.Succeeded, second.Status);
+        Assert.False(second.WasFullBackfill);
+        Assert.All(client.QueryStartTimes.Take(4), start => Assert.Equal(Now.AddDays(-180).AddHours(-8), start));
+        Assert.All(client.QueryStartTimes.Skip(4), start => Assert.Equal(Now.AddHours(-48).AddHours(-8), start));
         await using var verification = factory.CreateDbContext();
         Assert.Equal(1, await verification.AffiliateOrders.CountAsync());
         Assert.Equal(2, await verification.IngestionJobs.CountAsync());
@@ -126,12 +130,14 @@ public sealed class AffiliateOrderReconciliationServiceTests
         public string DiscoveryStatus { get; set; } = AliExpressOrderStatuses.PaymentCompleted;
         public bool FailQueries { get; set; }
         public List<string> QueriedStatuses { get; } = [];
+        public List<DateTimeOffset> QueryStartTimes { get; } = [];
         public List<string> RefreshedOrderIds { get; } = [];
         public IReadOnlyList<AliExpressApiMethodDescriptor> Methods => [];
 
         public Task<AliExpressApiCallResult> ListOrdersByIndexAsync(AliExpressOrderListByIndexRequest request, CancellationToken cancellationToken = default)
         {
             QueriedStatuses.Add(request.Status);
+            QueryStartTimes.Add(request.StartTimePacific);
             if (FailQueries) return Task.FromResult(Failure("aliexpress.affiliate.order.listbyindex"));
             return Task.FromResult(request.Status == DiscoveryStatus
                 ? Success("aliexpress.affiliate.order.listbyindex", OrderResponse(request.Status, request.Status == AliExpressOrderStatuses.CompletedSettlement))

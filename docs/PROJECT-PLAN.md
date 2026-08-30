@@ -95,7 +95,7 @@ The MVP is complete when:
 | 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, retry, quality assessment, guarded editorial approval and audited link renewal are working |
 | 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
-| 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | In progress; restart-safe pull reconciliation, guarded S2S inbox, click attribution and commission dashboard are working; production S2S setup and long-term retention/export remain |
+| 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
 
@@ -179,8 +179,11 @@ Implemented operational surfaces:
   public titles, descriptions, featuring and display order.
 - `/admin/automation` — schedule, retry policy, next-run and due-state visibility.
 - `/admin/orders` — paid/confirmed/settled/invalid lifecycle totals, base and
-  incentive commission reporting, click attribution, S2S readiness and an
-  audited manual reconciliation action.
+  incentive commission reporting, click attribution, S2S readiness, safe
+  development CSV export and incremental/full reconciliation actions.
+- `/admin/performance` — selectable-window clicks, converting clicks,
+  click-to-order rate, active-link use, attributed orders, S2S events and
+  commission breakdowns by campaign/placement and product.
 - `/plushies` — SQL-backed approved-only catalogue with local search,
   category, price and popularity sorting.
 - `/plushies/product/{productId}` — approved-only product detail with current
@@ -229,12 +232,22 @@ verified.
 
 Development order reconciliation is enabled on a 60-minute schedule. The first
 run walks all four documented order states through the index cursor over the
-180-day retention window; later discovery runs overlap by 48 hours and every
-known non-terminal sub-order is refreshed directly until Completed Settlement
-or Invalid. Checkpoints and metrics are stored in the shared ingestion-job
-history. A live account run on 30 August 2026 completed successfully and found
-no orders in the current retention window; AliExpress's platform code 405 / "The
-result is empty" is normalised only for that exact benign response.
+180-day retention window; later discovery runs overlap by 48 hours, force a
+complete 180-day recovery scan every 30 days and refresh every known
+non-terminal sub-order directly until Completed Settlement or Invalid.
+Checkpoints and metrics are stored in the shared ingestion-job history. The SQL
+order table is the authoritative archive beyond the API query window. A
+spreadsheet-injection-safe CSV backup is available only in Development until
+admin authentication is implemented. A live account run on 30 August 2026
+completed successfully and found no orders in the current retention window;
+AliExpress's platform code 405 / "The result is empty" is normalised only for
+that exact benign response.
+
+The performance report joins outbound click IDs to reconciled orders and
+aggregates channels, products and estimated/settled commission by currency.
+Invalid orders are retained for audit but excluded from commission. Because
+page impressions are not yet stored, the UI deliberately reports click-to-order
+conversion rather than claiming an impression-to-click CTR.
 
 The S2S paid-order route has an immutable, duplicate-suppressed inbox and feeds
 the same order/click model, including base commission, CPX incentive and new-
@@ -245,9 +258,10 @@ HTTPS endpoint and protected production configuration. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Complete conversion operations with long-term monthly order retention/export
-and link/click performance reporting, then continue catalogue depth and visual
-system work. In parallel, capture the current affiliate agreement and determine
-whether delivery estimates are available through the permitted API surface.
-Indexing and public deployment remain blocked on a sufficiently deep curated
-catalogue, admin authentication and production release checks.
+Continue catalogue depth and the visual-system work, then add admin
+authentication and complete the production S2S/release configuration. In
+parallel, capture the current affiliate agreement and determine whether
+delivery estimates are available through the permitted API surface. Impression
+tracking can be added when a real CTR is operationally useful. Indexing and
+public deployment remain blocked on a sufficiently deep curated catalogue,
+admin authentication and production release checks.

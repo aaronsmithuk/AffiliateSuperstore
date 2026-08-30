@@ -3,6 +3,7 @@ using AffiliateSuperstore.Application.Catalogue;
 using AffiliateSuperstore.Application.Basket;
 using AffiliateSuperstore.Application.Tracking;
 using AffiliateSuperstore.Application.Orders;
+using AffiliateSuperstore.Application.Reporting;
 using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Core.Tracking;
 using AffiliateSuperstore.Persistence;
@@ -80,6 +81,8 @@ builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<OutboundRedirectService>();
 builder.Services.AddTransient<AffiliateOrderReconciliationService>();
 builder.Services.AddTransient<AffiliateS2sIngestionService>();
+builder.Services.AddTransient<OrderArchiveExportService>();
+builder.Services.AddTransient<AffiliatePerformanceService>();
 builder.Services.AddSingleton<AnonymousBasketCodec>();
 builder.Services.AddSingleton<AnonymousBasketStore>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
@@ -153,6 +156,16 @@ app.MapMethods("/integrations/aliexpress/s2s", ["GET", "POST"], async (
     return result.Disposition == AffiliateS2sDisposition.Rejected
         ? Results.BadRequest(new { error = result.Error })
         : Results.Text("ok", "text/plain");
+});
+
+app.MapGet("/admin/orders/export.csv", async (
+    IWebHostEnvironment environment,
+    OrderArchiveExportService exportService,
+    CancellationToken cancellationToken) =>
+{
+    if (!environment.IsDevelopment()) return Results.NotFound();
+    var export = await exportService.CreateCsvAsync(cancellationToken);
+    return Results.File(export.Content, "text/csv; charset=utf-8", export.FileName);
 });
 
 app.Run();

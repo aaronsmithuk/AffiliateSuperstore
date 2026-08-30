@@ -14,7 +14,15 @@ public sealed record OrderReconciliationResult(
     int OrdersWritten,
     int OrdersRejected,
     int AttributedOrders,
+    bool WasFullBackfill,
     string? Error);
+
+public enum OrderReconciliationRunMode
+{
+    Automatic,
+    Incremental,
+    FullBackfill
+}
 
 public sealed class AffiliateOrderReconciliationService(
     IAliExpressClient aliExpressClient,
@@ -32,7 +40,9 @@ public sealed class AffiliateOrderReconciliationService(
     private const string GetRequestedFields = CommonRequestedFields + ",customer_parameters";
     private static readonly SemaphoreSlim Gate = new(1, 1);
 
-    public async Task<OrderReconciliationResult> RunAsync(CancellationToken cancellationToken = default)
+    public async Task<OrderReconciliationResult> RunAsync(
+        OrderReconciliationRunMode runMode = OrderReconciliationRunMode.Automatic,
+        CancellationToken cancellationToken = default)
     {
         OrderReconciliationPlanner.Validate(options);
         if (!await Gate.WaitAsync(0, cancellationToken))
@@ -44,6 +54,7 @@ public sealed class AffiliateOrderReconciliationService(
                 0,
                 0,
                 0,
+                false,
                 "Order reconciliation is already running in this application instance.");
         }
 
@@ -52,16 +63,32 @@ public sealed class AffiliateOrderReconciliationService(
         {
             var now = timeProvider.GetUtcNow();
             DateTimeOffset? latestSuccessUtc;
+            DateTimeOffset? latestFullBackfillUtc;
+            bool fullBackfill;
             await using (var setup = await contextFactory.CreateDbContextAsync(cancellationToken))
             {
                 latestSuccessUtc = await setup.IngestionJobs.AsNoTracking()
                     .Where(job =>
                         job.Type == IngestionJobType.OrderReconciliation &&
-                        job.Status == IngestionJobStatus.Succeeded &&
+                        (job.Status == IngestionJobStatus.Succeeded || job.Status == IngestionJobStatus.PartiallySucceeded) &&
                         job.CompletedUtc != null)
                     .OrderByDescending(job => job.CompletedUtc)
                     .Select(job => job.CompletedUtc)
                     .FirstOrDefaultAsync(cancellationToken);
+                latestFullBackfillUtc = await setup.IngestionJobs.AsNoTracking()
+                    .Where(job =>
+                        job.Type == IngestionJobType.OrderReconciliation &&
+                        (job.Status == IngestionJobStatus.Succeeded || job.Status == IngestionJobStatus.PartiallySucceeded) &&
+                        job.CompletedUtc != null &&
+                        job.Checkpoint != null &&
+                        job.Checkpoint.Contains("\"isFullBackfill\":true"))
+                    .OrderByDescending(job => job.CompletedUtc)
+                    .Select(job => job.CompletedUtc)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                fullBackfill = runMode == OrderReconciliationRunMode.FullBackfill ||
+                    runMode == OrderReconciliationRunMode.Automatic &&
+                    (latestFullBackfillUtc is null || latestFullBackfillUtc <= now.AddDays(-options.FullBackfillEveryDays));
 
                 jobId = Guid.CreateVersion7();
                 setup.IngestionJobs.Add(new IngestionJobRecord
@@ -72,13 +99,14 @@ public sealed class AffiliateOrderReconciliationService(
                     QueuedUtc = now,
                     StartedUtc = now,
                     CorrelationId = jobId.Value.ToString("N"),
-                    Checkpoint = Checkpoint("starting", null, null, null, null)
+                    Checkpoint = Checkpoint("starting", null, null, null, null, fullBackfill)
                 });
                 await setup.SaveChangesAsync(cancellationToken);
             }
 
-            var windowStartUtc = latestSuccessUtc?.AddHours(-options.IncrementalLookbackHours)
-                ?? now.AddDays(-options.InitialLookbackDays);
+            var windowStartUtc = fullBackfill
+                ? now.AddDays(-options.InitialLookbackDays)
+                : latestSuccessUtc?.AddHours(-options.IncrementalLookbackHours) ?? now.AddDays(-options.InitialLookbackDays);
             var startPacific = PacificClock.FromUtc(windowStartUtc);
             var endPacific = PacificClock.FromUtc(now);
             foreach (var status in AliExpressOrderStatuses.All)
@@ -100,7 +128,7 @@ public sealed class AffiliateOrderReconciliationService(
                     await PersistPageAsync(
                         jobId.Value,
                         page.Items,
-                        Checkpoint("discovery", status, pageNumber, page.MaximumQueryIndexId, windowStartUtc),
+                        Checkpoint("discovery", status, pageNumber, page.MaximumQueryIndexId, windowStartUtc, fullBackfill),
                         cancellationToken);
 
                     var nextCursor = page.MaximumQueryIndexId;
@@ -119,8 +147,8 @@ public sealed class AffiliateOrderReconciliationService(
                 }
             }
 
-            await RefreshOpenOrdersAsync(jobId.Value, cancellationToken);
-            await CompleteAsync(jobId.Value, cancellationToken);
+            await RefreshOpenOrdersAsync(jobId.Value, fullBackfill, cancellationToken);
+            await CompleteAsync(jobId.Value, windowStartUtc, fullBackfill, cancellationToken);
             return await BuildResultAsync(jobId.Value, null, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -132,7 +160,7 @@ public sealed class AffiliateOrderReconciliationService(
         {
             if (jobId is null)
             {
-                return new OrderReconciliationResult(null, IngestionJobStatus.Failed, 0, 0, 0, 0, exception.Message);
+                return new OrderReconciliationResult(null, IngestionJobStatus.Failed, 0, 0, 0, 0, false, exception.Message);
             }
 
             await MarkStoppedAsync(jobId.Value, IngestionJobStatus.Failed, $"{exception.GetType().Name}: {exception.Message}");
@@ -144,7 +172,7 @@ public sealed class AffiliateOrderReconciliationService(
         }
     }
 
-    private async Task RefreshOpenOrdersAsync(Guid jobId, CancellationToken cancellationToken)
+    private async Task RefreshOpenOrdersAsync(Guid jobId, bool fullBackfill, CancellationToken cancellationToken)
     {
         string[] orderIds;
         await using (var context = await contextFactory.CreateDbContextAsync(cancellationToken))
@@ -170,7 +198,7 @@ public sealed class AffiliateOrderReconciliationService(
             await PersistPageAsync(
                 jobId,
                 page.Items,
-                Checkpoint("open-order-refresh", null, batchNumber + 1, null, null),
+                Checkpoint("open-order-refresh", null, batchNumber + 1, null, null, fullBackfill),
                 cancellationToken);
         }
 
@@ -261,13 +289,17 @@ public sealed class AffiliateOrderReconciliationService(
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task CompleteAsync(Guid jobId, CancellationToken cancellationToken)
+    private async Task CompleteAsync(
+        Guid jobId,
+        DateTimeOffset windowStartUtc,
+        bool fullBackfill,
+        CancellationToken cancellationToken)
     {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         var job = await context.IngestionJobs.SingleAsync(item => item.Id == jobId, cancellationToken);
         job.Status = job.ItemsRejected == 0 ? IngestionJobStatus.Succeeded : IngestionJobStatus.PartiallySucceeded;
         job.CompletedUtc = timeProvider.GetUtcNow();
-        job.Checkpoint = Checkpoint("complete", null, null, null, null);
+        job.Checkpoint = Checkpoint("complete", null, null, null, windowStartUtc, fullBackfill);
         await context.SaveChangesAsync(cancellationToken);
     }
 
@@ -305,6 +337,7 @@ public sealed class AffiliateOrderReconciliationService(
             job.ItemsWritten,
             job.ItemsRejected,
             attributedInRun,
+            job.Checkpoint?.Contains("\"isFullBackfill\":true", StringComparison.Ordinal) == true,
             error ?? job.ErrorSummary);
     }
 
@@ -332,8 +365,9 @@ public sealed class AffiliateOrderReconciliationService(
         string? status,
         int? page,
         string? queryIndex,
-        DateTimeOffset? windowStartUtc) =>
-        JsonSerializer.Serialize(new { phase, status, page, queryIndex, windowStartUtc });
+        DateTimeOffset? windowStartUtc,
+        bool isFullBackfill) =>
+        JsonSerializer.Serialize(new { phase, status, page, queryIndex, windowStartUtc, isFullBackfill });
 
     private static bool IsValidOrderId(string value) =>
         !string.IsNullOrWhiteSpace(value) && value.Length <= 100;

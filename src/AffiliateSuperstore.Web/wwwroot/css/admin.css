@@ -1097,6 +1097,20 @@ h2 {
     color: var(--ink);
 }
 
+.performance-window {
+    min-height: 42px;
+    padding: 0 36px 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    background: var(--paper);
+}
+
+.performance-window:focus {
+    border-color: var(--green-bright);
+    outline: 3px solid rgba(47, 118, 110, 0.12);
+}
+
 .catalogue-product-cell {
     min-width: 360px;
     display: grid;

@@ -16,7 +16,9 @@
     </div>
     <div class="button-row">
         <button class="button secondary-button" type="button" @onclick="LoadAsync" disabled="@IsBusy">Refresh</button>
+        <a class="button secondary-button" href="/admin/orders/export.csv">Export CSV</a>
         <button class="button" type="button" @onclick="RunAsync" disabled="@IsBusy">@(IsRunning ? "Reconciling…" : "Run reconciliation")</button>
+        <button class="button secondary-button" type="button" @onclick="RunFullBackfillAsync" disabled="@IsBusy">Full 180-day backfill</button>
     </div>
 </header>
 
@@ -24,7 +26,7 @@
 {
     <div class="alert-card @(LastRunResult.Status == IngestionJobStatus.Failed ? "error-card" : "success-card")">
         <strong>Reconciliation @LastRunResult.Status.ToString().ToLowerInvariant()</strong>
-        <span>@LastRunResult.OrdersRead read, @LastRunResult.OrdersWritten persisted, @LastRunResult.OrdersRejected rejected. @LastRunResult.Error</span>
+        <span>@(LastRunResult.WasFullBackfill ? "Full backfill" : "Incremental run"): @LastRunResult.OrdersRead read, @LastRunResult.OrdersWritten persisted, @LastRunResult.OrdersRejected rejected. @LastRunResult.Error</span>
     </div>
 }
 
@@ -32,7 +34,7 @@
     <div>
         <p class="eyebrow">Reconciliation worker</p>
         <h2>@(ReconciliationOptions.Enabled ? "Automatic reconciliation is enabled" : "Automatic reconciliation is disabled")</h2>
-        <p>New orders are discovered with a @ReconciliationOptions.IncrementalLookbackHours-hour overlap. Open orders are then refreshed by sub-order ID until settlement or invalidation.</p>
+        <p>New orders are discovered with a @ReconciliationOptions.IncrementalLookbackHours-hour overlap. A full @ReconciliationOptions.InitialLookbackDays-day recovery scan runs every @ReconciliationOptions.FullBackfillEveryDays days.</p>
     </div>
     <span class="database-health">@(ReconciliationOptions.Enabled ? $"Every {ReconciliationOptions.RefreshEveryMinutes} min" : "Manual")</span>
 </section>
@@ -152,10 +154,20 @@
 
     private async Task RunAsync()
     {
+        await RunReconciliationAsync(OrderReconciliationRunMode.Automatic);
+    }
+
+    private async Task RunFullBackfillAsync()
+    {
+        await RunReconciliationAsync(OrderReconciliationRunMode.FullBackfill);
+    }
+
+    private async Task RunReconciliationAsync(OrderReconciliationRunMode mode)
+    {
         IsRunning = true;
         try
         {
-            LastRunResult = await ReconciliationService.RunAsync();
+            LastRunResult = await ReconciliationService.RunAsync(mode);
             await LoadCoreAsync();
         }
         finally { IsRunning = false; }

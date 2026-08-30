@@ -9,6 +9,7 @@ public sealed class OrderReconciliationOptions
     public int FailureRetryMinutes { get; set; } = 15;
     public int InitialLookbackDays { get; set; } = 180;
     public int IncrementalLookbackHours { get; set; } = 48;
+    public int FullBackfillEveryDays { get; set; } = 30;
     public int PageSize { get; set; } = 50;
     public int MaximumPagesPerStatus { get; set; } = 200;
     public int OpenOrderBatchSize { get; set; } = 50;
@@ -38,6 +39,7 @@ public static class OrderReconciliationPlanner
         if (options.FailureRetryMinutes is < 1 or > 1440) throw new InvalidOperationException("OrderReconciliation:FailureRetryMinutes must be between 1 and 1440.");
         if (options.InitialLookbackDays is < 1 or > 180) throw new InvalidOperationException("OrderReconciliation:InitialLookbackDays must be between 1 and 180.");
         if (options.IncrementalLookbackHours is < 1 or > 4320) throw new InvalidOperationException("OrderReconciliation:IncrementalLookbackHours must be between 1 and 4320.");
+        if (options.FullBackfillEveryDays is < 1 or > 90) throw new InvalidOperationException("OrderReconciliation:FullBackfillEveryDays must be between 1 and 90.");
         if (options.PageSize is < 1 or > 50) throw new InvalidOperationException("OrderReconciliation:PageSize must be between 1 and 50.");
         if (options.MaximumPagesPerStatus is < 1 or > 1000) throw new InvalidOperationException("OrderReconciliation:MaximumPagesPerStatus must be between 1 and 1000.");
         if (options.OpenOrderBatchSize is < 1 or > 50) throw new InvalidOperationException("OrderReconciliation:OpenOrderBatchSize must be between 1 and 50.");

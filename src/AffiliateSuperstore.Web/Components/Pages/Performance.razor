@@ -1,0 +1,127 @@
+@page "/admin/performance"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject AffiliatePerformanceService PerformanceService
+
+<PageTitle>Affiliate performance</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Traffic and revenue</p>
+        <h1>Affiliate performance</h1>
+        <p class="lede">Click attribution, converting visits and commission performance across shops and products.</p>
+    </div>
+    <div class="button-row">
+        <select class="performance-window" aria-label="Reporting window" @bind="LookbackDays">
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="180">Last 180 days</option>
+            <option value="365">Last year</option>
+        </select>
+        <button class="button" type="button" @onclick="LoadAsync" disabled="@IsLoading">@(IsLoading ? "Loading…" : "Apply")</button>
+    </div>
+</header>
+
+@if (Report is null)
+{
+    <section class="panel"><p class="database-empty">Loading affiliate performance…</p></section>
+}
+else
+{
+    <section class="database-hero healthy">
+        <div>
+            <p class="eyebrow">Attribution window</p>
+            <h2>@Report.WindowStartUtc.ToLocalTime().ToString("dd MMM yyyy") to @Report.GeneratedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</h2>
+            <p>Orders are attributed through the click ID stored in each outbound AliExpress link. Invalid orders are excluded from commission totals.</p>
+        </div>
+        <span class="database-health">@Report.LookbackDays days</span>
+    </section>
+
+    <section class="metric-grid" aria-label="Affiliate performance totals">
+        <article class="metric-card"><strong>@Report.Clicks</strong><span>Outbound clicks</span></article>
+        <article class="metric-card"><strong>@Report.ConvertingClicks</strong><span>Converting clicks</span></article>
+        <article class="metric-card"><strong>@FormatPercent(Report.ClickToOrderRate)</strong><span>Click-to-order rate</span></article>
+        <article class="metric-card"><strong>@Report.AttributedOrders</strong><span>Attributed orders</span></article>
+        <article class="metric-card"><strong>@Report.ActiveLinksClicked / @Report.ActiveLinks</strong><span>Active links clicked</span></article>
+        <article class="metric-card"><strong>@Report.ActiveLinksWithoutClicks</strong><span>Active links without clicks</span></article>
+        <article class="metric-card"><strong>@Report.InvalidOrders</strong><span>Invalid orders</span></article>
+        <article class="metric-card"><strong>@Report.S2sEvents</strong><span>S2S events received</span></article>
+    </section>
+
+    <section class="panel catalogue-table-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Revenue</p><h2>Commission by currency</h2></div><span class="count-badge">@Report.Commission.Count</span></div>
+        @if (Report.Commission.Count == 0)
+        {
+            <p class="database-empty">No commission-bearing attributed orders were found in this window.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Currency</th><th>Estimated</th><th>Settled</th></tr></thead><tbody>
+            @foreach (var total in Report.Commission)
+            {
+                <tr><td><strong>@total.Currency</strong></td><td>@FormatAmount(total.EstimatedCommission)</td><td>@FormatAmount(total.SettledCommission)</td></tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+
+    <section class="panel catalogue-table-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Channels</p><h2>Campaign and placement</h2></div><span class="count-badge">@Report.Channels.Count</span></div>
+        @if (Report.Channels.Count == 0)
+        {
+            <p class="database-empty">No outbound clicks were recorded in this window.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Campaign</th><th>Placement</th><th>Clicks</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
+            @foreach (var row in Report.Channels)
+            {
+                <tr><td><strong>@row.Name</strong></td><td>@row.Detail</td><td>@row.Clicks</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+
+    <section class="panel catalogue-table-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Catalogue</p><h2>Product performance</h2></div><span class="count-badge">@Report.Products.Count</span></div>
+        @if (Report.Products.Count == 0)
+        {
+            <p class="database-empty">No product clicks were recorded in this window.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>AliExpress ID</th><th>Clicks</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
+            @foreach (var row in Report.Products)
+            {
+                <tr><td><strong>@row.Name</strong></td><td><small>@row.Detail</small></td><td>@row.Clicks</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+
+    <div class="alert-card warning-card automation-note">
+        <strong>Click-to-order is not click-through rate</strong>
+        <span>Page impressions are not stored yet, so a true impression-to-click CTR cannot be calculated. This report measures recorded outbound clicks and their attributed AliExpress orders.</span>
+    </div>
+}
+
+@code {
+    private int LookbackDays = 30;
+    private bool IsLoading;
+    private AffiliatePerformanceReport? Report;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try { Report = await PerformanceService.GetAsync(LookbackDays); }
+        finally { IsLoading = false; }
+    }
+
+    private static string FormatAmount(decimal amount) => amount.ToString("N2");
+    private static string FormatPercent(decimal rate) => rate.ToString("P1");
+    private static string FormatCommission(IReadOnlyList<AffiliateCommissionSummary> totals) =>
+        totals.Count == 0 ? "—" : string.Join(" · ", totals.Select(total => $"{total.Currency} {total.EstimatedCommission:N2}"));
+}

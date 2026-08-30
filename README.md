@@ -15,7 +15,7 @@ catalogue review and automation schedule.
 - .NET 10
 - Configurable Razor Pages shop shell at `/plushies`
 - Blazor admin API workbench at `/admin/api-test`
-- Blazor database, catalogue, automation and affiliate-order pages
+- Blazor database, catalogue, automation, affiliate-order and performance pages
 - Reusable HMAC-SHA256 AliExpress client covering all 16 published methods
 - Typed request models, response normalisation and permission visibility
 - Domain/path-aware shop resolution, theming and SEO metadata
@@ -35,7 +35,11 @@ catalogue review and automation schedule.
   ItemList structured data, with production indexing disabled by default
 - Auditable `/go/{shop}/{product}` redirect
 - Restart-safe paid-order discovery across all four AliExpress lifecycle
-  states, open-order refresh, click attribution and commission reporting
+  states, open-order refresh, click attribution, monthly recovery backfill and
+  commission reporting
+- Spreadsheet-safe development CSV export of the durable SQL order archive
+- Click-to-order reporting by campaign, placement and product, with invalid
+  orders excluded from commission totals
 - Guarded, idempotent S2S paid-order inbox, disabled until its production HTTPS
   URL and fixed verification secret are configured
 - Protected 90-day anonymous shopping list with item count and one-by-one
@@ -66,7 +70,7 @@ dotnet run --project ./src/AffiliateSuperstore.Web
 
 Open the URL printed by ASP.NET Core, followed by `/admin/api-test`. The
 other current operations pages are `/admin/database`, `/admin/catalogue` and
-`/admin/automation` and `/admin/orders`. The public shop is at `/plushies`, and its anonymous saved
+`/admin/automation`, `/admin/orders` and `/admin/performance`. The public shop is at `/plushies`, and its anonymous saved
 list is at `/basket/plushies`. Public pages remain `noindex` until the first
 safe catalogue is curated.
 
@@ -86,9 +90,12 @@ application restart does not duplicate a recent run. Production automation is
 off by default.
 
 Development also reconciles affiliate orders every 60 minutes. Its first run
-queries the documented 180-day window; later runs use a 48-hour overlap and
-refresh every locally open sub-order by ID. Production order automation is off
-by default. S2S production setup is documented in
+queries the documented 180-day window; later runs use a 48-hour overlap,
+refresh every locally open sub-order by ID and force another full 180-day scan
+every 30 days. SQL is the authoritative long-term archive. A CSV backup can be
+downloaded from the local-development Orders page; it deliberately returns 404
+outside Development until admin authentication is implemented. Production
+order automation is off by default. S2S production setup is documented in
 [`docs/S2S-SETUP.md`](docs/S2S-SETUP.md).
 
 ## Verify
@@ -101,7 +108,7 @@ The current suite covers request signing and normalisation, shop resolution,
 database constraints and configuration sync, ingestion success/failure and its
 quality gate, automation timing, approved-only redirect behaviour and anonymous
 list state, cursor-based order reconciliation, S2S idempotency and click
-attribution.
+attribution, archive export safety and click/link performance aggregation.
 
 After configuring User Secrets, the live smoke test exercises categories, a
 five-item UK plush search, product details, tracked-link generation, featured

@@ -42,7 +42,7 @@ public sealed class OrderReconciliationWorker(
 
         using var scope = scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<AffiliateOrderReconciliationService>();
-        var result = await service.RunAsync(cancellationToken);
+        var result = await service.RunAsync(cancellationToken: cancellationToken);
         if (result.Status == IngestionJobStatus.Failed)
         {
             logger.LogWarning(
