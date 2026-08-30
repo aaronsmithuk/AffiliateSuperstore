@@ -76,7 +76,7 @@ public sealed class ProductQualityAssessmentServiceTests
             Product("risky", "Mimikyu Eevee anime plush doll"),
             Product("clean", "Adorable Highland cattle plush toy"));
         context.ShopProducts.AddRange(
-            ShopProduct(shopId, "risky", ProductReviewStatus.Approved),
+            ShopProduct(shopId, "risky", ProductReviewStatus.Approved, "Sweet yellow plush friend"),
             ShopProduct(shopId, "clean", ProductReviewStatus.Pending));
         await context.SaveChangesAsync();
     }
@@ -91,12 +91,17 @@ public sealed class ProductQualityAssessmentServiceTests
         LastRefreshedUtc = DateTimeOffset.UtcNow
     };
 
-    private static ShopProductRecord ShopProduct(Guid shopId, string productId, ProductReviewStatus status) => new()
+    private static ShopProductRecord ShopProduct(
+        Guid shopId,
+        string productId,
+        ProductReviewStatus status,
+        string? editorialTitle = null) => new()
     {
         ShopId = shopId,
         ProductId = productId,
         IsActive = true,
         ReviewStatus = status,
+        EditorialTitle = editorialTitle,
         FirstIncludedUtc = DateTimeOffset.UtcNow,
         LastIncludedUtc = DateTimeOffset.UtcNow
     };

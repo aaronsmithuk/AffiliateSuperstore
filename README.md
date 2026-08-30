@@ -27,6 +27,8 @@ catalogue review and automation schedule.
 - Restart-safe multi-query discovery with normal refresh, failure retry,
   stale-job recovery and audited proactive affiliate-link renewal
 - Mandatory persisted product-quality checks with a human approval gate
+- Guarded editorial curation for public titles, descriptions, featuring and
+  display order; source-listing risks cannot be hidden by rewritten copy
 - Approved-only public catalogue, product detail and local category/price/sort
   controls
 - Auditable `/go/{shop}/{product}` redirect

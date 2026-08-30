@@ -710,6 +710,12 @@ h2 {
     color: #7d2c20;
 }
 
+.success-card {
+    border: 1px solid #b9dfcf;
+    background: #f0fbf6;
+    color: #175f42;
+}
+
 .warning-card {
     margin: 0 0 16px;
     border: 1px solid #ecd49c;
@@ -948,6 +954,116 @@ h2 {
     margin-top: 16px;
 }
 
+.editorial-panel {
+    position: fixed;
+    z-index: 50;
+    top: 24px;
+    right: 24px;
+    bottom: 24px;
+    width: min(680px, calc(100vw - 48px));
+    overflow-y: auto;
+    box-shadow: 0 28px 100px rgba(23, 45, 63, .24);
+}
+
+.editorial-panel form {
+    padding: 24px;
+}
+
+.editor-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: white;
+    color: var(--ink);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.editor-source {
+    margin-bottom: 22px;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    border-radius: 12px;
+    background: #f6f8f6;
+}
+
+.editor-source img {
+    width: 70px;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.editor-source span,
+.editor-source strong,
+.editor-source small {
+    display: block;
+}
+
+.editor-source span,
+.editor-source small,
+.editor-fields small {
+    color: var(--muted);
+    font-size: .68rem;
+}
+
+.editor-source strong {
+    margin: 4px 0;
+    font-size: .82rem;
+    line-height: 1.45;
+}
+
+.editor-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 0 18px;
+}
+
+.editor-title,
+.editor-description {
+    grid-column: 1 / -1;
+}
+
+.editor-description textarea {
+    min-height: 116px;
+}
+
+.editor-featured {
+    align-self: center;
+}
+
+.editor-actions {
+    padding-top: 6px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+}
+
+.editor-actions .button {
+    padding: 11px 15px;
+    border: 1px solid var(--line);
+}
+
+.editor-actions .button-primary {
+    border-color: var(--green);
+}
+
+.editorial-chip {
+    width: max-content;
+    margin-top: 5px;
+    padding: 3px 6px;
+    display: inline-block;
+    border-radius: 999px;
+    background: #e7f2ec;
+    color: var(--green);
+    font-size: .58rem;
+    font-weight: 800;
+}
+
 .topbar-actions,
 .catalogue-filters {
     display: flex;
@@ -1144,6 +1260,11 @@ h2 {
     background: #f3f7f0;
 }
 
+.review-actions button:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+
 .automation-note {
     margin-top: 16px;
 }
@@ -1226,5 +1347,21 @@ h2 {
 
     .job-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .editor-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .editor-title,
+    .editor-description {
+        grid-column: auto;
+    }
+
+    .editorial-panel {
+        top: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: calc(100vw - 20px);
     }
 }

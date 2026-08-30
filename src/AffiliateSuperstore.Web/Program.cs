@@ -59,6 +59,7 @@ builder.Services.AddTransient<IAffiliateCatalogueSource, AliExpressCatalogueSour
 builder.Services.AddTransient<CatalogueIngestionService>();
 builder.Services.AddTransient<AffiliateLinkRenewalService>();
 builder.Services.AddTransient<ProductQualityAssessmentService>();
+builder.Services.AddTransient<CatalogueEditorialService>();
 builder.Services.AddTransient<OutboundRedirectService>();
 builder.Services.AddSingleton<AnonymousBasketCodec>();
 builder.Services.AddSingleton<AnonymousBasketStore>();

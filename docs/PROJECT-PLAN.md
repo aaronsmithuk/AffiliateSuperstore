@@ -92,8 +92,8 @@ The MVP is complete when:
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, links, clicks, jobs and order state | Complete |
-| 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, retry, quality assessment and audited link renewal are working |
-| 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | In progress; approved-only catalogue/detail pages, category/price/popularity filters, disclosure and click redirect are working |
+| 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, retry, quality assessment, guarded editorial approval and audited link renewal are working |
+| 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Planned |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; Bootstrap-free token/theme foundation is complete |
@@ -175,7 +175,8 @@ Implemented operational surfaces:
 - `/admin/api-test` — permission-aware workbench for all 16 documented methods.
 - `/admin/database` — connectivity, migrations and operational counts.
 - `/admin/catalogue` — live discovery, persisted automated quality flags,
-  filters, job result and human review actions.
+  filters, job result, guarded approval actions and a curation drawer for
+  public titles, descriptions, featuring and display order.
 - `/admin/automation` — schedule, retry policy, next-run and due-state visibility.
 - `/plushies` — SQL-backed approved-only catalogue with local search,
   category, price and popularity sorting.
@@ -191,6 +192,14 @@ surface, text and profile values supplied per shop. The current `playful`
 profile proves the mechanism; visual exploration and review are specified in
 `docs/DESIGN-SYSTEM-BRIEF.md` before a final identity is implemented.
 
+Editorial approval is enforced below the UI: inactive or ineligible products,
+products with automated quality flags, and products without an active affiliate
+link cannot be approved. Quality reassessment always includes the original
+AliExpress title as well as any editorial title, so rewriting visible copy
+cannot hide a source-listing risk. The locally approved Highland-cattle product
+now provides an end-to-end curated title, description, feature and ordering
+example on both the catalogue and product-detail pages.
+
 Development catalogue automation is enabled with a 24-hour refresh, 15-minute
 poll, 60-minute failure retry and two-hour stale-job recovery. The plushies
 shop currently expands four controlled discovery queries into four sequential
@@ -203,9 +212,8 @@ until deployment configuration is reviewed.
 
 ## Next milestone
 
-Introduce editorial titles/descriptions and improve the admin workflow for
-reviewing the larger discovery set. In parallel, capture the current affiliate
+Build S2S order ingestion/reconciliation and the first SEO-quality
+sitemap/structured-data slice. In parallel, capture the current affiliate
 agreement and determine whether delivery estimates are available through the
-permitted API surface. After that, implement S2S order ingestion/reconciliation
-and the first SEO-quality sitemap/structured-data slice before enabling
-indexing.
+permitted API surface. Indexing and public deployment remain blocked on the
+SEO quality gate, admin authentication and production release checks.

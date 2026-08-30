@@ -51,6 +51,25 @@ public sealed partial class ProductQualityAssessmentService(
         return new ProductQualityAssessment(flags.DistinctBy(flag => flag.Code).ToArray());
     }
 
+    public ProductQualityAssessment AssessForPublication(
+        string sourceTitle,
+        string? editorialTitle,
+        string? firstLevelCategoryName = null,
+        string? secondLevelCategoryName = null)
+    {
+        var sourceAssessment = Assess(sourceTitle, firstLevelCategoryName, secondLevelCategoryName);
+        if (string.IsNullOrWhiteSpace(editorialTitle))
+        {
+            return sourceAssessment;
+        }
+
+        var editorialAssessment = Assess(editorialTitle);
+        return new ProductQualityAssessment(sourceAssessment.Flags
+            .Concat(editorialAssessment.Flags)
+            .DistinctBy(flag => flag.Code)
+            .ToArray());
+    }
+
     public async Task<ProductReassessmentResult> ReassessShopAsync(
         string shopSlug,
         CancellationToken cancellationToken = default)
@@ -66,8 +85,9 @@ public sealed partial class ProductQualityAssessmentService(
         var now = timeProvider.GetUtcNow();
         foreach (var item in products)
         {
-            var assessment = Assess(
-                item.EditorialTitle ?? item.Product.Title,
+            var assessment = AssessForPublication(
+                item.Product.Title,
+                item.EditorialTitle,
                 item.Product.FirstLevelCategoryName,
                 item.Product.SecondLevelCategoryName);
             item.AutomatedReviewFlags = assessment.SerializedFlags;

@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject CatalogueIngestionService IngestionService
 @inject ProductQualityAssessmentService QualityAssessmentService
+@inject CatalogueEditorialService EditorialService
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 
 <PageTitle>Catalogue operations</PageTitle>
@@ -19,6 +20,10 @@
 @if (Reassessment is not null)
 {
     <div class="alert-card success-card quality-result"><strong>Quality checks complete</strong><span>@Reassessment.ProductsChecked products checked · @Reassessment.ProductsFlagged flagged · @Reassessment.ProductsDemoted previously approved products returned to review.</span></div>
+}
+@if (CommandResult is not null)
+{
+    <div class="alert-card @(CommandResult.Succeeded ? "success-card" : "error-card") quality-result" role="status"><strong>@(CommandResult.Succeeded ? "Catalogue updated" : "Update blocked")</strong><span>@CommandResult.Message</span></div>
 }
 
 <div class="catalogue-grid">
@@ -60,6 +65,30 @@
     </section>
 </div>
 
+@if (Editor is not null)
+{
+    <section class="panel editorial-panel" id="catalogue-editor" role="dialog" aria-labelledby="catalogue-editor-title">
+        <div class="panel-heading">
+            <div><p class="eyebrow">Editorial</p><h2 id="catalogue-editor-title">Curate product</h2></div>
+            <button class="editor-close" type="button" aria-label="Close editor" @onclick="CancelEditing">×</button>
+        </div>
+        <EditForm Model="Editor" OnValidSubmit="SaveEditorialAsync" FormName="catalogue-editor">
+            <DataAnnotationsValidator />
+            <div class="editor-source">
+                @if (!string.IsNullOrWhiteSpace(Editor.ImageUrl)) { <img src="@Editor.ImageUrl" alt="" referrerpolicy="no-referrer" /> }
+                <div><span>AliExpress source title</span><strong>@Editor.SourceTitle</strong><small>Product @Editor.ProductId</small></div>
+            </div>
+            <div class="editor-fields">
+                <div class="form-field editor-title"><label for="editor-title">Public title</label><input id="editor-title" @bind="Editor.EditorialTitle" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumTitleLength" placeholder="Leave blank to use the source title" /><ValidationMessage For="() => Editor.EditorialTitle" /><small>@(Editor.EditorialTitle?.Length ?? 0) / @CatalogueEditorialService.MaximumTitleLength characters</small></div>
+                <div class="form-field editor-description"><label for="editor-description">Public description</label><textarea id="editor-description" @bind="Editor.EditorialDescription" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumDescriptionLength" rows="5" placeholder="Add a useful, original description for shoppers and search engines"></textarea><ValidationMessage For="() => Editor.EditorialDescription" /><small>@(Editor.EditorialDescription?.Length ?? 0) / @CatalogueEditorialService.MaximumDescriptionLength characters</small></div>
+                <div class="form-field"><label for="editor-order">Display order</label><input id="editor-order" type="number" min="0" max="@CatalogueEditorialService.MaximumDisplayOrder" @bind="Editor.DisplayOrder" @bind:event="oninput" /><ValidationMessage For="() => Editor.DisplayOrder" /></div>
+                <label class="check-field editor-featured"><InputCheckbox @bind-Value="Editor.IsFeatured" /> Feature this product ahead of the standard catalogue order</label>
+            </div>
+            <div class="editor-actions"><button class="button" type="button" @onclick="CancelEditing">Cancel</button><button class="button button-primary" type="submit" disabled="@IsSaving">@(IsSaving ? "Saving…" : "Save editorial changes")</button></div>
+        </EditForm>
+    </section>
+}
+
 <section class="panel catalogue-table-panel">
     <div class="panel-heading catalogue-table-heading">
         <div><p class="eyebrow">Local catalogue</p><h2>Review queue</h2></div>
@@ -79,12 +108,12 @@
         @foreach (var product in DisplayedProducts)
         {
             <tr>
-                <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.Title">@product.Title</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small></div></div></td>
+                <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.DisplayTitle">@product.DisplayTitle</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small>@if (product.IsFeatured) { <span class="editorial-chip">Featured · @product.DisplayOrder</span> } else if (product.HasEditorialContent) { <span class="editorial-chip">Edited</span> }</div></div></td>
                 <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td>
                 <td>@if (product.Flags.Count == 0) { <span class="quality-clear">Clear</span> } else { <details class="quality-flags"><summary>@product.Flags.Count flag@(product.Flags.Count == 1 ? "" : "s")</summary><ul>@foreach (var flag in product.Flags) { <li><strong>@flag.Code</strong>@flag.Message</li> }</ul></details> }</td>
                 <td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
                 <td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td>
-                <td><div class="review-actions"><button aria-label="Approve @product.Title for the public shop" title="Approve for the public shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.Title as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.Title from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td>
+                <td><div class="review-actions"><button aria-label="Edit @product.DisplayTitle" title="Edit public content and ordering" @onclick="() => StartEditing(product)">✎</button><button aria-label="Approve @product.DisplayTitle for the public shop" title="@(product.CanApprove ? "Approve for the public shop" : "Approval requires clear quality checks and a working link")" disabled="@(!product.CanApprove)" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.DisplayTitle as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.DisplayTitle from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td>
             </tr>
         }
         </tbody></table></div>
@@ -98,8 +127,11 @@
     private List<ProductRow> Products = [];
     private bool IsRunning;
     private bool IsAssessing;
+    private bool IsSaving;
     private string ReviewFilter = "All";
     private bool FlaggedOnly;
+    private EditorialForm? Editor;
+    private CatalogueCommandResult? CommandResult;
 
     private IReadOnlyList<ProductRow> DisplayedProducts => Products
         .Where(product => ReviewFilter == "All" || string.Equals(product.ReviewStatus.ToString(), ReviewFilter, StringComparison.Ordinal))
@@ -147,7 +179,9 @@
             .Take(50)
             .Select(item => new ProductRow(
                 item.ProductId,
-                item.EditorialTitle ?? item.Product.Title,
+                item.Product.Title,
+                item.EditorialTitle,
+                item.EditorialDescription,
                 item.Product.MainImageUrl,
                 item.Product.LastRefreshedUtc,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
@@ -156,6 +190,8 @@
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
                 item.ReviewStatus,
                 item.AutomatedReviewFlags,
+                item.IsFeatured,
+                item.DisplayOrder,
                 item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active)))
             .ToListAsync();
     }
@@ -173,13 +209,44 @@
 
     private async Task SetReviewAsync(string productId, ProductReviewStatus status)
     {
-        await using var context = await ContextFactory.CreateDbContextAsync();
-        var item = await context.ShopProducts.SingleAsync(
-            product => product.ProductId == productId && product.Shop.Slug == "plushies");
-        item.ReviewStatus = status;
-        item.DisabledReason = status == ProductReviewStatus.Rejected ? "Rejected during catalogue review." : null;
-        await context.SaveChangesAsync();
+        CommandResult = await EditorialService.SetReviewStatusAsync("plushies", productId, status);
         await LoadProductsAsync();
+    }
+
+    private void StartEditing(ProductRow product)
+    {
+        CommandResult = null;
+        Editor = new EditorialForm
+        {
+            ProductId = product.ProductId,
+            SourceTitle = product.SourceTitle,
+            EditorialTitle = product.EditorialTitle,
+            EditorialDescription = product.EditorialDescription,
+            ImageUrl = product.ImageUrl,
+            IsFeatured = product.IsFeatured,
+            DisplayOrder = product.DisplayOrder
+        };
+    }
+
+    private void CancelEditing() => Editor = null;
+
+    private async Task SaveEditorialAsync()
+    {
+        if (Editor is null) return;
+        IsSaving = true;
+        try
+        {
+            CommandResult = await EditorialService.SaveAsync(new CatalogueEditorialUpdate(
+                "plushies",
+                Editor.ProductId,
+                Editor.EditorialTitle,
+                Editor.EditorialDescription,
+                Editor.IsFeatured,
+                Editor.DisplayOrder));
+            if (CommandResult.Succeeded) Editor = null;
+            await LoadProductsAsync();
+        }
+        finally { IsSaving = false; }
     }
 
     private static string Money(decimal? value, string? currency) => value is null ? "—" : $"{currency ?? "GBP"} {value:N2}";
@@ -193,9 +260,22 @@
         [Range(1, 50)] public int PageSize { get; set; } = 20;
     }
 
+    private sealed class EditorialForm
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public string SourceTitle { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumTitleLength)] public string? EditorialTitle { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumDescriptionLength)] public string? EditorialDescription { get; set; }
+        public bool IsFeatured { get; set; }
+        [Range(0, CatalogueEditorialService.MaximumDisplayOrder)] public int DisplayOrder { get; set; }
+    }
+
     private sealed record ProductRow(
         string ProductId,
-        string Title,
+        string SourceTitle,
+        string? EditorialTitle,
+        string? EditorialDescription,
         string? ImageUrl,
         DateTimeOffset RefreshedUtc,
         decimal? SalePrice,
@@ -204,8 +284,13 @@
         long? Volume,
         ProductReviewStatus ReviewStatus,
         string? SerializedFlags,
+        bool IsFeatured,
+        int DisplayOrder,
         bool HasActiveLink)
     {
         public IReadOnlyList<ProductQualityFlag> Flags => ProductQualityAssessmentService.ReadFlags(SerializedFlags);
+        public string DisplayTitle => EditorialTitle ?? SourceTitle;
+        public bool HasEditorialContent => !string.IsNullOrWhiteSpace(EditorialTitle) || !string.IsNullOrWhiteSpace(EditorialDescription);
+        public bool CanApprove => Flags.Count == 0 && HasActiveLink;
     }
 }
