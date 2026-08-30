@@ -22,6 +22,9 @@ be reusable for additional shops without another application runtime.
   the operational admin.
 - Treat AliExpress as the source of product truth, while keeping auditable
   local snapshots for catalogue performance and order reconciliation.
+- Use SQL rules, normalized facts, hashes and change detection before AI. Keep
+  model output advisory unless a documented evaluation threshold explicitly
+  permits a reversible automatic action.
 - Keep secrets outside source control and preserve source evidence for every
   programme-rule decision.
 - Build one runtime with domain/path-aware shop configuration, theming and
@@ -44,6 +47,9 @@ be reusable for additional shops without another application runtime.
 | AliExpress credentials | .NET configuration with local User Secrets in development and protected hosting configuration in production |
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
+| Catalogue intelligence | Extend the existing .NET/SQL pipeline; deterministic identity, lifecycle and quality rules first, embeddings/LLM/vision only for ambiguous cases |
+| AI publication policy | Product rewrites, replacement choices and all blog content remain human-approved; AI can never set source facts such as price, availability, SKU, pack size or delivery |
+| AI cost policy | Hash/cache unchanged inputs, use asynchronous batches where suitable, enforce per-purpose kill switches and begin hosted-AI shadow mode with an absolute $1 monthly cap |
 
 ## Tracking taxonomy
 
@@ -98,6 +104,69 @@ The MVP is complete when:
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
+
+## AI-assisted catalogue and content integration
+
+The decision-ready design, repository findings, data model, cost assumptions,
+evaluation thresholds and complete backlog are maintained in
+[`AI_CONTENT_AUTOMATION_PLAN.md`](AI_CONTENT_AUTOMATION_PLAN.md). It is the
+implementation authority for AI-assisted catalogue work; this section fixes its
+place in the main delivery sequence.
+
+### Integration decisions
+
+- Do not create a separate AI service for the MVP. Extend the current
+  application services, EF Core model, SQL job history and Blazor review area.
+- Treat the current AliExpress-keyed `ProductRecord` as a source offer and add a
+  canonical-product/variant layer. Matching links offers; it never deletes or
+  overwrites merchant prices, SKUs, source text or snapshots.
+- Use a SmarterASP scheduled URL only to wake the application. SQL due-state,
+  idempotency keys and expiring leases decide and resume work; the GET request
+  itself must not mutate catalogue data or accept job parameters.
+- Preserve original source content and create immutable editorial versions with
+  field-level provenance, diffs, validation results, reviewer and rollback.
+- Keep AI out of public requests. Source refresh and deterministic safety rules
+  continue when a model provider is unavailable or its budget is exhausted.
+- Keep production automation and every model provider disabled until admin
+  authentication, host capability, migrations, rollback and evaluation gates
+  are verified.
+
+### Coordinated implementation sequence
+
+| Workstream | Main-build outcome | Dependencies | Status |
+|---|---|---|---|
+| AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Planned; blocks production enablement, not offline development |
+| AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Next implementation slice |
+| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Planned |
+| AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Planned |
+| AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Planned |
+| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
+| AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
+
+### Main-build acceptance gates
+
+- Every schema change is additive/backfilled, migration-tested and has a
+  documented rollback; existing public queries keep working throughout.
+- Source outages or keyword-page misses hide no products. Automatic expiry
+  requires direct source evidence twice at least 24 hours apart and >=99%
+  precision on the labelled lifecycle set.
+- Automatic canonical membership requires no hard pack/size/model conflict and
+  >=99.5% measured precision. Offers and evidence remain independently
+  recoverable.
+- Generated copy has zero unsupported entity/number/unit claims in the test set,
+  remains review-only and cannot alter source price, stock or delivery fields.
+- Model calls are absent for unchanged hashes, capped by purpose and fully
+  audited with provider/model, prompt, validator, token and cost versions.
+- No article is automatically published. Every draft passes source, freshness,
+  disclosure, internal-link and cannibalisation checks plus human approval.
+- CI remains offline: deterministic fixtures and provider fakes run in the
+  existing test project; live/paid model calls are prohibited in builds.
+
+The standalone offline catalogue-quality proof under
+`tools/AffiliateSuperstore.CatalogueQualityPoc` is planning evidence, not a
+production project. When AI-3 starts, its identical/translation/bundle/variant/
+unrelated cases must be moved into the existing xUnit suite and expanded with
+reviewer-labelled catalogue records before matching code enters the application.
 
 ## Phase 1 acceptance criteria
 
@@ -266,9 +335,16 @@ HTTPS endpoint and protected production configuration. See `docs/S2S-SETUP.md`.
 ## Next milestone
 
 Integrate the reviewed visual-system work, then add admin authentication and
-complete the production S2S/release configuration. In parallel, capture the
-current affiliate agreement and determine whether delivery estimates are
-available through the permitted API surface. Impression tracking can be added
-when a real CTR is operationally useful. The local catalogue-depth gate has
-been met; indexing and public deployment remain blocked on visual/content
-review, admin authentication and production release checks.
+complete the production S2S/release configuration. In parallel, start AI-0 and
+AI-1: capture the current affiliate agreement and host/API constraints, confirm
+whether delivery estimates are available through the permitted API surface,
+then add observation hashes and evidence-backed lifecycle state without
+enabling production automation or a model provider. The following AI slice is
+AI-2 durable SQL work leasing/wake-up, followed by AI-3 deterministic identity
+and a paged, explainable review queue; editorial versions, hosted/local model
+trials and blog generation remain later, gated work.
+
+Impression tracking can be added when a real CTR is operationally useful. The
+local catalogue-depth gate has been met; indexing and public deployment remain
+blocked on visual/content review, admin authentication and production release
+checks.
