@@ -1,48 +1,105 @@
-﻿/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-for details on configuring this project to bundle and minify static web assets. */
-
-a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
+.site-header {
+  position: relative;
+  z-index: 10;
+  border-bottom: 1px solid var(--ds-color-line);
+  background: color-mix(in srgb, var(--ds-color-surface) 94%, transparent);
+  backdrop-filter: blur(18px);
 }
 
-a {
-  color: #0077cc;
+.site-navigation,
+.site-frame,
+.site-footer > div {
+  width: min(calc(100% - 2rem), var(--ds-content-width));
+  margin-inline: auto;
 }
 
-.btn-primary {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+.site-navigation {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-5);
 }
 
-.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  color: var(--ds-color-text);
+  text-decoration: none;
 }
 
-.border-top {
-  border-top: 1px solid #e5e5e5;
-}
-.border-bottom {
-  border-bottom: 1px solid #e5e5e5;
-}
-
-.box-shadow {
-  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
-}
-
-button.accept-policy {
-  font-size: 1rem;
-  line-height: inherit;
+.site-brand > span {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--ds-radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--ds-color-brand);
+  color: white;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: -.04em;
 }
 
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  white-space: nowrap;
-  line-height: 60px;
+.site-links {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  list-style: none;
+}
+
+.site-links a {
+  padding: .55rem .72rem;
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-color-muted);
+  font-size: .88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-links a:hover {
+  background: color-mix(in srgb, var(--ds-color-brand) 8%, white);
+  color: var(--ds-color-brand);
+}
+
+.site-links .site-admin-link {
+  border: 1px solid var(--ds-color-line);
+}
+
+.site-main {
+  min-height: calc(100vh - 10rem);
+  padding-block: clamp(1.25rem, 3vw, 2.5rem) var(--ds-space-7);
+}
+
+.site-footer {
+  border-top: 1px solid var(--ds-color-line);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-muted);
+}
+
+.site-footer > div {
+  padding-block: var(--ds-space-5);
+  font-size: .82rem;
+}
+
+@media (max-width: 720px) {
+  .site-navigation {
+    padding-block: var(--ds-space-3);
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--ds-space-3);
+  }
+
+  .site-links {
+    width: 100%;
+    padding-bottom: var(--ds-space-1);
+    overflow-x: auto;
+  }
+
+  .site-links a {
+    white-space: nowrap;
+  }
 }

@@ -1,31 +1,91 @@
-html {
-  font-size: 14px;
+.platform-intro,
+.message-page {
+  max-width: 900px;
+  padding: clamp(2rem, 7vw, 5rem);
+  border: 1px solid var(--ds-color-line);
+  border-radius: var(--ds-radius-xl);
+  background:
+    radial-gradient(circle at 90% 0, var(--ds-color-accent), transparent 35%),
+    var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-sm);
 }
 
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+.platform-kicker {
+  margin: 0 0 var(--ds-space-3);
+  color: var(--ds-color-brand);
+  font-size: .75rem;
+  font-weight: 850;
+  letter-spacing: .14em;
+  text-transform: uppercase;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+.platform-intro h1,
+.message-page h1 {
+  max-width: 800px;
+  margin: 0;
+  font-family: var(--ds-font-display);
+  font-size: clamp(2.7rem, 7vw, 5.5rem);
+  letter-spacing: -.055em;
+  line-height: .95;
 }
 
-html {
-  position: relative;
-  min-height: 100%;
+.platform-lead,
+.message-page > p:not(.platform-kicker) {
+  max-width: 670px;
+  color: var(--ds-color-muted);
+  font-size: 1.08rem;
 }
 
-body {
-  margin-bottom: 60px;
+.platform-actions {
+  margin-top: var(--ds-space-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-3);
+}
+
+.platform-actions a {
+  padding: .8rem 1rem;
+  border-radius: var(--ds-radius-round);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.platform-primary-action {
+  background: var(--ds-color-brand);
+  color: white;
+}
+
+.platform-secondary-action {
+  border: 1px solid var(--ds-color-line);
+  background: var(--ds-color-surface);
+}
+
+.message-page-error {
+  --ds-color-brand: var(--ds-color-danger);
 }
 
 .shop-shell {
-  --shop-primary: #6f4bc3;
-  --shop-accent: #f3c8ef;
+  --shop-primary: var(--theme-brand, #6f4bc3);
+  --shop-accent: var(--theme-accent, #f3c8ef);
+  --ds-color-brand: var(--shop-primary);
+  --ds-color-accent: var(--shop-accent);
+  --ds-color-canvas: var(--theme-canvas, #fbf9fc);
+  --ds-color-surface: var(--theme-surface, #ffffff);
+  --ds-color-text: var(--theme-text, #211d25);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-canvas);
+  color: var(--ds-color-text);
   display: grid;
   gap: 2rem;
+}
+
+.shop-shell[data-theme="playful"] {
+  --ds-font-display: ui-rounded, "Arial Rounded MT Bold", var(--ds-font-body);
+  --ds-radius-sm: .65rem;
+  --ds-radius-md: 1rem;
+  --ds-radius-lg: 1.4rem;
+  --ds-radius-xl: 2rem;
 }
 
 .shop-hero {
@@ -604,13 +664,4 @@ body {
   .catalogue-filter-bar {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
-}
-
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
 }

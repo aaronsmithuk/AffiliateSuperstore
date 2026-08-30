@@ -1,0 +1,105 @@
+:root {
+  color-scheme: light;
+
+  /* Primitives: stable across every shop and admin surface. */
+  --ds-font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ds-font-display: var(--ds-font-body);
+  --ds-font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --ds-space-1: .25rem;
+  --ds-space-2: .5rem;
+  --ds-space-3: .75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.5rem;
+  --ds-space-6: 2rem;
+  --ds-space-7: 3rem;
+  --ds-radius-sm: .5rem;
+  --ds-radius-md: .85rem;
+  --ds-radius-lg: 1.25rem;
+  --ds-radius-xl: 2rem;
+  --ds-radius-round: 999px;
+  --ds-shadow-sm: 0 .2rem .75rem rgb(24 32 38 / 8%);
+  --ds-shadow-md: 0 1rem 2.5rem rgb(24 32 38 / 12%);
+  --ds-content-width: 1180px;
+
+  /* Semantic defaults. Shop scopes override these, never component rules. */
+  --ds-color-brand: #315c56;
+  --ds-color-accent: #dff0b4;
+  --ds-color-canvas: #f7f8f5;
+  --ds-color-surface: #ffffff;
+  --ds-color-text: #182026;
+  --ds-color-muted: #667079;
+  --ds-color-line: #dfe4e3;
+  --ds-color-danger: #a82f3f;
+  --ds-color-success: #1d6756;
+  --ds-focus-ring: 0 0 0 .2rem var(--ds-color-surface), 0 0 0 .4rem color-mix(in srgb, var(--ds-color-brand) 65%, white);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--ds-color-canvas);
+  color: var(--ds-color-text);
+  font-family: var(--ds-font-body);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  color: inherit;
+  font: inherit;
+}
+
+button,
+select {
+  cursor: pointer;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+a {
+  color: var(--ds-color-brand);
+}
+
+:focus-visible {
+  outline: 0;
+  box-shadow: var(--ds-focus-ring);
+}
+
+code,
+pre {
+  font-family: var(--ds-font-mono);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

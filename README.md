@@ -19,6 +19,7 @@ catalogue review and automation schedule.
 - Reusable HMAC-SHA256 AliExpress client covering all 16 published methods
 - Typed request models, response normalisation and permission visibility
 - Domain/path-aware shop resolution, theming and SEO metadata
+- Bootstrap-free custom design tokens with controlled per-shop theme profiles
 - Dedicated-or-fallback Tracking IDs plus campaign, placement and opaque click attribution
 - EF Core SQL Server model and migrations for shops, products, immutable
   snapshots, review state, links, clicks, jobs and affiliate orders
@@ -98,3 +99,6 @@ dotnet run --project ./tools/AffiliateSuperstore.ApiSmokeTest
 
 Research and captured AliExpress source material is indexed in
 [`docs/aliexpress/README.md`](docs/aliexpress/README.md).
+
+The visual exploration contract and parallel-design-task boundaries are in
+[`docs/DESIGN-SYSTEM-BRIEF.md`](docs/DESIGN-SYSTEM-BRIEF.md).

@@ -13,55 +13,36 @@
         <meta name="robots" content="@robots" />
     }
     <script type="importmap"></script>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AffiliateSuperstore.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">Affiliate Superstore</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" href="/plushies">Plushies</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" href="/basket/plushies">Saved list</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" href="/admin/api-test">Admin API lab</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+    <header class="site-header">
+        <nav class="site-navigation" aria-label="Primary navigation">
+            <a class="site-brand" asp-area="" asp-page="/Index"><span aria-hidden="true">AS</span><strong>Affiliate Superstore</strong></a>
+            <ul class="site-links">
+                <li><a asp-area="" asp-page="/Index">Home</a></li>
+                <li><a href="/plushies">Plushies</a></li>
+                <li><a href="/basket/plushies">Saved list</a></li>
+                <li><a asp-area="" asp-page="/Privacy">Privacy</a></li>
+                <li><a class="site-admin-link" href="/admin/api-test">Admin</a></li>
+            </ul>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
+    <div class="site-frame">
+        <main role="main" class="site-main">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
+    <footer class="site-footer">
+        <div>
             &copy; 2026 - Affiliate Superstore - <a asp-area="" asp-page="/Privacy">Privacy</a>
         </div>
     </footer>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)

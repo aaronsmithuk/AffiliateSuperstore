@@ -27,9 +27,17 @@ public sealed class ShopDefinition
 
 public sealed class ShopTheme
 {
+    public string Profile { get; set; } = "default";
+
     public string PrimaryColour { get; set; } = "#134e4a";
 
     public string AccentColour { get; set; } = "#d8f49a";
+
+    public string CanvasColour { get; set; } = "#f7f8f5";
+
+    public string SurfaceColour { get; set; } = "#ffffff";
+
+    public string TextColour { get; set; } = "#182026";
 
     public string LogoText { get; set; } = string.Empty;
 }

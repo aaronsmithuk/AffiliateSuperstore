@@ -76,6 +76,25 @@ public sealed class ShopResolver : IShopResolver
             {
                 throw new InvalidOperationException($"Shop '{shop.Slug}' requires a path prefix.");
             }
+
+            var colours = new[]
+            {
+                shop.Theme.PrimaryColour,
+                shop.Theme.AccentColour,
+                shop.Theme.CanvasColour,
+                shop.Theme.SurfaceColour,
+                shop.Theme.TextColour
+            };
+            if (colours.Any(colour => !IsHexColour(colour)))
+            {
+                throw new InvalidOperationException($"Shop '{shop.Slug}' theme colours must use six-digit hexadecimal values.");
+            }
+
+            if (string.IsNullOrWhiteSpace(shop.Theme.Profile) ||
+                shop.Theme.Profile.Any(character => !char.IsAsciiLetterOrDigit(character) && character != '-'))
+            {
+                throw new InvalidOperationException($"Shop '{shop.Slug}' theme profile must contain only letters, numbers and hyphens.");
+            }
         }
 
         var duplicateSlug = shops.GroupBy(shop => shop.Slug, StringComparer.OrdinalIgnoreCase).FirstOrDefault(group => group.Count() > 1);
@@ -84,4 +103,9 @@ public sealed class ShopResolver : IShopResolver
             throw new InvalidOperationException($"Shop slug '{duplicateSlug.Key}' is configured more than once.");
         }
     }
+
+    private static bool IsHexColour(string? value) =>
+        value is { Length: 7 } &&
+        value[0] == '#' &&
+        value.AsSpan(1).ToString().All(Uri.IsHexDigit);
 }

@@ -35,6 +35,7 @@ be reusable for additional shops without another application runtime.
 | Initial shop | Plushies and adjacent collectables |
 | Public UI | ASP.NET Core Razor Pages |
 | Admin UI | Interactive Blazor Server components |
+| Design system | Custom semantic CSS tokens and reusable components; no Bootstrap or per-shop arbitrary CSS |
 | Hosting target | SmarterASP.NET-compatible ASP.NET Core and SQL Server; final runtime support must be checked before deployment |
 | Checkout | AliExpress checkout only; no payments or order placement in this application |
 | Basket | Anonymous local shopping list with one-by-one affiliate hand-off |
@@ -95,7 +96,7 @@ The MVP is complete when:
 | 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | In progress; approved-only catalogue/detail pages, category/price/popularity filters, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Planned |
-| 8. SEO/content | Structured data, sitemaps, editorial landing pages and index controls | Planned |
+| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; Bootstrap-free token/theme foundation is complete |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
 
 ## Phase 1 acceptance criteria
@@ -183,6 +184,12 @@ Implemented operational surfaces:
 - `/basket/plushies` — protected anonymous list retained for 90 days.
 - `/go/{shop}/{product}` — approved-only tracked redirect with an auditable
   outbound-click record.
+
+The web application no longer depends on Bootstrap. Shared primitives and
+semantic tokens are defined once, with controlled brand, accent, canvas,
+surface, text and profile values supplied per shop. The current `playful`
+profile proves the mechanism; visual exploration and review are specified in
+`docs/DESIGN-SYSTEM-BRIEF.md` before a final identity is implemented.
 
 Development catalogue automation is enabled with a 24-hour refresh, 15-minute
 poll, 60-minute failure retry and two-hour stale-job recovery. It reads the SQL

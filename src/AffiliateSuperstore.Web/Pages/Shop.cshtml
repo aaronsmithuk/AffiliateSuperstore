@@ -6,7 +6,7 @@
     ViewData["Robots"] = "noindex,nofollow";
 }
 
-<div class="shop-shell" style="--shop-primary:@Model.Shop.Theme.PrimaryColour; --shop-accent:@Model.Shop.Theme.AccentColour">
+<div class="shop-shell" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
     <section class="shop-hero">
         <p class="shop-kicker">First shop configuration is live</p>
         <h1>@Model.Shop.Theme.LogoText</h1>

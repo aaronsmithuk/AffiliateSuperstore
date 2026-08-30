@@ -6,7 +6,7 @@
     ViewData["Robots"] = "noindex,nofollow";
 }
 
-<div class="shop-shell basket-shell" style="--shop-primary:@Model.Shop.Theme.PrimaryColour; --shop-accent:@Model.Shop.Theme.AccentColour">
+<div class="shop-shell basket-shell" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
     <header class="basket-header">
         <div><p class="shop-kicker">Anonymous shopping list</p><h1>Your saved plushies</h1><p>Saved in this browser for 90 days. No account is required.</p></div>
         <a href="@Model.Shop.PathPrefix">Continue browsing</a>

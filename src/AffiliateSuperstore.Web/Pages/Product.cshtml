@@ -6,7 +6,7 @@
     ViewData["Robots"] = "noindex,nofollow";
 }
 
-<article class="shop-shell product-detail" style="--shop-primary:@Model.Shop.Theme.PrimaryColour; --shop-accent:@Model.Shop.Theme.AccentColour">
+<article class="shop-shell product-detail" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
     <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="@Model.Shop.PathPrefix">@Model.Shop.DisplayName</a><span aria-hidden="true">/</span><span>@(Model.Product.SecondCategory ?? "Product")</span></nav>
     <div class="product-detail-grid">
         <div class="product-detail-media">@if (!string.IsNullOrWhiteSpace(Model.Product.ImageUrl)) { <img src="@Model.Product.ImageUrl" alt="@Model.Product.Title" referrerpolicy="no-referrer" /> }</div>

@@ -47,6 +47,19 @@ public sealed class ShopResolverTests
         Assert.Throws<InvalidOperationException>(() => new ShopResolver(options));
     }
 
+    [Theory]
+    [InlineData("purple", "playful")]
+    [InlineData("#6f4bc3", "playful; background:red")]
+    public void Constructor_RejectsUnsafeThemeConfiguration(string primaryColour, string profile)
+    {
+        var shop = CreateShop("plushies", "/plushies");
+        shop.Theme.PrimaryColour = primaryColour;
+        shop.Theme.Profile = profile;
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new ShopResolver(new AffiliateSuperstoreOptions { Shops = [shop] }));
+    }
+
     private static ShopDefinition CreateShop(string slug, string path) => new()
     {
         Slug = slug,
