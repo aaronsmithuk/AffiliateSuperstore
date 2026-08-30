@@ -96,7 +96,7 @@ The MVP is complete when:
 | 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Planned |
-| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; Bootstrap-free token/theme foundation is complete |
+| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
 
 ## Phase 1 acceptance criteria
@@ -185,6 +185,11 @@ Implemented operational surfaces:
 - `/basket/plushies` — protected anonymous list retained for 90 days.
 - `/go/{shop}/{product}` — approved-only tracked redirect with an auditable
   outbound-click record.
+- `/sitemap.xml` — only products passing the editorial, image, price and
+  freshness index-quality policy; thin shop landing pages are withheld until
+  they contain at least 12 indexable products.
+- `/robots.txt` — blocks admin, saved-list and redirect routes and advertises
+  the sitemap when indexing is enabled.
 
 The web application no longer depends on Bootstrap. Shared primitives and
 semantic tokens are defined once, with controlled brand, accent, canvas,
@@ -210,10 +215,19 @@ changed URLs replace and expire the previous link through an audited
 the app does not trigger duplicate work. Production automation remains disabled
 until deployment configuration is reviewed.
 
+Canonical URLs collapse all search, price, category and sort variants back to
+the unfiltered shop URL; filtered variants remain `noindex,follow`. Product
+pages require original editorial copy, an image, a positive price and a fresh
+snapshot before they can be indexed. Production indexing is additionally
+disabled by default through `Seo:IndexingEnabled`; it must be deliberately
+enabled only after domain, content, privacy and release review. Local
+development enables the switch so the eligible and ineligible paths can be
+verified.
+
 ## Next milestone
 
-Build S2S order ingestion/reconciliation and the first SEO-quality
-sitemap/structured-data slice. In parallel, capture the current affiliate
-agreement and determine whether delivery estimates are available through the
-permitted API surface. Indexing and public deployment remain blocked on the
-SEO quality gate, admin authentication and production release checks.
+Build S2S order ingestion/reconciliation. In parallel, capture the current
+affiliate agreement and determine whether delivery estimates are available
+through the permitted API surface. Indexing and public deployment remain
+blocked on a sufficiently deep curated catalogue, admin authentication and
+production release checks.

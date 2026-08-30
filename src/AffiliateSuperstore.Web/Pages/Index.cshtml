@@ -2,6 +2,8 @@
 @model IndexModel
 @{
     ViewData["Title"] = "Affiliate Superstore";
+    ViewData["Robots"] = "noindex,follow";
+    ViewData["Canonical"] = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/";
 }
 
 <section class="platform-intro">

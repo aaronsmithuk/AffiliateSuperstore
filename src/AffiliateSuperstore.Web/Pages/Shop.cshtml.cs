@@ -1,17 +1,21 @@
 using AffiliateSuperstore.Core.Shops;
+using AffiliateSuperstore.Application.Catalogue;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
 using AffiliateSuperstore.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace AffiliateSuperstore.Web.Pages;
 
 public sealed class ShopModel(
     IShopResolver shopResolver,
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
-    AnonymousBasketStore basketStore) : PageModel
+    AnonymousBasketStore basketStore,
+    CatalogueSeoPolicy seoPolicy,
+    CatalogueSeoOptions seoOptions) : PageModel
 {
     public ShopDefinition Shop { get; private set; } = null!;
     public IReadOnlyList<ShopProductCard> Products { get; private set; } = [];
@@ -22,6 +26,10 @@ public sealed class ShopModel(
     public string? Category { get; private set; }
     public IReadOnlyList<string> Categories { get; private set; } = [];
     public int SavedCount { get; private set; }
+    public bool IsIndexable { get; private set; }
+    public bool HasActiveFilters { get; private set; }
+    public string CanonicalUrl { get; private set; } = string.Empty;
+    public string? StructuredDataJson { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(
         string shopSlug,
@@ -45,6 +53,8 @@ public sealed class ShopModel(
         if (MinimumPrice > MaximumPrice) (MinimumPrice, MaximumPrice) = (MaximumPrice, MinimumPrice);
         Category = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
         Sort = sort is "price-asc" or "price-desc" or "newest" ? sort : "popular";
+        HasActiveFilters = Query is not null || Category is not null || MinimumPrice is not null || MaximumPrice is not null || Sort != "popular";
+        CanonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}{shop.PathPrefix}";
         SavedCount = basketStore.Get(HttpContext, shop.Slug).Count;
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         var query = context.ShopProducts.AsNoTracking()
@@ -62,6 +72,23 @@ public sealed class ShopModel(
             .Distinct()
             .OrderBy(value => value)
             .ToListAsync(cancellationToken);
+        var seoCandidates = await query
+            .Select(item => new
+            {
+                item.EditorialTitle,
+                item.EditorialDescription,
+                item.Product.MainImageUrl,
+                Price = item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
+                LastCheckedUtc = item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.FetchedUtc).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+        IsIndexable = seoOptions.IndexingEnabled && CatalogueSeoPolicy.IsShopIndexable(seoCandidates.Count(candidate =>
+            seoPolicy.IsProductIndexable(
+                candidate.EditorialTitle,
+                candidate.EditorialDescription,
+                candidate.MainImageUrl,
+                candidate.Price,
+                candidate.LastCheckedUtc)));
         if (Query is not null)
         {
             query = query.Where(item =>
@@ -97,6 +124,25 @@ public sealed class ShopModel(
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault()))
             .ToListAsync(cancellationToken);
+        if (!HasActiveFilters && Products.Count > 0)
+        {
+            StructuredDataJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["@context"] = "https://schema.org",
+                ["@type"] = "ItemList",
+                ["name"] = Shop.SeoTitle,
+                ["description"] = Shop.SeoDescription,
+                ["url"] = CanonicalUrl,
+                ["numberOfItems"] = Products.Count,
+                ["itemListElement"] = Products.Select((product, index) => new Dictionary<string, object?>
+                {
+                    ["@type"] = "ListItem",
+                    ["position"] = index + 1,
+                    ["url"] = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/{Shop.Slug}/product/{product.ProductId}",
+                    ["name"] = product.Title
+                }).ToArray()
+            });
+        }
         return Page();
     }
 

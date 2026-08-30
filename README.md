@@ -31,6 +31,8 @@ catalogue review and automation schedule.
   display order; source-listing risks cannot be hidden by rewritten copy
 - Approved-only public catalogue, product detail and local category/price/sort
   controls
+- Canonical URLs, safe robots rules, quality-gated XML sitemap and Product /
+  ItemList structured data, with production indexing disabled by default
 - Auditable `/go/{shop}/{product}` redirect
 - Protected 90-day anonymous shopping list with item count and one-by-one
   AliExpress hand-off

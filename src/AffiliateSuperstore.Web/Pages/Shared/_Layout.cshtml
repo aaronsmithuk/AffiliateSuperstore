@@ -12,6 +12,14 @@
     {
         <meta name="robots" content="@robots" />
     }
+    @if (ViewData["Canonical"] is string canonical)
+    {
+        <link rel="canonical" href="@canonical" />
+    }
+    @if (ViewData["StructuredData"] is string structuredData)
+    {
+        <script type="application/ld+json">@Html.Raw(structuredData)</script>
+    }
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />

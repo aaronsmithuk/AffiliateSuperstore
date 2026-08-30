@@ -34,6 +34,11 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services
     .AddOptions<CatalogueAutomationOptions>()
     .Bind(builder.Configuration.GetSection(CatalogueAutomationOptions.SectionName));
+builder.Services
+    .AddOptions<CatalogueSeoOptions>()
+    .Bind(builder.Configuration.GetSection(CatalogueSeoOptions.SectionName));
+builder.Services.AddSingleton(serviceProvider =>
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<CatalogueSeoOptions>>().Value);
 var databaseConnection = builder.Configuration.GetConnectionString("AffiliateSuperstore");
 if (string.IsNullOrWhiteSpace(databaseConnection))
 {
@@ -60,6 +65,7 @@ builder.Services.AddTransient<CatalogueIngestionService>();
 builder.Services.AddTransient<AffiliateLinkRenewalService>();
 builder.Services.AddTransient<ProductQualityAssessmentService>();
 builder.Services.AddTransient<CatalogueEditorialService>();
+builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<OutboundRedirectService>();
 builder.Services.AddSingleton<AnonymousBasketCodec>();
 builder.Services.AddSingleton<AnonymousBasketStore>();

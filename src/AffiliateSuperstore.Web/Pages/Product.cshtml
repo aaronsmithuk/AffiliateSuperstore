@@ -3,7 +3,9 @@
 @{
     ViewData["Title"] = Model.Product.Title;
     ViewData["Description"] = Model.Product.EditorialDescription ?? $"View {Model.Product.Title} from {Model.Shop.DisplayName}. Checkout takes place on AliExpress.";
-    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["Robots"] = Model.IsIndexable ? "index,follow" : "noindex,follow";
+    ViewData["Canonical"] = Model.CanonicalUrl;
+    ViewData["StructuredData"] = Model.StructuredDataJson;
 }
 
 <article class="shop-shell product-detail" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">

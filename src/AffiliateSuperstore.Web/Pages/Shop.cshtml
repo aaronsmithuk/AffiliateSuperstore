@@ -3,7 +3,9 @@
 @{
     ViewData["Title"] = Model.Shop.SeoTitle;
     ViewData["Description"] = Model.Shop.SeoDescription;
-    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["Robots"] = Model.IsIndexable && !Model.HasActiveFilters ? "index,follow" : "noindex,follow";
+    ViewData["Canonical"] = Model.CanonicalUrl;
+    ViewData["StructuredData"] = Model.StructuredDataJson;
 }
 
 <div class="shop-shell" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
