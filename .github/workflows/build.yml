@@ -1,0 +1,33 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore AffiliateSuperstore.slnx
+
+      - name: Build
+        run: dotnet build AffiliateSuperstore.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test AffiliateSuperstore.slnx --configuration Release --no-build
