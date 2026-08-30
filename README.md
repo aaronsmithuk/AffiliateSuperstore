@@ -24,8 +24,8 @@ catalogue review and automation schedule.
 - EF Core SQL Server model and migrations for shops, products, immutable
   snapshots, review state, links, clicks, jobs and affiliate orders
 - Live catalogue ingestion through the API with tracked-link generation
-- Restart-safe scheduled discovery with normal refresh, failure retry and
-  stale-job recovery policies
+- Restart-safe multi-query discovery with normal refresh, failure retry,
+  stale-job recovery and audited proactive affiliate-link renewal
 - Mandatory persisted product-quality checks with a human approval gate
 - Approved-only public catalogue, product detail and local category/price/sort
   controls

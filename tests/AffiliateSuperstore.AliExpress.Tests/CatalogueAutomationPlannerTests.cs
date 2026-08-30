@@ -1,4 +1,5 @@
 using AffiliateSuperstore.Application.Catalogue;
+using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Persistence.Entities;
 
 namespace AffiliateSuperstore.AliExpress.Tests;
@@ -63,5 +64,44 @@ public sealed class CatalogueAutomationPlannerTests
             Options);
 
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void DiscoveryPlan_UsesDefaultQueryWhenNoExpandedQueriesAreConfigured()
+    {
+        var shop = new ShopDefinition
+        {
+            Slug = "plushies",
+            DefaultSearchQuery = "plush toy",
+            DiscoveryPagesPerQuery = 1
+        };
+
+        var plan = CatalogueDiscoveryPlanner.Build(shop, 20);
+
+        var request = Assert.Single(plan);
+        Assert.Equal("plush toy", request.Keywords);
+        Assert.Equal(1, request.PageNumber);
+        Assert.Equal(20, request.PageSize);
+    }
+
+    [Fact]
+    public void DiscoveryPlan_DeduplicatesQueriesAndExpandsPagesDeterministically()
+    {
+        var shop = new ShopDefinition
+        {
+            Slug = "plushies",
+            DefaultSearchQuery = "plush toy",
+            DiscoveryQueries = [" plush toy ", "PLUSH TOY", "stuffed animal"],
+            DiscoveryPagesPerQuery = 2
+        };
+
+        var plan = CatalogueDiscoveryPlanner.Build(shop, 30);
+
+        Assert.Collection(
+            plan,
+            request => Assert.Equal(("plush toy", 1), (request.Keywords, request.PageNumber)),
+            request => Assert.Equal(("plush toy", 2), (request.Keywords, request.PageNumber)),
+            request => Assert.Equal(("stuffed animal", 1), (request.Keywords, request.PageNumber)),
+            request => Assert.Equal(("stuffed animal", 2), (request.Keywords, request.PageNumber)));
     }
 }

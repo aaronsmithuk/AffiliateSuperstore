@@ -18,6 +18,10 @@ public sealed class ShopDefinition
 
     public string DefaultSearchQuery { get; set; } = string.Empty;
 
+    public List<string> DiscoveryQueries { get; set; } = [];
+
+    public int DiscoveryPagesPerQuery { get; set; } = 1;
+
     public string SeoTitle { get; set; } = string.Empty;
 
     public string SeoDescription { get; set; } = string.Empty;

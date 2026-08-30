@@ -92,7 +92,7 @@ The MVP is complete when:
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, links, clicks, jobs and order state | Complete |
-| 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | In progress; restart-safe discovery, retry and mandatory automated quality assessment are working |
+| 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, retry, quality assessment and audited link renewal are working |
 | 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | In progress; approved-only catalogue/detail pages, category/price/popularity filters, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Planned |
@@ -192,17 +192,20 @@ profile proves the mechanism; visual exploration and review are specified in
 `docs/DESIGN-SYSTEM-BRIEF.md` before a final identity is implemented.
 
 Development catalogue automation is enabled with a 24-hour refresh, 15-minute
-poll, 60-minute failure retry and two-hour stale-job recovery. It reads the SQL
-job history on startup, so restarting the app does not trigger duplicate API
-work. Production automation remains disabled until deployment configuration is
-reviewed.
+poll, 60-minute failure retry and two-hour stale-job recovery. The plushies
+shop currently expands four controlled discovery queries into four sequential
+API requests per refresh. Every result still passes the persisted quality gate.
+Active product links older than 120 hours are revalidated in batches of 50;
+changed URLs replace and expire the previous link through an audited
+`LinkRefresh` job. The worker reads SQL job history on startup, so restarting
+the app does not trigger duplicate work. Production automation remains disabled
+until deployment configuration is reviewed.
 
 ## Next milestone
 
-Expand catalogue breadth without weakening curation: add several configurable
-discovery queries/pages, deduplicate them into one job, introduce editorial
-titles/descriptions and add explicit link-expiry renewal. In parallel, capture
-the current affiliate agreement and determine whether delivery estimates are
-available through the permitted API surface. After that, implement S2S order
-ingestion/reconciliation and the first SEO-quality sitemap/structured-data
-slice before enabling indexing.
+Introduce editorial titles/descriptions and improve the admin workflow for
+reviewing the larger discovery set. In parallel, capture the current affiliate
+agreement and determine whether delivery estimates are available through the
+permitted API surface. After that, implement S2S order ingestion/reconciliation
+and the first SEO-quality sitemap/structured-data slice before enabling
+indexing.

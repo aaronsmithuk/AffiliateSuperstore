@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject IOptions<CatalogueAutomationOptions> AutomationOptions
+@inject AffiliateSuperstoreOptions SuperstoreOptions
 @inject TimeProvider TimeProvider
 
 <PageTitle>Catalogue automation</PageTitle>
@@ -26,10 +27,12 @@
 </section>
 
 <section class="metric-grid" aria-label="Automation settings">
-    <article class="metric-card"><strong>@Options.PageSize</strong><span>Products per run</span></article>
+    <article class="metric-card"><strong>@Options.PageSize</strong><span>Products per request</span></article>
+    <article class="metric-card"><strong>@DiscoveryRequestCount</strong><span>Discovery requests</span></article>
     <article class="metric-card"><strong>@Options.RefreshEveryHours h</strong><span>Normal refresh</span></article>
     <article class="metric-card"><strong>@Options.FailureRetryMinutes min</strong><span>Failure retry</span></article>
     <article class="metric-card"><strong>@Options.StaleJobHours h</strong><span>Stale-job threshold</span></article>
+    <article class="metric-card"><strong>@Options.LinkRefreshHours h</strong><span>Link validation age</span></article>
 </section>
 
 <section class="panel catalogue-table-panel">
@@ -62,6 +65,9 @@
 
 @code {
     private CatalogueAutomationOptions Options => AutomationOptions.Value;
+    private int DiscoveryRequestCount => SuperstoreOptions.Shops
+        .Where(shop => shop.IsEnabled)
+        .Sum(shop => CatalogueDiscoveryPlanner.Build(shop, Options.PageSize).Count);
     private List<ShopScheduleRow> Shops = [];
     private bool IsLoading;
 

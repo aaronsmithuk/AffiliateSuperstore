@@ -77,6 +77,22 @@ public sealed class ShopResolver : IShopResolver
                 throw new InvalidOperationException($"Shop '{shop.Slug}' requires a path prefix.");
             }
 
+            if (string.IsNullOrWhiteSpace(shop.DefaultSearchQuery))
+            {
+                throw new InvalidOperationException($"Shop '{shop.Slug}' requires a default search query.");
+            }
+
+            if (shop.DiscoveryPagesPerQuery is < 1 or > 5)
+            {
+                throw new InvalidOperationException($"Shop '{shop.Slug}' discovery pages must be between one and five.");
+            }
+
+            if (shop.DiscoveryQueries.Count > 10 ||
+                shop.DiscoveryQueries.Any(query => string.IsNullOrWhiteSpace(query) || query.Trim().Length > 200))
+            {
+                throw new InvalidOperationException($"Shop '{shop.Slug}' may have up to ten non-empty discovery queries of 200 characters or fewer.");
+            }
+
             var colours = new[]
             {
                 shop.Theme.PrimaryColour,

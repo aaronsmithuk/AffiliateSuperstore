@@ -1,4 +1,5 @@
 using AffiliateSuperstore.Application.Catalogue;
+using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ public sealed class CatalogueAutomationWorker(
     IServiceScopeFactory scopeFactory,
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
     IOptions<CatalogueAutomationOptions> options,
+    AffiliateSuperstoreOptions superstoreOptions,
     TimeProvider timeProvider,
     ILogger<CatalogueAutomationWorker> logger) : BackgroundService
 {
@@ -43,6 +45,14 @@ public sealed class CatalogueAutomationWorker(
 
         foreach (var shop in shops)
         {
+            var configuredShop = superstoreOptions.Shops.SingleOrDefault(item =>
+                string.Equals(item.Slug, shop.Slug, StringComparison.OrdinalIgnoreCase));
+            if (configuredShop is null)
+            {
+                logger.LogWarning("Skipping scheduled catalogue ingestion for unconfigured shop {ShopSlug}.", shop.Slug);
+                continue;
+            }
+
             var latest = await context.IngestionJobs.AsNoTracking()
                 .Where(job => job.ShopId == shop.Id && job.Type == IngestionJobType.CatalogueDiscovery)
                 .OrderByDescending(job => job.QueuedUtc)
@@ -59,19 +69,46 @@ public sealed class CatalogueAutomationWorker(
                 continue;
             }
 
-            logger.LogInformation("Starting scheduled catalogue ingestion for shop {ShopSlug}.", shop.Slug);
+            var plan = CatalogueDiscoveryPlanner.Build(configuredShop, _options.PageSize);
+            logger.LogInformation(
+                "Starting {RequestCount} scheduled catalogue discovery requests for shop {ShopSlug}.",
+                plan.Count,
+                shop.Slug);
             using var scope = scopeFactory.CreateScope();
             var ingestion = scope.ServiceProvider.GetRequiredService<CatalogueIngestionService>();
-            var result = await ingestion.RunAsync(
-                new CatalogueIngestionRequest(shop.Slug, shop.DefaultSearchQuery, PageSize: _options.PageSize),
+            foreach (var request in plan)
+            {
+                var result = await ingestion.RunAsync(request, cancellationToken);
+                logger.LogInformation(
+                    "Scheduled catalogue ingestion {JobId} for {ShopSlug}, query {Keywords}, page {Page} finished with {Status}: {Written} products and {Links} links.",
+                    result.JobId,
+                    shop.Slug,
+                    request.Keywords,
+                    request.PageNumber,
+                    result.Status,
+                    result.ProductsWritten,
+                    result.LinksCreatedOrRefreshed);
+                if (result.Status == IngestionJobStatus.Failed)
+                {
+                    logger.LogWarning("Stopping the remaining discovery plan for {ShopSlug} after a failed API request.", shop.Slug);
+                    break;
+                }
+            }
+
+            var renewal = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
+            var renewalResult = await renewal.RunAsync(
+                shop.Slug,
+                TimeSpan.FromHours(_options.LinkRefreshHours),
+                _options.LinkBatchSize,
                 cancellationToken);
             logger.LogInformation(
-                "Scheduled catalogue ingestion {JobId} for {ShopSlug} finished with {Status}: {Written} products and {Links} links.",
-                result.JobId,
+                "Affiliate link renewal {JobId} for {ShopSlug} finished with {Status}: {Validated} validated, {Replaced} replaced and {Missing} missing.",
+                renewalResult.JobId,
                 shop.Slug,
-                result.Status,
-                result.ProductsWritten,
-                result.LinksCreatedOrRefreshed);
+                renewalResult.Status,
+                renewalResult.Validated,
+                renewalResult.Replaced,
+                renewalResult.Missing);
         }
     }
 
@@ -82,5 +119,7 @@ public sealed class CatalogueAutomationWorker(
         if (_options.FailureRetryMinutes is < 1 or > 1440) throw new InvalidOperationException("CatalogueAutomation:FailureRetryMinutes must be between 1 and 1440.");
         if (_options.StaleJobHours is < 1 or > 48) throw new InvalidOperationException("CatalogueAutomation:StaleJobHours must be between 1 and 48.");
         if (_options.PageSize is < 1 or > 50) throw new InvalidOperationException("CatalogueAutomation:PageSize must be between 1 and 50.");
+        if (_options.LinkRefreshHours is < 1 or > 720) throw new InvalidOperationException("CatalogueAutomation:LinkRefreshHours must be between 1 and 720.");
+        if (_options.LinkBatchSize is < 1 or > 50) throw new InvalidOperationException("CatalogueAutomation:LinkBatchSize must be between 1 and 50.");
     }
 }

@@ -65,6 +65,7 @@ public sealed class ShopResolverTests
         Slug = slug,
         DisplayName = slug,
         PathPrefix = path,
-        TrackingId = "theplushyshop"
+        TrackingId = "theplushyshop",
+        DefaultSearchQuery = "plush toy"
     };
 }
