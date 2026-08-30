@@ -18,7 +18,10 @@
     }
     else
     {
-        <div class="basket-guidance"><strong>AliExpress completes each purchase</strong><p>Open items one at a time. Availability, final price, delivery and checkout are confirmed by AliExpress.</p></div>
+        <div class="basket-guidance">
+            <div><strong>@Model.Products.Count saved @(Model.Products.Count == 1 ? "item" : "items")</strong><p>AliExpress completes each purchase. Open items one at a time; availability, final price, delivery and checkout are confirmed there.</p></div>
+            <a class="basket-next" href="/go/@Model.Shop.Slug/@Model.Products[0].ProductId?placement=basket-next" rel="sponsored nofollow noopener">Open next item <span aria-hidden="true">↗</span></a>
+        </div>
         <section class="basket-list" aria-label="Saved products">
             @foreach (var product in Model.Products)
             {

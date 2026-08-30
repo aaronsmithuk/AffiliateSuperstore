@@ -2,6 +2,7 @@
 @layout AdminLayout
 @rendermode InteractiveServer
 @inject CatalogueIngestionService IngestionService
+@inject ProductQualityAssessmentService QualityAssessmentService
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 
 <PageTitle>Catalogue operations</PageTitle>
@@ -12,8 +13,13 @@
         <h1>Product ingestion</h1>
         <p class="lede">Discover, snapshot and link products for the configured plushies shop.</p>
     </div>
-    <a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a>
+    <div class="topbar-actions"><button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsAssessing">@(IsAssessing ? "Checking…" : "Run quality checks")</button><a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a></div>
 </header>
+
+@if (Reassessment is not null)
+{
+    <div class="alert-card success-card quality-result"><strong>Quality checks complete</strong><span>@Reassessment.ProductsChecked products checked · @Reassessment.ProductsFlagged flagged · @Reassessment.ProductsDemoted previously approved products returned to review.</span></div>
+}
 
 <div class="catalogue-grid">
     <section class="panel catalogue-runner">
@@ -55,17 +61,31 @@
 </div>
 
 <section class="panel catalogue-table-panel">
-    <div class="panel-heading"><div><p class="eyebrow">Local catalogue</p><h2>Recently refreshed products</h2></div><span class="count-badge">@Products.Count</span></div>
+    <div class="panel-heading catalogue-table-heading">
+        <div><p class="eyebrow">Local catalogue</p><h2>Review queue</h2></div>
+        <div class="catalogue-filters">
+            <label>Review <select @bind="ReviewFilter"><option value="All">All</option>@foreach (var status in Enum.GetValues<ProductReviewStatus>()) { <option value="@status">@status</option> }</select></label>
+            <label class="flag-filter"><input type="checkbox" @bind="FlaggedOnly" /> Flagged only</label>
+            <span class="count-badge">@DisplayedProducts.Count / @Products.Count</span>
+        </div>
+    </div>
     @if (Products.Count == 0)
     {
         <p class="database-empty">No products have been ingested yet.</p>
     }
     else
     {
-        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Review</th><th>Link</th><th>Refreshed</th><th>Actions</th></tr></thead><tbody>
-        @foreach (var product in Products)
+        <div class="table-scroll"><table class="admin-table catalogue-review-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Quality</th><th>Review</th><th>Link</th><th>Actions</th></tr></thead><tbody>
+        @foreach (var product in DisplayedProducts)
         {
-            <tr><td><strong>@product.Title</strong><small>@product.ProductId</small></td><td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td><td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td><td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td><td>@product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</td><td><div class="review-actions"><button aria-label="Approve @product.Title for the public shop" title="Approve for the public shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.Title as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.Title from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td></tr>
+            <tr>
+                <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.Title">@product.Title</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small></div></div></td>
+                <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td>
+                <td>@if (product.Flags.Count == 0) { <span class="quality-clear">Clear</span> } else { <details class="quality-flags"><summary>@product.Flags.Count flag@(product.Flags.Count == 1 ? "" : "s")</summary><ul>@foreach (var flag in product.Flags) { <li><strong>@flag.Code</strong>@flag.Message</li> }</ul></details> }</td>
+                <td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
+                <td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td>
+                <td><div class="review-actions"><button aria-label="Approve @product.Title for the public shop" title="Approve for the public shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.Title as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.Title from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td>
+            </tr>
         }
         </tbody></table></div>
     }
@@ -74,8 +94,17 @@
 @code {
     private readonly IngestionForm Model = new();
     private CatalogueIngestionResult? LastResult;
+    private ProductReassessmentResult? Reassessment;
     private List<ProductRow> Products = [];
     private bool IsRunning;
+    private bool IsAssessing;
+    private string ReviewFilter = "All";
+    private bool FlaggedOnly;
+
+    private IReadOnlyList<ProductRow> DisplayedProducts => Products
+        .Where(product => ReviewFilter == "All" || string.Equals(product.ReviewStatus.ToString(), ReviewFilter, StringComparison.Ordinal))
+        .Where(product => !FlaggedOnly || product.Flags.Count > 0)
+        .ToArray();
 
     protected override Task OnInitializedAsync() => LoadProductsAsync();
 
@@ -119,14 +148,27 @@
             .Select(item => new ProductRow(
                 item.ProductId,
                 item.EditorialTitle ?? item.Product.Title,
+                item.Product.MainImageUrl,
                 item.Product.LastRefreshedUtc,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.CommissionRate).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
                 item.ReviewStatus,
+                item.AutomatedReviewFlags,
                 item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active)))
             .ToListAsync();
+    }
+
+    private async Task ReassessAsync()
+    {
+        IsAssessing = true;
+        try
+        {
+            Reassessment = await QualityAssessmentService.ReassessShopAsync("plushies");
+            await LoadProductsAsync();
+        }
+        finally { IsAssessing = false; }
     }
 
     private async Task SetReviewAsync(string productId, ProductReviewStatus status)
@@ -151,5 +193,19 @@
         [Range(1, 50)] public int PageSize { get; set; } = 20;
     }
 
-    private sealed record ProductRow(string ProductId, string Title, DateTimeOffset RefreshedUtc, decimal? SalePrice, string? Currency, decimal? CommissionRate, long? Volume, ProductReviewStatus ReviewStatus, bool HasActiveLink);
+    private sealed record ProductRow(
+        string ProductId,
+        string Title,
+        string? ImageUrl,
+        DateTimeOffset RefreshedUtc,
+        decimal? SalePrice,
+        string? Currency,
+        decimal? CommissionRate,
+        long? Volume,
+        ProductReviewStatus ReviewStatus,
+        string? SerializedFlags,
+        bool HasActiveLink)
+    {
+        public IReadOnlyList<ProductQualityFlag> Flags => ProductQualityAssessmentService.ReadFlags(SerializedFlags);
+    }
 }

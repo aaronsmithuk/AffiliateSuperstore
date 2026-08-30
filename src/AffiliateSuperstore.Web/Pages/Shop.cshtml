@@ -16,7 +16,18 @@
             <input id="shop-search" name="q" value="@(Model.Query ?? string.Empty)" placeholder="Search plushies" />
             <button type="submit">Search catalogue</button>
         </form>
+        <a class="saved-list-link" href="/basket/@Model.Shop.Slug">Saved list <span>@Model.SavedCount</span></a>
     </section>
+
+    <form class="catalogue-filter-bar" method="get" action="@Model.Shop.PathPrefix">
+        @if (Model.Query is not null) { <input type="hidden" name="q" value="@Model.Query" /> }
+        <label>Category<select name="category"><option value="">All categories</option>@foreach (var category in Model.Categories) { <option value="@category" selected="@(category == Model.Category)">@category</option> }</select></label>
+        <label>Minimum price<input type="number" name="minPrice" value="@Model.MinimumPrice" min="0" max="10000" step="0.01" placeholder="£0" /></label>
+        <label>Maximum price<input type="number" name="maxPrice" value="@Model.MaximumPrice" min="0" max="10000" step="0.01" placeholder="Any" /></label>
+        <label>Sort<select name="sort"><option value="popular" selected="@(Model.Sort == "popular")">Most popular</option><option value="price-asc" selected="@(Model.Sort == "price-asc")">Price: low to high</option><option value="price-desc" selected="@(Model.Sort == "price-desc")">Price: high to low</option><option value="newest" selected="@(Model.Sort == "newest")">Recently refreshed</option></select></label>
+        <button type="submit">Apply filters</button>
+        @if (Model.Query is not null || Model.Category is not null || Model.MinimumPrice is not null || Model.MaximumPrice is not null || Model.Sort != "popular") { <a href="@Model.Shop.PathPrefix">Clear</a> }
+    </form>
 
     @if (Model.Products.Count == 0)
     {
@@ -34,9 +45,9 @@
                 <article class="product-card">
                     @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
                     {
-                        <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                        <a class="product-image-link" href="/@Model.Shop.Slug/product/@product.ProductId"><img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /></a>
                     }
-                    <div><h2>@product.Title</h2><p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p><a href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">View on AliExpress <span aria-hidden="true">↗</span></a><form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button type="submit">Save to your list</button></form></div>
+                    <div><h2><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId">@product.Title</a></h2><p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p><a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">View on AliExpress <span aria-hidden="true">↗</span></a><form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button type="submit">Save to your list</button></form></div>
                 </article>
             }
         </section>

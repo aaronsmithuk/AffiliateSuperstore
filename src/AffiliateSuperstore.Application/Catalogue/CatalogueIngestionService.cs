@@ -24,7 +24,8 @@ public sealed record CatalogueIngestionResult(
 public sealed class CatalogueIngestionService(
     IAffiliateCatalogueSource source,
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ProductQualityAssessmentService qualityAssessmentService)
 {
     public async Task<CatalogueIngestionResult> RunAsync(
         CatalogueIngestionRequest request,
@@ -160,6 +161,16 @@ public sealed class CatalogueIngestionService(
             shopProduct.IsActive = true;
             shopProduct.LastIncludedUtc = now;
             shopProduct.DisabledReason = null;
+            var assessment = qualityAssessmentService.Assess(
+                apiProduct.Title,
+                apiProduct.FirstLevelCategoryName,
+                apiProduct.SecondLevelCategoryName);
+            shopProduct.AutomatedReviewFlags = assessment.SerializedFlags;
+            shopProduct.AutomatedReviewedUtc = now;
+            if (assessment.RequiresReview && shopProduct.ReviewStatus is ProductReviewStatus.Pending or ProductReviewStatus.Approved)
+            {
+                shopProduct.ReviewStatus = ProductReviewStatus.NeedsReview;
+            }
 
             if (apiProduct.ProductDetailUrl is not null &&
                 linksBySource.TryGetValue(NormaliseUrl(apiProduct.ProductDetailUrl), out var generated))

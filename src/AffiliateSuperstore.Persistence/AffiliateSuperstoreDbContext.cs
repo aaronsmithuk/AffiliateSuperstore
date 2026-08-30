@@ -81,6 +81,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.EditorialTitle).HasMaxLength(1000);
         entity.Property(item => item.EditorialDescription).HasMaxLength(4000);
         entity.Property(item => item.DisabledReason).HasMaxLength(1000);
+        entity.Property(item => item.AutomatedReviewFlags).HasMaxLength(4000);
         entity.Property(item => item.ReviewStatus).HasConversion<string>().HasMaxLength(30);
         entity.Property(item => item.RowVersion).IsRowVersion();
         entity.HasOne(item => item.Shop).WithMany(shop => shop.Products).HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Cascade);

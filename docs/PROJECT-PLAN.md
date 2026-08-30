@@ -91,9 +91,9 @@ The MVP is complete when:
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, links, clicks, jobs and order state | Complete |
-| 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | In progress; restart-safe discovery schedule and retry policy are working |
-| 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | In progress; approved-only listing, local search, disclosure and click redirect are working |
-| 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | In progress; protected persistent list and one-by-one hand-off are working |
+| 4. Automation | Scheduled discovery, refresh, curation, link renewal and failure recovery | In progress; restart-safe discovery, retry and mandatory automated quality assessment are working |
+| 5. Public plushies MVP | Razor Pages catalogue, product pages, search/filtering and disclosures | In progress; approved-only catalogue/detail pages, category/price/popularity filters, disclosure and click redirect are working |
+| 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Planned |
 | 8. SEO/content | Structured data, sitemaps, editorial landing pages and index controls | Planned |
 | 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
@@ -147,13 +147,15 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
   separate unavailable capability until AliExpress confirms or grants access.
 - The account's commission model should be rechecked after its verified-site
   classification finishes updating.
-- Product content needs quality and prohibited-product screening; API inclusion
-  alone is not sufficient editorial approval.
+- Automated quality screening now catches common prohibited, off-niche,
+  ambiguous-quantity and third-party-character risks, but it deliberately does
+  not replace human editorial approval.
 - Public admin access is forbidden until authentication and authorisation are
   implemented.
 - The first live discovery results include pet toys and likely third-party
-  character or celebrity merchandise. All 18 products remain unapproved; no
-  imported item is public merely because the Affiliate API returned it.
+  character or celebrity merchandise. Fifteen of 18 products are automatically
+  held in `NeedsReview`; only one visually checked generic product has been
+  approved for the local end-to-end test.
 - ASP.NET Core Data Protection keys must be stored persistently on the
   production host so protected shopping-list cookies survive application
   restarts and deployments.
@@ -163,15 +165,21 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
 As of 30 August 2026, the local SQL Server database contains one configured
 shop, 18 products, 36 immutable price/commission snapshots, 18 active affiliate
 links and two successful live discovery jobs. Both jobs read and wrote 18
-products and refreshed 18 links. Every product is still in `Pending` review.
+products and refreshed 18 links. Automated reassessment records durable flag
+reasons and timestamps: 15 products need review, two remain pending and one
+visually checked generic Highland-cattle plush is approved locally.
 
 Implemented operational surfaces:
 
 - `/admin/api-test` — permission-aware workbench for all 16 documented methods.
 - `/admin/database` — connectivity, migrations and operational counts.
-- `/admin/catalogue` — live discovery, job result, catalogue and review actions.
+- `/admin/catalogue` — live discovery, persisted automated quality flags,
+  filters, job result and human review actions.
 - `/admin/automation` — schedule, retry policy, next-run and due-state visibility.
-- `/plushies` — SQL-backed approved-only catalogue and local search.
+- `/plushies` — SQL-backed approved-only catalogue with local search,
+  category, price and popularity sorting.
+- `/plushies/product/{productId}` — approved-only product detail with current
+  snapshot facts, disclosure, save and tracked hand-off actions.
 - `/basket/plushies` — protected anonymous list retained for 90 days.
 - `/go/{shop}/{product}` — approved-only tracked redirect with an auditable
   outbound-click record.
@@ -184,7 +192,10 @@ reviewed.
 
 ## Next milestone
 
-Complete the curated public catalogue slice: improve discovery quality,
-approve a safe initial set through the admin, add an approved-only product
-detail page, and implement category/price/popularity filters. Then expand the
-scheduled ingestion beyond one search page and add link-expiry refresh.
+Expand catalogue breadth without weakening curation: add several configurable
+discovery queries/pages, deduplicate them into one job, introduce editorial
+titles/descriptions and add explicit link-expiry renewal. In parallel, capture
+the current affiliate agreement and determine whether delivery estimates are
+available through the permitted API surface. After that, implement S2S order
+ingestion/reconciliation and the first SEO-quality sitemap/structured-data
+slice before enabling indexing.

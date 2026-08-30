@@ -16,7 +16,7 @@ public sealed class CatalogueIngestionServiceTests
         {
             Products = [Product("1001", "Green plush dragon", "8.99", "GBP")]
         };
-        var service = new CatalogueIngestionService(source, factory, TimeProvider.System);
+        var service = CreateService(source, factory);
 
         var result = await service.RunAsync(new CatalogueIngestionRequest("plushies", PageSize: 10));
 
@@ -44,7 +44,7 @@ public sealed class CatalogueIngestionServiceTests
                 Product("1003", "Wrong currency", "4.99", "USD")
             ]
         };
-        var service = new CatalogueIngestionService(source, factory, TimeProvider.System);
+        var service = CreateService(source, factory);
 
         var result = await service.RunAsync(new CatalogueIngestionRequest("plushies"));
 
@@ -60,7 +60,7 @@ public sealed class CatalogueIngestionServiceTests
     public async Task RunAsync_RecordsSourceFailureInJob()
     {
         var factory = await CreateDatabaseAsync();
-        var service = new CatalogueIngestionService(new ThrowingSource(), factory, TimeProvider.System);
+        var service = CreateService(new ThrowingSource(), factory);
 
         var result = await service.RunAsync(new CatalogueIngestionRequest("plushies"));
 
@@ -71,6 +71,31 @@ public sealed class CatalogueIngestionServiceTests
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
         Assert.Contains("simulated outage", job.ErrorSummary, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task RunAsync_FlagsRiskyImportedProductForReview()
+    {
+        var factory = await CreateDatabaseAsync();
+        var source = new FakeSource
+        {
+            Products = [Product("1004", "Mimikyu anime character plush doll", "8.99", "GBP")]
+        };
+
+        var result = await CreateService(source, factory)
+            .RunAsync(new CatalogueIngestionRequest("plushies"));
+
+        Assert.Equal(IngestionJobStatus.Succeeded, result.Status);
+        await using var context = factory.CreateDbContext();
+        var shopProduct = await context.ShopProducts.SingleAsync();
+        Assert.Equal(ProductReviewStatus.NeedsReview, shopProduct.ReviewStatus);
+        Assert.Contains("ip.third-party-character", shopProduct.AutomatedReviewFlags, StringComparison.Ordinal);
+        Assert.NotNull(shopProduct.AutomatedReviewedUtc);
+    }
+
+    private static CatalogueIngestionService CreateService(
+        IAffiliateCatalogueSource source,
+        IDbContextFactory<AffiliateSuperstoreDbContext> factory) =>
+        new(source, factory, TimeProvider.System, new ProductQualityAssessmentService(factory, TimeProvider.System));
 
     private static async Task<InMemoryFactory> CreateDatabaseAsync()
     {

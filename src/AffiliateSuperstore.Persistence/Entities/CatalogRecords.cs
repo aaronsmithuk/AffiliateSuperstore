@@ -62,6 +62,8 @@ public sealed class ShopProductRecord
     public string? EditorialTitle { get; set; }
     public string? EditorialDescription { get; set; }
     public string? DisabledReason { get; set; }
+    public string? AutomatedReviewFlags { get; set; }
+    public DateTimeOffset? AutomatedReviewedUtc { get; set; }
     public DateTimeOffset FirstIncludedUtc { get; set; }
     public DateTimeOffset LastIncludedUtc { get; set; }
     public byte[] RowVersion { get; set; } = [];

@@ -36,10 +36,12 @@ await new ShopConfigurationSynchronizer(contextFactory, superstoreOptions, TimeP
 using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("AffiliateSuperstore-CatalogueIngest/0.1");
 var client = new AliExpressClient(httpClient, aliExpressOptions, new AliExpressRequestSigner());
+var qualityAssessmentService = new ProductQualityAssessmentService(contextFactory, TimeProvider.System);
 var service = new CatalogueIngestionService(
     new AliExpressCatalogueSource(client),
     contextFactory,
-    TimeProvider.System);
+    TimeProvider.System,
+    qualityAssessmentService);
 
 var keywords = args.Length > 0 ? string.Join(' ', args) : null;
 Console.WriteLine("Running AliExpress catalogue ingestion for /plushies...");

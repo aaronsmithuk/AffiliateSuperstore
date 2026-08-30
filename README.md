@@ -25,8 +25,12 @@ catalogue review and automation schedule.
 - Live catalogue ingestion through the API with tracked-link generation
 - Restart-safe scheduled discovery with normal refresh, failure retry and
   stale-job recovery policies
-- Approved-only public catalogue and auditable `/go/{shop}/{product}` redirect
-- Protected 90-day anonymous shopping list with one-by-one AliExpress hand-off
+- Mandatory persisted product-quality checks with a human approval gate
+- Approved-only public catalogue, product detail and local category/price/sort
+  controls
+- Auditable `/go/{shop}/{product}` redirect
+- Protected 90-day anonymous shopping list with item count and one-by-one
+  AliExpress hand-off
 - GB shipping market, GBP and English defaults
 - No admin authentication yet; the admin must remain local until it is added
 
@@ -79,8 +83,9 @@ dotnet test ./AffiliateSuperstore.slnx
 ```
 
 The current suite covers request signing and normalisation, shop resolution,
-database constraints and configuration sync, ingestion success/failure,
-automation timing, approved-only redirect behaviour and anonymous list state.
+database constraints and configuration sync, ingestion success/failure and its
+quality gate, automation timing, approved-only redirect behaviour and anonymous
+list state.
 
 After configuring User Secrets, the live smoke test exercises categories, a
 five-item UK plush search, product details, tracked-link generation, featured
