@@ -11,6 +11,7 @@
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject IOptions<CatalogueAutomationOptions> AutomationOptions
 @inject AffiliateSuperstoreOptions SuperstoreOptions
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Catalogue operations</PageTitle>
 
@@ -37,7 +38,13 @@
 }
 @if (CommandResult is not null)
 {
-    <div class="alert-card @(CommandResult.Succeeded ? "success-card" : "error-card") quality-result" role="status"><strong>@(CommandResult.Succeeded ? "Catalogue updated" : "Update blocked")</strong><span>@CommandResult.Message</span></div>
+    <div class="alert-card @(CommandResult.Succeeded ? "success-card" : "error-card") quality-result" role="status">
+        <strong>@(CommandResult.Succeeded ? "Catalogue updated" : "Update blocked")</strong><span>@CommandResult.Message</span>
+        @if (CommandResult.Findings?.Count > 0)
+        {
+            <ul class="validation-findings">@foreach (var finding in CommandResult.Findings) { <li><strong>@finding.Field:</strong> @finding.Message @if (!string.IsNullOrWhiteSpace(finding.Evidence)) { <code>@finding.Evidence</code> }</li> }</ul>
+        }
+    </div>
 }
 
 @if (Readiness is not null)
@@ -121,11 +128,38 @@
             <div class="editor-fields">
                 <div class="form-field editor-title"><label for="editor-title">Public title</label><input id="editor-title" @bind="Editor.EditorialTitle" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumTitleLength" placeholder="Leave blank to use the source title" /><ValidationMessage For="() => Editor.EditorialTitle" /><small>@(Editor.EditorialTitle?.Length ?? 0) / @CatalogueEditorialService.MaximumTitleLength characters</small></div>
                 <div class="form-field editor-description"><label for="editor-description">Public description</label><textarea id="editor-description" @bind="Editor.EditorialDescription" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumDescriptionLength" rows="5" placeholder="Add a useful, original description for shoppers and search engines"></textarea><ValidationMessage For="() => Editor.EditorialDescription" /><small>@(Editor.EditorialDescription?.Length ?? 0) / @CatalogueEditorialService.MaximumDescriptionLength characters</small></div>
+                <div class="form-field editor-description"><label for="editor-reason">Change note</label><input id="editor-reason" @bind="Editor.ChangeReason" maxlength="@CatalogueEditorialService.MaximumChangeReasonLength" placeholder="Why this revision was made (optional)" /><small>Stored with the revision for future review.</small></div>
                 <div class="form-field"><label for="editor-order">Display order</label><input id="editor-order" type="number" min="0" max="@CatalogueEditorialService.MaximumDisplayOrder" @bind="Editor.DisplayOrder" @bind:event="oninput" /><ValidationMessage For="() => Editor.DisplayOrder" /></div>
                 <label class="check-field editor-featured"><InputCheckbox @bind-Value="Editor.IsFeatured" /> Feature this product ahead of the standard catalogue order</label>
             </div>
             <div class="editor-actions"><button class="button" type="button" @onclick="CancelEditing">Cancel</button><button class="button button-primary" type="submit" disabled="@IsSaving">@(IsSaving ? "Saving…" : "Save editorial changes")</button></div>
         </EditForm>
+        <section class="revision-history" aria-labelledby="revision-history-title">
+            <div class="revision-heading"><div><p class="eyebrow">Audit trail</p><h3 id="revision-history-title">Editorial revisions</h3></div><span>@Editor.History.Count revision@(Editor.History.Count == 1 ? "" : "s")</span></div>
+            @if (Editor.History.Count == 0)
+            {
+                <p class="database-empty">The first saved edit will create this product's revision history.</p>
+            }
+            else
+            {
+                <ol class="revision-list">
+                    @foreach (var revision in Editor.History)
+                    {
+                        <li class="revision-card">
+                            <div class="revision-summary"><strong>Revision @revision.VersionNumber · @revision.ChangeKind</strong><span class="validation-state @revision.ValidationState.ToString().ToLowerInvariant()">@revision.ValidationState</span></div>
+                            <p>@string.Join(", ", revision.ChangedFields) · @revision.CreatedBy · @revision.CreatedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</p>
+                            @if (revision.RolledBackFromVersionNumber is not null) { <p>Restored from revision @revision.RolledBackFromVersionNumber.</p> }
+                            @if (!string.IsNullOrWhiteSpace(revision.ChangeReason)) { <blockquote>@revision.ChangeReason</blockquote> }
+                            <details><summary>View stored content and evidence</summary><dl><dt>Title</dt><dd>@(revision.EditorialTitle ?? "Uses source title")</dd><dt>Description</dt><dd>@(revision.EditorialDescription ?? "No description")</dd></dl>@if (revision.Findings.Count > 0) { <ul class="validation-findings">@foreach (var finding in revision.Findings) { <li>@finding.Message</li> }</ul> }</details>
+                            @if (revision.VersionNumber != Editor.CurrentVersionNumber)
+                            {
+                                <button class="button revision-restore" type="button" disabled="@IsSaving" @onclick="() => RestoreRevisionAsync(revision.Id)">Restore as new revision</button>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
     </section>
 }
 
@@ -154,9 +188,9 @@
                 <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td><td>@if (product.LastDetailRefreshedUtc is null) { <span class="table-status missing">Basic only</span> } else { <span class="table-status ready">@product.MediaCount media</span><small class="table-detail-time">@product.LastDetailRefreshedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }</td>
                 <td><span class="table-status @(product.AvailabilityState == ProductAvailabilityState.Available ? "ready" : "missing")">@product.AvailabilityState</span>@if (product.LastCheckedUtc is not null) { <small class="table-detail-time">Checked @product.LastCheckedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }@if (product.ConsecutiveUnavailableChecks > 0) { <small class="table-detail-time">@product.ConsecutiveUnavailableChecks direct miss@(product.ConsecutiveUnavailableChecks == 1 ? "" : "es")</small> }</td>
                 <td>@if (product.Flags.Count == 0) { <span class="quality-clear">Clear</span> } else { <details class="quality-flags"><summary>@product.Flags.Count flag@(product.Flags.Count == 1 ? "" : "s")</summary><ul>@foreach (var flag in product.Flags) { <li><strong>@flag.Code</strong>@flag.Message</li> }</ul></details> }</td>
-                <td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
+                <td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span><small class="validation-state @product.EditorialValidationState.ToString().ToLowerInvariant()">Copy: @product.EditorialValidationState@if (product.CurrentEditorialVersionNumber is not null) { <text> · v@product.CurrentEditorialVersionNumber</text> }</small></td>
                 <td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td>
-                <td><div class="review-actions"><button aria-label="Edit @product.DisplayTitle" title="Edit public content and ordering" @onclick="() => StartEditing(product)">✎</button><button aria-label="Approve @product.DisplayTitle for the public shop" title="@(product.CanApprove ? "Approve for the public shop" : "Approval requires clear quality checks and a working link")" disabled="@(!product.CanApprove)" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.DisplayTitle as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.DisplayTitle from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td>
+                <td><div class="review-actions"><button aria-label="Edit @product.DisplayTitle" title="Edit public content and ordering" @onclick="() => StartEditingAsync(product)">✎</button><button aria-label="Approve @product.DisplayTitle for the public shop" title="@(product.CanApprove ? "Approve for the public shop" : "Approval requires clear quality checks and a working link")" disabled="@(!product.CanApprove)" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Approved)">✓</button><button aria-label="Mark @product.DisplayTitle as needing review" title="Keep for manual review" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.NeedsReview)">?</button><button aria-label="Reject @product.DisplayTitle from this shop" title="Reject from this shop" @onclick="() => SetReviewAsync(product.ProductId, ProductReviewStatus.Rejected)">×</button></div></td>
             </tr>
         }
         </tbody></table></div>
@@ -268,6 +302,9 @@
                 item.AutomatedReviewFlags,
                 item.IsFeatured,
                 item.DisplayOrder,
+                item.CurrentEditorialVersionNumber,
+                item.EditorialValidationState,
+                item.RowVersion,
                 item.Product.AffiliateLinks.Any(link => link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active)))
             .ToListAsync();
         Readiness = await ReadinessService.GetAsync("plushies");
@@ -301,7 +338,7 @@
         await LoadProductsAsync();
     }
 
-    private void StartEditing(ProductRow product)
+    private async Task StartEditingAsync(ProductRow product)
     {
         CommandResult = null;
         Editor = new EditorialForm
@@ -312,7 +349,10 @@
             EditorialDescription = product.EditorialDescription,
             ImageUrl = product.ImageUrl,
             IsFeatured = product.IsFeatured,
-            DisplayOrder = product.DisplayOrder
+            DisplayOrder = product.DisplayOrder,
+            CurrentVersionNumber = product.CurrentEditorialVersionNumber,
+            ExpectedRowVersion = Convert.ToBase64String(product.RowVersion),
+            History = (await EditorialService.GetHistoryAsync("plushies", product.ProductId)).ToList()
         };
     }
 
@@ -324,18 +364,52 @@
         IsSaving = true;
         try
         {
-            CommandResult = await EditorialService.SaveAsync(new CatalogueEditorialUpdate(
+            var actor = await CurrentActorAsync();
+            var result = await EditorialService.SaveAsync(new CatalogueEditorialUpdate(
                 "plushies",
                 Editor.ProductId,
                 Editor.EditorialTitle,
                 Editor.EditorialDescription,
                 Editor.IsFeatured,
-                Editor.DisplayOrder));
-            if (CommandResult.Succeeded) Editor = null;
+                Editor.DisplayOrder,
+                Editor.ExpectedRowVersion,
+                actor,
+                Editor.ChangeReason));
+            CommandResult = result;
             await LoadProductsAsync();
+            if (result.Succeeded)
+            {
+                var updated = Products.Single(product => product.ProductId == Editor.ProductId);
+                await StartEditingAsync(updated);
+                CommandResult = new CatalogueCommandResult(true, result.Message, result.VersionId, result.Findings);
+            }
         }
         finally { IsSaving = false; }
     }
+
+    private async Task RestoreRevisionAsync(Guid versionId)
+    {
+        if (Editor is null) return;
+        IsSaving = true;
+        try
+        {
+            var actor = await CurrentActorAsync();
+            var result = await EditorialService.RollbackAsync(
+                "plushies", Editor.ProductId, versionId, actor, Editor.ChangeReason, Editor.ExpectedRowVersion);
+            CommandResult = result;
+            await LoadProductsAsync();
+            if (result.Succeeded)
+            {
+                var updated = Products.Single(product => product.ProductId == Editor.ProductId);
+                await StartEditingAsync(updated);
+                CommandResult = new CatalogueCommandResult(true, result.Message, result.VersionId, result.Findings);
+            }
+        }
+        finally { IsSaving = false; }
+    }
+
+    private async Task<string> CurrentActorAsync() =>
+        (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name ?? "administrator";
 
     private static string Money(decimal? value, string? currency) => value is null ? "—" : $"{currency ?? "GBP"} {value:N2}";
     private static string Percent(decimal? value) => value is null ? "—" : $"{value:P1}";
@@ -357,6 +431,10 @@
         [StringLength(CatalogueEditorialService.MaximumDescriptionLength)] public string? EditorialDescription { get; set; }
         public bool IsFeatured { get; set; }
         [Range(0, CatalogueEditorialService.MaximumDisplayOrder)] public int DisplayOrder { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumChangeReasonLength)] public string? ChangeReason { get; set; }
+        public int? CurrentVersionNumber { get; set; }
+        public string? ExpectedRowVersion { get; set; }
+        public List<EditorialVersionHistoryEntry> History { get; set; } = [];
     }
 
     private sealed record ProductRow(
@@ -379,6 +457,9 @@
         string? SerializedFlags,
         bool IsFeatured,
         int DisplayOrder,
+        int? CurrentEditorialVersionNumber,
+        EditorialValidationState EditorialValidationState,
+        byte[] RowVersion,
         bool HasActiveLink)
     {
         public IReadOnlyList<ProductQualityFlag> Flags => ProductQualityAssessmentService.ReadFlags(SerializedFlags);

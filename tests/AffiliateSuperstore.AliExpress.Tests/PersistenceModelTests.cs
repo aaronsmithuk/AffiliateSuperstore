@@ -93,6 +93,7 @@ public sealed class PersistenceModelTests
         var identity = context.Model.FindEntityType(typeof(ProductIdentityProfileRecord))!;
         var candidate = context.Model.FindEntityType(typeof(ProductMatchCandidateRecord))!;
         var member = context.Model.FindEntityType(typeof(CanonicalProductMemberRecord))!;
+        var editorialVersion = context.Model.FindEntityType(typeof(EditorialVersionRecord))!;
 
         Assert.Contains(shop.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(ShopRecord.Slug));
         Assert.Contains(snapshots.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.FetchedUtc)]));
@@ -104,6 +105,7 @@ public sealed class PersistenceModelTests
         Assert.Contains(identity.GetIndexes(), index => index.Properties.Single().Name == nameof(ProductIdentityProfileRecord.NormalizedGtin));
         Assert.Contains(candidate.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductMatchCandidateRecord.LeftProductId), nameof(ProductMatchCandidateRecord.RightProductId), nameof(ProductMatchCandidateRecord.MatcherVersion)]));
         Assert.Contains(member.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(CanonicalProductMemberRecord.ProductId));
+        Assert.Contains(editorialVersion.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(EditorialVersionRecord.ShopId), nameof(EditorialVersionRecord.ProductId), nameof(EditorialVersionRecord.VersionNumber)]));
         Assert.True(product.FindProperty(nameof(ProductRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, product.FindProperty(nameof(ProductRecord.RowVersion))!.ValueGenerated);
     }

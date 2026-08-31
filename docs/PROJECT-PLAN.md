@@ -140,7 +140,7 @@ place in the main delivery sequence.
 | AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Complete locally; migration, admin visibility and lifecycle regression coverage added 31 August 2026 |
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Complete locally; independent queues, recovery tests, admin health and bounded `/health/wake` signal added 31 August 2026 |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core complete locally; versioned normalizers/matcher, durable identity work, reversible canonical links, superseded evidence and paged admin review added 31 August 2026; image hashes and expanded labelled calibration remain |
-| AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Planned |
+| AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
 | AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
 
@@ -338,12 +338,12 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 Keep custom-domain TLS and protected production secrets as the next production
 gate. AI-1 freshness, AI-2 durable work leasing and the AI-3 deterministic
-identity/review core are complete locally but are not deployed or enabled as
-production automation by these development changes. Development now moves to
-AI-4 immutable editorial versions, mechanical claim validation, diffs and
-rollback while AI-3 image hashes and reviewer-labelled threshold calibration
-continue as a bounded follow-on. Hosted/local model trials and blog generation
-remain later, gated work.
+identity/review core and AI-4 versioned editorial quality core are complete
+locally but are not deployed or enabled as production automation by these
+development changes. Development next returns to the bounded AI-3 image-hash
+and reviewer-labelled threshold calibration work, then assembles the joint
+identity/lifecycle/copy gold-set report. Hosted/local model trials and blog
+generation remain later, gated work.
 
 Impression tracking can be added when a real CTR is operationally useful. The
 local catalogue-depth gate has been met. Indexing remains blocked on final

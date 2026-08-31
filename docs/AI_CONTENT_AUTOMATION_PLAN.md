@@ -24,7 +24,12 @@ reduced an over-broad first pass from 1,753 variant suggestions to four after
 title-evidence and multi-size safeguards; all older matcher evidence remained
 auditable but was superseded. Production automation remains disabled. Image
 hashing and a larger reviewer-labelled calibration set remain AI-3 follow-on
-work before any automatic canonical linking is considered.
+work before any automatic canonical linking is considered. The AI-4 editorial
+quality core is now complete locally: edits are immutable named revisions,
+unsupported authenticity/delivery/price/safety/rating/superlative, numerical
+and material claims are blocked mechanically, warnings prevent approval, and
+the admin exposes field changes, evidence and restore-as-new-revision history.
+The current projection remains backward-compatible for public reads.
 
 ## Executive decision
 
@@ -313,8 +318,9 @@ not generating a new description.
 5. Run prohibited/off-scope/IP rules, duplicate-copy checks and length/readability
    checks. Store prompt template version, model snapshot/alias, input hash,
    response hash, token use, estimated cost and validator version.
-6. Present a field diff and source evidence to the editor. Approval creates an
-   immutable content version; rollback changes the current-version pointer.
+6. Present a field diff and source evidence to the editor. Every saved edit
+   creates an immutable content version; approval revalidates the current copy,
+   and rollback creates another reviewed version rather than mutating history.
 
 Titles should lead with what the item is, then material attributes useful to a
 shopper, without repeating synonyms. Descriptions should be concise and admit
@@ -657,8 +663,9 @@ answers and legal review.
 5. **Core complete locally:** add versioned normalizers, GTIN/model/pack/size/unit
    parsing, bounded match evidence tables and paged deterministic review. Image
    hashes and expanded labelled calibration remain follow-on work.
-6. Add content mechanical rules, immutable content versions/diffs and enhanced
-   review queues.
+6. **Core complete locally:** content mechanical rules, immutable named content
+   versions, field diffs, approval validation and restore-as-new-revision admin
+   workflow.
 7. Create identity/lifecycle/copy gold sets and shadow-mode reports.
 
 Effort: 18–28 engineering days plus 4–6 editorial/data-label days.

@@ -1036,6 +1036,35 @@ h2 {
     gap: 0 18px;
 }
 
+.revision-history {
+    border-top: 1px solid var(--admin-border);
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+}
+
+.revision-heading,
+.revision-summary {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.revision-heading h3 { margin: 0; }
+.revision-list { display: grid; gap: .8rem; list-style: none; margin: 1rem 0 0; padding: 0; }
+.revision-card { background: var(--admin-surface-subtle, #f7f7f8); border: 1px solid var(--admin-border); border-radius: .75rem; padding: 1rem; }
+.revision-card p { color: var(--admin-text-muted); font-size: .82rem; margin: .4rem 0; }
+.revision-card blockquote { border-left: 3px solid var(--admin-accent); margin: .65rem 0; padding-left: .75rem; }
+.revision-card dl { display: grid; grid-template-columns: max-content 1fr; gap: .4rem .8rem; }
+.revision-card dd { margin: 0; }
+.revision-restore { margin-top: .8rem; }
+.validation-findings { margin: .65rem 0 0; padding-left: 1.25rem; }
+.validation-findings code { margin-left: .35rem; }
+.validation-state { display: block; font-size: .72rem; font-weight: 700; margin-top: .35rem; text-transform: uppercase; }
+.validation-state.passed { color: #18794e; }
+.validation-state.warning, .validation-state.notevaluated { color: #986f0b; }
+.validation-state.blocked { color: #b42318; }
+
 .editor-title,
 .editor-description {
     grid-column: 1 / -1;

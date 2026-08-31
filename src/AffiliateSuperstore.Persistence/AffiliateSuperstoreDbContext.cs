@@ -11,6 +11,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ShopRecord> Shops => Set<ShopRecord>();
     public DbSet<ProductRecord> Products => Set<ProductRecord>();
     public DbSet<ShopProductRecord> ShopProducts => Set<ShopProductRecord>();
+    public DbSet<EditorialVersionRecord> EditorialVersions => Set<EditorialVersionRecord>();
     public DbSet<ProductSnapshotRecord> ProductSnapshots => Set<ProductSnapshotRecord>();
     public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
     public DbSet<ProductChangeEventRecord> ProductChangeEvents => Set<ProductChangeEventRecord>();
@@ -31,6 +32,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureShop(modelBuilder);
         ConfigureProduct(modelBuilder);
         ConfigureShopProduct(modelBuilder);
+        ConfigureEditorialVersion(modelBuilder);
         ConfigureProductSnapshot(modelBuilder);
         ConfigureProductMedia(modelBuilder);
         ConfigureProductChangeEvent(modelBuilder);
@@ -104,6 +106,9 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.ProductId).HasMaxLength(64);
         entity.Property(item => item.EditorialTitle).HasMaxLength(1000);
         entity.Property(item => item.EditorialDescription).HasMaxLength(4000);
+        entity.Property(item => item.EditorialValidationState).HasConversion<string>().HasMaxLength(30)
+            .HasDefaultValue(EditorialValidationState.NotEvaluated);
+        entity.Property(item => item.EditorialValidationFlags).HasMaxLength(4000);
         entity.Property(item => item.DisabledReason).HasMaxLength(1000);
         entity.Property(item => item.AutomatedReviewFlags).HasMaxLength(4000);
         entity.Property(item => item.ReviewStatus).HasConversion<string>().HasMaxLength(30);
@@ -111,6 +116,29 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasOne(item => item.Shop).WithMany(shop => shop.Products).HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Cascade);
         entity.HasOne(item => item.Product).WithMany(product => product.Shops).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
         entity.HasIndex(item => new { item.ShopId, item.IsActive, item.ReviewStatus, item.IsFeatured, item.DisplayOrder });
+    }
+
+    private static void ConfigureEditorialVersion(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<EditorialVersionRecord>();
+        entity.ToTable("EditorialVersions");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.EditorialTitle).HasMaxLength(1000);
+        entity.Property(item => item.EditorialDescription).HasMaxLength(4000);
+        entity.Property(item => item.ChangeKind).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.ChangeReason).HasMaxLength(500);
+        entity.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+        entity.Property(item => item.ValidationState).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.ValidationFindingsJson).HasMaxLength(4000).IsRequired();
+        entity.Property(item => item.ValidatorVersion).HasMaxLength(40).IsRequired();
+        entity.Property(item => item.ContentHash).HasMaxLength(64).IsRequired();
+        entity.HasOne(item => item.ShopProduct).WithMany(item => item.EditorialVersions)
+            .HasForeignKey(item => new { item.ShopId, item.ProductId }).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne(item => item.RolledBackFromVersion).WithMany()
+            .HasForeignKey(item => item.RolledBackFromVersionId).OnDelete(DeleteBehavior.Restrict);
+        entity.HasIndex(item => new { item.ShopId, item.ProductId, item.VersionNumber }).IsUnique();
+        entity.HasIndex(item => new { item.ShopId, item.CreatedUtc });
     }
 
     private static void ConfigureProductSnapshot(ModelBuilder modelBuilder)

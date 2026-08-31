@@ -209,6 +209,10 @@ public sealed class ShopProductRecord
     public int DisplayOrder { get; set; }
     public string? EditorialTitle { get; set; }
     public string? EditorialDescription { get; set; }
+    public int? CurrentEditorialVersionNumber { get; set; }
+    public EditorialValidationState EditorialValidationState { get; set; } = EditorialValidationState.NotEvaluated;
+    public string? EditorialValidationFlags { get; set; }
+    public DateTimeOffset? EditorialValidatedUtc { get; set; }
     public string? DisabledReason { get; set; }
     public string? AutomatedReviewFlags { get; set; }
     public DateTimeOffset? AutomatedReviewedUtc { get; set; }
@@ -218,6 +222,46 @@ public sealed class ShopProductRecord
 
     public ShopRecord Shop { get; set; } = null!;
     public ProductRecord Product { get; set; } = null!;
+    public ICollection<EditorialVersionRecord> EditorialVersions { get; set; } = [];
+}
+
+public enum EditorialValidationState
+{
+    NotEvaluated,
+    Passed,
+    Warning,
+    Blocked
+}
+
+public enum EditorialVersionChangeKind
+{
+    Edit,
+    Rollback,
+    Imported
+}
+
+public sealed class EditorialVersionRecord
+{
+    public Guid Id { get; set; }
+    public Guid ShopId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
+    public int VersionNumber { get; set; }
+    public string? EditorialTitle { get; set; }
+    public string? EditorialDescription { get; set; }
+    public bool IsFeatured { get; set; }
+    public int DisplayOrder { get; set; }
+    public EditorialVersionChangeKind ChangeKind { get; set; }
+    public Guid? RolledBackFromVersionId { get; set; }
+    public string? ChangeReason { get; set; }
+    public string CreatedBy { get; set; } = string.Empty;
+    public DateTimeOffset CreatedUtc { get; set; }
+    public EditorialValidationState ValidationState { get; set; }
+    public string ValidationFindingsJson { get; set; } = "[]";
+    public string ValidatorVersion { get; set; } = "1.0";
+    public string ContentHash { get; set; } = string.Empty;
+
+    public ShopProductRecord ShopProduct { get; set; } = null!;
+    public EditorialVersionRecord? RolledBackFromVersion { get; set; }
 }
 
 public enum ProductReviewStatus
