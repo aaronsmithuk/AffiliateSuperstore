@@ -3,8 +3,9 @@
 ## Decision
 
 **Wonder Aisle** is the adopted umbrella brand and **`wonderaisle.co.uk`** is
-the canonical domain selected by the owner on 31 August 2026. Registration is
-still a separate external action and has not been performed.
+the canonical domain selected and registered by the owner on 31 August 2026.
+It is mapped to the dedicated Wonder Aisle site in SmarterASP and resolving
+through the provider's three authoritative nameservers.
 
 It is the strongest fit because it is short, pronounceable, broad enough for
 many departments and communicates discovery without promising a combined
@@ -33,10 +34,10 @@ the application.
 
 ## Point-in-time checks
 
-At 31 August 2026, Nominet RDAP returned `404` (no registered-domain record) for
-all five candidates. SmarterASP's signed-in domain search subsequently showed
-`wonderaisle.co.uk` as available; this was inspected without adding it to the
-basket or starting registration.
+Before purchase on 31 August 2026, Nominet RDAP returned `404` (no
+registered-domain record) for all five candidates. SmarterASP's signed-in
+domain search subsequently showed `wonderaisle.co.uk` as available. The owner
+then purchased it and authorised the hosting setup.
 
 1. `wonderaisle.co.uk`
 2. `playfulfinds.co.uk`
@@ -58,9 +59,10 @@ can change at any moment. Immediately before purchase:
 3. check Companies House and general web/social handles again; and
 4. register both `.co.uk` and `.uk` if affordable, using `.co.uk` as canonical.
 
-No domain has been registered by this project work. The source configuration
-uses the selected canonical HTTPS origin while production indexing remains
-disabled, so the name can be exercised safely before launch.
+The source configuration uses the registered canonical HTTPS origin while
+production indexing remains disabled, so the name can be exercised safely
+before launch. The managed custom-domain certificate must be installed before
+HTTPS becomes the public entry point.
 
 Official lookup sources:
 

@@ -18,13 +18,14 @@ shape:
 | Resource | Verified state / first-release choice |
 |---|---|
 | Hosting plan | Existing EU plan, .NET Core 10 supported |
-| Website | Create a new `wonderaisle` site mapped to `\wonderaisle`; do not reuse an existing site root |
-| Application pool | Create a new 1024 MB .NET Core pool from the plan's unallocated RAM and assign only Wonder Aisle |
-| Secrets | Configure on that new pool through Environment Variables; never put Wonder Aisle secrets on either existing shared pool |
-| Database | Create a new 1000 MB MSSQL 2022 database with suffix `wonderaisle`; do not reuse any Hydra database |
+| Website | Provisioned as `wonderaisle`, mapped to `\wonderaisle`, with temporary hostname `hydraadmin-001-site5.gtempurl.com` |
+| Application pool | Provisioned as dedicated 1024 MB .NET Core pool `hydraadmin-001E96`; verified to contain only the `wonderaisle` site |
+| Secrets | Pool-scoped Environment Variables on `hydraadmin-001E96`; the production connection string is configured there and never in source control or a shared pool |
+| Database | Provisioned as the isolated 1000 MB MSSQL 2022 database `db_a34d03_wonderaisle` |
 | Scheduled URL | Three slots are available and unused; add `/health/wake` only after the first release is stable |
 | Deployment | The website surface provides VSDeploy/Web Deploy and FTP; prefer Web Deploy after downloading target-specific settings privately |
-| Domain | `wonderaisle.co.uk` was shown available but has not been registered or attached |
+| Domain | `wonderaisle.co.uk` is registered, attached and resolving through `ns1.site4now.net`, `ns2.site4now.net` and `ns3.site4now.net`; apex and `www` resolve to the hosting service |
+| TLS | The temporary hostname certificate is installed; the managed free certificate for `wonderaisle.co.uk` is still pending control-panel availability |
 
 The plan currently has four existing websites split across two pools. The new
 pool removes all application siblings from Wonder Aisle's runtime failure and
@@ -35,13 +36,9 @@ sites `circlesofstone.co.uk`, `iloveplushies.co.uk`, `ilovefnaf.co.uk`,
 
 ## Information required before the first deployment
 
-- registered canonical domain and HTTPS certificate status;
-- the assigned temporary hostname and generated application-pool name after
-  the approved resource-creation step;
+- managed HTTPS certificate installation for the canonical domain;
 - every sibling website in the same hosting account;
-- production SQL Server connection details for the new database and a tested
-  backup/restore route;
-- a persistent private directory outside `wwwroot` for Data Protection keys;
+- a tested backup/restore route for the new production database;
 - Web Deploy or FTP deployment details, supplied outside source control; and
 - exact environment-variable names and a post-bootstrap plan for removing the
   temporary owner password.
@@ -85,6 +82,11 @@ The Data Protection key directory is mandatory in Production. Losing it signs
 out administrators and invalidates saved-list cookies. It must be writable by
 the application identity, excluded from downloads and logs, retained across
 deployments, and covered by backup policy.
+
+The account-root directory `\wonderaisle-private\keys` was provisioned outside
+the deployable `\wonderaisle` site root. The dedicated pool uses the relative
+setting `..\wonderaisle-private\keys`, which resolves from the application
+content root without placing key material under `wwwroot`.
 
 ## Build a release bundle
 

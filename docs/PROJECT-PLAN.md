@@ -39,12 +39,12 @@ be reusable for additional shops without another application runtime.
 | Public UI | ASP.NET Core Razor Pages |
 | Admin UI | Interactive Blazor Server components |
 | Design system | Custom semantic CSS tokens and reusable components; no Bootstrap or per-shop arbitrary CSS |
-| Hosting target | Existing SmarterASP.NET W1050-EU plan; signed-in inspection confirms .NET 10, a spare isolated 1 GB pool, SQL Server 2022 capacity, Web Deploy and three unused scheduled URLs |
+| Hosting target | Existing SmarterASP.NET W1050-EU plan; site `wonderaisle`, dedicated 1 GB .NET Core pool `hydraadmin-001E96` and isolated 1 GB SQL Server 2022 database are provisioned; Web Deploy and three unused scheduled URLs remain available |
 | Checkout | AliExpress checkout only; no payments or order placement in this application |
 | Basket | Anonymous local shopping list with one-by-one affiliate hand-off |
 | Identity | No customer account for MVP; anonymous cookie/browser identifier only where necessary |
 | Multi-shop routing | One neutral primary domain with shops under paths such as `/plushies` |
-| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; registration remains a separately approved external action |
+| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; the domain is registered, mapped and resolving, with managed custom-domain TLS still pending |
 | AliExpress credentials | .NET configuration with local User Secrets in development and protected hosting configuration in production |
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
@@ -189,7 +189,8 @@ reviewer-labelled catalogue records before matching code enters the application.
 ## Domain decision
 
 The domain must be neutral and must not use AliExpress, AE, AliE or a confusing
-variant. The owner selected `wonderaisle.co.uk` on 31 August 2026. Earlier
+variant. The owner selected and registered `wonderaisle.co.uk` on 31 August
+2026. Earlier
 shortlist order was:
 
 1. `wonderaisle.co.uk` — selected umbrella brand and canonical domain.
@@ -200,14 +201,9 @@ shortlist order was:
 4. `joyaisle.co.uk` — short and broad.
 5. `treasuretrolley.co.uk` — distinctive but longer.
 
-Availability, UK company names and trademarks must be checked immediately
-before registration. A positive domain-availability result is not a trademark
-clearance.
-
-Nominet RDAP returned **no registered-domain record** for all five names on 31
-August 2026. Companies House exact-name searches also returned no result. This
-is a point-in-time discovery check, not a reservation or trade-mark clearance;
-recheck at purchase. The rationale and architecture are in
+The pre-purchase availability checks are historical evidence rather than
+ongoing availability claims. They are not trademark clearance. The rationale
+and architecture are in
 [`DOMAIN-RECOMMENDATION.md`](DOMAIN-RECOMMENDATION.md).
 
 ## Current risks and evidence gaps
