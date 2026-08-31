@@ -88,9 +88,13 @@ public sealed class PersistenceModelTests
         var shop = context.Model.FindEntityType(typeof(ShopRecord))!;
         var snapshots = context.Model.FindEntityType(typeof(ProductSnapshotRecord))!;
         var product = context.Model.FindEntityType(typeof(ProductRecord))!;
+        var changeEvent = context.Model.FindEntityType(typeof(ProductChangeEventRecord))!;
 
         Assert.Contains(shop.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(ShopRecord.Slug));
         Assert.Contains(snapshots.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.FetchedUtc)]));
+        Assert.Contains(snapshots.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.ContentHash)]));
+        Assert.Contains(product.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductRecord.AvailabilityState), nameof(ProductRecord.LastCheckedUtc)]));
+        Assert.Contains(changeEvent.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductChangeEventRecord.ProductId), nameof(ProductChangeEventRecord.OccurredUtc)]));
         Assert.True(product.FindProperty(nameof(ProductRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, product.FindProperty(nameof(ProductRecord.RowVersion))!.ValueGenerated);
     }

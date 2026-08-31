@@ -46,13 +46,55 @@ public sealed class ProductRecord
     public DateTimeOffset LastSeenUtc { get; set; }
     public DateTimeOffset LastRefreshedUtc { get; set; }
     public DateTimeOffset? LastDetailRefreshedUtc { get; set; }
+    public DateTimeOffset? LastCheckedUtc { get; set; }
+    public DateTimeOffset? LastSuccessfulCheckUtc { get; set; }
+    public ProductAvailabilityState AvailabilityState { get; set; } = ProductAvailabilityState.Available;
+    public string? AvailabilityReason { get; set; }
+    public DateTimeOffset? AvailabilityChangedUtc { get; set; }
+    public DateTimeOffset? FirstUnavailableEvidenceUtc { get; set; }
+    public DateTimeOffset? LastUnavailableEvidenceUtc { get; set; }
+    public int ConsecutiveUnavailableChecks { get; set; }
+    public string? CurrentObservationHash { get; set; }
+    public string? CurrentContentHash { get; set; }
     public byte[] RowVersion { get; set; } = [];
 
     public ICollection<ShopProductRecord> Shops { get; set; } = [];
     public ICollection<ProductSnapshotRecord> Snapshots { get; set; } = [];
     public ICollection<ProductMediaRecord> Media { get; set; } = [];
+    public ICollection<ProductChangeEventRecord> ChangeEvents { get; set; } = [];
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
+}
+
+public enum ProductAvailabilityState
+{
+    Available,
+    SuspectedUnavailable,
+    Unavailable
+}
+
+public enum ProductChangeEventKind
+{
+    ObservationCreated,
+    ContentChanged,
+    UnavailableEvidence,
+    AvailabilityChanged
+}
+
+public sealed class ProductChangeEventRecord
+{
+    public Guid Id { get; set; }
+    public string ProductId { get; set; } = string.Empty;
+    public ProductChangeEventKind Kind { get; set; }
+    public DateTimeOffset OccurredUtc { get; set; }
+    public string EvidenceSource { get; set; } = string.Empty;
+    public string? CorrelationId { get; set; }
+    public string? PreviousValue { get; set; }
+    public string? CurrentValue { get; set; }
+    public string? ObservationHash { get; set; }
+    public string? DetailsJson { get; set; }
+
+    public ProductRecord Product { get; set; } = null!;
 }
 
 public enum ProductMediaType
@@ -118,6 +160,11 @@ public sealed class ProductSnapshotRecord
     public decimal? TaxRate { get; set; }
     public bool? IsAvailable { get; set; }
     public int? DeliveryDays { get; set; }
+    public string? ObservationHash { get; set; }
+    public string? ContentHash { get; set; }
+    public string? SourceEndpoint { get; set; }
+    public string? CorrelationId { get; set; }
+    public string ParserVersion { get; set; } = "1.0";
     public string? RawJson { get; set; }
 
     public ProductRecord Product { get; set; } = null!;

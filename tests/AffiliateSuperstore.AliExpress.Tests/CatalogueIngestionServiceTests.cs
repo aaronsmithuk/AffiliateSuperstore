@@ -92,6 +92,26 @@ public sealed class CatalogueIngestionServiceTests
         Assert.NotNull(shopProduct.AutomatedReviewedUtc);
     }
 
+    [Fact]
+    public async Task RunAsync_DiscoveryMissDoesNotCreateAvailabilityEvidence()
+    {
+        var factory = await CreateDatabaseAsync();
+        var source = new FakeSource { Products = [Product("1001", "Green plush dragon", "8.99", "GBP")] };
+        var service = CreateService(source, factory);
+        await service.RunAsync(new CatalogueIngestionRequest("plushies"));
+
+        source.Products = [];
+        await service.RunAsync(new CatalogueIngestionRequest("plushies"));
+
+        await using var context = factory.CreateDbContext();
+        var product = await context.Products.SingleAsync();
+        Assert.Equal(ProductAvailabilityState.Available, product.AvailabilityState);
+        Assert.Equal(0, product.ConsecutiveUnavailableChecks);
+        Assert.Empty(await context.ProductChangeEvents
+            .Where(item => item.Kind == ProductChangeEventKind.UnavailableEvidence)
+            .ToListAsync());
+    }
+
     private static CatalogueIngestionService CreateService(
         IAffiliateCatalogueSource source,
         IDbContextFactory<AffiliateSuperstoreDbContext> factory) =>
@@ -146,7 +166,7 @@ public sealed class CatalogueIngestionServiceTests
 
     private sealed class FakeSource : IAffiliateCatalogueSource
     {
-        public IReadOnlyList<AliExpressProduct> Products { get; init; } = [];
+        public IReadOnlyList<AliExpressProduct> Products { get; set; } = [];
 
         public Task<AliExpressPage<AliExpressProduct>> SearchAsync(string keywords, int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AliExpressPage<AliExpressProduct>(Products, pageNumber, 1, Products.Count));

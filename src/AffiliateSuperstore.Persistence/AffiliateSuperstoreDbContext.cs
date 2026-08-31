@@ -13,6 +13,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ShopProductRecord> ShopProducts => Set<ShopProductRecord>();
     public DbSet<ProductSnapshotRecord> ProductSnapshots => Set<ProductSnapshotRecord>();
     public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
+    public DbSet<ProductChangeEventRecord> ProductChangeEvents => Set<ProductChangeEventRecord>();
     public DbSet<AffiliateLinkRecord> AffiliateLinks => Set<AffiliateLinkRecord>();
     public DbSet<OutboundClickRecord> OutboundClicks => Set<OutboundClickRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
@@ -27,6 +28,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureShopProduct(modelBuilder);
         ConfigureProductSnapshot(modelBuilder);
         ConfigureProductMedia(modelBuilder);
+        ConfigureProductChangeEvent(modelBuilder);
         ConfigureAffiliateLink(modelBuilder);
         ConfigureOutboundClick(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
@@ -75,11 +77,16 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.SkuId).HasMaxLength(64);
         entity.Property(item => item.EanCode).HasMaxLength(64);
         entity.Property(item => item.IneligibilityReason).HasMaxLength(1000);
+        entity.Property(item => item.AvailabilityState).HasConversion<string>().HasMaxLength(30).HasDefaultValue(ProductAvailabilityState.Available);
+        entity.Property(item => item.AvailabilityReason).HasMaxLength(1000);
+        entity.Property(item => item.CurrentObservationHash).HasMaxLength(64);
+        entity.Property(item => item.CurrentContentHash).HasMaxLength(64);
         entity.Property(item => item.RowVersion).IsRowVersion();
         entity.HasIndex(item => item.LastRefreshedUtc);
         entity.HasIndex(item => new { item.IsEligible, item.LastSeenUtc });
         entity.HasIndex(item => item.SellerId);
         entity.HasIndex(item => item.LastDetailRefreshedUtc);
+        entity.HasIndex(item => new { item.AvailabilityState, item.LastCheckedUtc });
     }
 
     private static void ConfigureShopProduct(ModelBuilder modelBuilder)
@@ -113,9 +120,15 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.DiscountText).HasMaxLength(100);
         entity.Property(item => item.EvaluationRate).HasPrecision(9, 6);
         entity.Property(item => item.TaxRate).HasPrecision(9, 6);
+        entity.Property(item => item.ObservationHash).HasMaxLength(64);
+        entity.Property(item => item.ContentHash).HasMaxLength(64);
+        entity.Property(item => item.SourceEndpoint).HasMaxLength(120);
+        entity.Property(item => item.CorrelationId).HasMaxLength(100);
+        entity.Property(item => item.ParserVersion).HasMaxLength(40).IsRequired().HasDefaultValue("1.0");
         entity.HasOne(item => item.Product).WithMany(product => product.Snapshots).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
         entity.HasIndex(item => new { item.ProductId, item.FetchedUtc }).IsUnique();
         entity.HasIndex(item => item.FetchedUtc);
+        entity.HasIndex(item => new { item.ProductId, item.ContentHash });
     }
 
     private static void ConfigureProductMedia(ModelBuilder modelBuilder)
@@ -128,6 +141,24 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.Url).HasMaxLength(2048).IsRequired();
         entity.HasOne(item => item.Product).WithMany(product => product.Media).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
         entity.HasIndex(item => new { item.ProductId, item.Type, item.Position }).IsUnique();
+    }
+
+    private static void ConfigureProductChangeEvent(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<ProductChangeEventRecord>();
+        entity.ToTable("ProductChangeEvents");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.Kind).HasConversion<string>().HasMaxLength(40);
+        entity.Property(item => item.EvidenceSource).HasMaxLength(120).IsRequired();
+        entity.Property(item => item.CorrelationId).HasMaxLength(100);
+        entity.Property(item => item.PreviousValue).HasMaxLength(1000);
+        entity.Property(item => item.CurrentValue).HasMaxLength(1000);
+        entity.Property(item => item.ObservationHash).HasMaxLength(64);
+        entity.Property(item => item.DetailsJson).HasMaxLength(4000);
+        entity.HasOne(item => item.Product).WithMany(product => product.ChangeEvents).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasIndex(item => new { item.ProductId, item.OccurredUtc });
+        entity.HasIndex(item => new { item.Kind, item.OccurredUtc });
     }
 
     private static void ConfigureAffiliateLink(ModelBuilder modelBuilder)

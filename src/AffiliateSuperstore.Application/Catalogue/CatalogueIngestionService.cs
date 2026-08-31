@@ -129,6 +129,8 @@ public sealed class CatalogueIngestionService(
             .ToListAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
         var linksWritten = 0;
+        var observationsChanged = 0;
+        var correlationId = jobId.ToString("N");
 
         foreach (var apiProduct in eligible)
         {
@@ -144,7 +146,14 @@ public sealed class CatalogueIngestionService(
             }
 
             UpdateProduct(product, apiProduct, now);
-            context.ProductSnapshots.Add(CreateSnapshot(apiProduct, now));
+            var observation = ProductObservationTracker.RecordReturned(
+                context,
+                product,
+                apiProduct,
+                "aliexpress.affiliate.product.query",
+                correlationId,
+                now);
+            if (observation.ContentChanged) observationsChanged++;
 
             if (!existingShopProducts.TryGetValue(apiProduct.ProductId, out var shopProduct))
             {
@@ -213,7 +222,7 @@ public sealed class CatalogueIngestionService(
         job.LinksCreatedOrRefreshed = linksWritten;
         job.Status = job.ItemsRejected == 0 ? IngestionJobStatus.Succeeded : IngestionJobStatus.PartiallySucceeded;
         job.CompletedUtc = now;
-        job.Checkpoint = $"page={request.PageNumber};keywords={request.Keywords};complete=true";
+        job.Checkpoint = $"page={request.PageNumber};keywords={request.Keywords};changed={observationsChanged};complete=true";
         await context.SaveChangesAsync(cancellationToken);
         return linksWritten;
     }
@@ -248,39 +257,13 @@ public sealed class CatalogueIngestionService(
         product.SellerId = source.ShopId;
         product.SellerName = source.ShopName;
         product.SellerUrl = source.ShopUrl;
-        product.IsEligible = true;
-        product.IneligibilityReason = null;
-        product.LastSeenUtc = now;
         product.LastRefreshedUtc = now;
     }
-
-    private static ProductSnapshotRecord CreateSnapshot(AliExpressProduct product, DateTimeOffset now) => new()
-    {
-        ProductId = product.ProductId,
-        FetchedUtc = now,
-        SalePrice = ParseDecimal(product.TargetSalePrice),
-        OriginalPrice = ParseDecimal(product.TargetOriginalPrice),
-        Currency = product.Currency ?? "GBP",
-        CommissionRate = ParseRate(product.CommissionRate),
-        HotProductCommissionRate = ParseRate(product.HotProductCommissionRate),
-        DiscountText = product.Discount,
-        EvaluationRate = ParseRate(product.EvaluationRate),
-        RecentSalesVolume = product.RecentSalesVolume,
-        TaxRate = ParseRate(product.TaxRate),
-        IsAvailable = true
-    };
 
     private static decimal? ParseDecimal(string? value) =>
         decimal.TryParse(value?.Trim().TrimEnd('%'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : null;
-
-    private static decimal? ParseRate(string? value)
-    {
-        var parsed = ParseDecimal(value);
-        if (parsed is null) return null;
-        return value?.Contains('%', StringComparison.Ordinal) == true || parsed > 1 ? parsed / 100 : parsed;
-    }
 
     private static string NormaliseUrl(string value)
     {

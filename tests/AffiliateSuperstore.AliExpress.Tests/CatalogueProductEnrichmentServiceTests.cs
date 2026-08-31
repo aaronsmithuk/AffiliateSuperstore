@@ -62,10 +62,79 @@ public sealed class CatalogueProductEnrichmentServiceTests
         Assert.Empty(source.Requests);
     }
 
+    [Fact]
+    public async Task RunAsync_DeduplicatesUnchangedObservationsAndTracksSafeAvailabilityLifecycle()
+    {
+        var factory = await CreateDatabaseAsync();
+        var clock = new MutableTimeProvider(new DateTimeOffset(2026, 8, 30, 8, 0, 0, TimeSpan.Zero));
+        var source = new FakeDetailSource { Products = [Product("1001")] };
+        var service = CreateService(source, factory, clock);
+
+        var first = await service.RunAsync("plushies", force: true);
+        clock.UtcNow = clock.UtcNow.AddHours(1);
+        var unchanged = await service.RunAsync("plushies", force: true);
+
+        Assert.Equal(1, first.ProductsChanged);
+        Assert.Equal(0, unchanged.ProductsChanged);
+        await using (var context = factory.CreateDbContext())
+        {
+            Assert.Equal(1, await context.ProductSnapshots.CountAsync());
+            Assert.Equal(1, await context.ProductChangeEvents.CountAsync(item => item.Kind == ProductChangeEventKind.ObservationCreated));
+            Assert.Equal(clock.UtcNow, (await context.Products.SingleAsync()).LastCheckedUtc);
+        }
+
+        source.Products = [];
+        clock.UtcNow = clock.UtcNow.AddHours(1);
+        var firstMiss = await service.RunAsync("plushies", force: true);
+        clock.UtcNow = clock.UtcNow.AddHours(7);
+        var earlySecondMiss = await service.RunAsync("plushies", force: true);
+
+        Assert.Equal(1, firstMiss.ProductsSuspectedUnavailable);
+        Assert.Equal(0, earlySecondMiss.ProductsConfirmedUnavailable);
+        await using (var context = factory.CreateDbContext())
+        {
+            var product = await context.Products.SingleAsync();
+            Assert.True(product.IsEligible);
+            Assert.Equal(ProductAvailabilityState.SuspectedUnavailable, product.AvailabilityState);
+            Assert.Equal(2, product.ConsecutiveUnavailableChecks);
+        }
+
+        clock.UtcNow = clock.UtcNow.AddHours(18);
+        var confirmed = await service.RunAsync("plushies", force: true);
+
+        Assert.Equal(1, confirmed.ProductsConfirmedUnavailable);
+        await using (var context = factory.CreateDbContext())
+        {
+            var product = await context.Products.SingleAsync();
+            Assert.False(product.IsEligible);
+            Assert.Equal(ProductAvailabilityState.Unavailable, product.AvailabilityState);
+            Assert.Equal("availability:confirmed-unavailable", product.IneligibilityReason);
+        }
+
+        source.Products = [Product("1001")];
+        clock.UtcNow = clock.UtcNow.AddDays(1);
+        var restored = await service.RunAsync("plushies", force: true);
+
+        Assert.Equal(1, restored.ProductsRestored);
+        await using (var context = factory.CreateDbContext())
+        {
+            var product = await context.Products.SingleAsync();
+            Assert.True(product.IsEligible);
+            Assert.Equal(ProductAvailabilityState.Available, product.AvailabilityState);
+            Assert.Equal(0, product.ConsecutiveUnavailableChecks);
+            Assert.Null(product.IneligibilityReason);
+            Assert.Equal(3, await context.ProductChangeEvents.CountAsync(item => item.Kind == ProductChangeEventKind.AvailabilityChanged));
+        }
+    }
+
     private static CatalogueProductEnrichmentService CreateService(
         IAffiliateProductDetailSource source,
-        IDbContextFactory<AffiliateSuperstoreDbContext> factory) =>
-        new(source, factory, TimeProvider.System, new ProductQualityAssessmentService(factory, TimeProvider.System));
+        IDbContextFactory<AffiliateSuperstoreDbContext> factory,
+        TimeProvider? timeProvider = null)
+    {
+        var clock = timeProvider ?? TimeProvider.System;
+        return new(source, factory, clock, new ProductQualityAssessmentService(factory, clock));
+    }
 
     private static async Task<InMemoryFactory> CreateDatabaseAsync(bool recentlyRefreshed = false)
     {
@@ -151,7 +220,7 @@ public sealed class CatalogueProductEnrichmentServiceTests
 
     private sealed class FakeDetailSource : IAffiliateProductDetailSource
     {
-        public IReadOnlyList<AliExpressProduct> Products { get; init; } = [];
+        public IReadOnlyList<AliExpressProduct> Products { get; set; } = [];
         public List<IReadOnlyCollection<string>> Requests { get; } = [];
 
         public Task<IReadOnlyList<AliExpressProduct>> GetDetailsAsync(
@@ -162,6 +231,12 @@ public sealed class CatalogueProductEnrichmentServiceTests
             return Task.FromResult<IReadOnlyList<AliExpressProduct>>(
                 Products.Where(item => productIds.Contains(item.ProductId)).ToArray());
         }
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
     private sealed class InMemoryFactory(string databaseName) : IDbContextFactory<AffiliateSuperstoreDbContext>

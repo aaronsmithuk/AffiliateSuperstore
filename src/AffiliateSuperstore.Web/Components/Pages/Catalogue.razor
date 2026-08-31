@@ -33,7 +33,7 @@
 }
 @if (EnrichmentResult is not null)
 {
-    <div class="alert-card @(EnrichmentResult.Status == IngestionJobStatus.Failed ? "error-card" : "success-card") quality-result" role="status"><strong>Product details @EnrichmentResult.Status.ToString().ToLowerInvariant()</strong><span>@EnrichmentResult.ProductsEnriched of @EnrichmentResult.ProductsSelected products enriched · @EnrichmentResult.MediaItemsStored gallery/video items stored · @EnrichmentResult.ProductsMissing missing. @EnrichmentResult.Error</span></div>
+    <div class="alert-card @(EnrichmentResult.Status == IngestionJobStatus.Failed ? "error-card" : "success-card") quality-result" role="status"><strong>Product details @EnrichmentResult.Status.ToString().ToLowerInvariant()</strong><span>@EnrichmentResult.ProductsEnriched of @EnrichmentResult.ProductsSelected checked · @EnrichmentResult.ProductsChanged changed · @EnrichmentResult.MediaItemsStored media stored · @EnrichmentResult.ProductsSuspectedUnavailable suspected unavailable · @EnrichmentResult.ProductsConfirmedUnavailable confirmed unavailable · @EnrichmentResult.ProductsRestored restored. @EnrichmentResult.Error</span></div>
 }
 @if (CommandResult is not null)
 {
@@ -60,6 +60,9 @@
         <article class="metric-card"><strong>@Readiness.ProductsWithActiveLinks</strong><span>Active links</span></article>
         <article class="metric-card"><strong>@Readiness.PendingProducts</strong><span>Pending review</span></article>
         <article class="metric-card"><strong>@Readiness.StaleProducts</strong><span>Stale products</span></article>
+        <article class="metric-card"><strong>@Readiness.AvailableProducts</strong><span>Available</span></article>
+        <article class="metric-card"><strong>@Readiness.SuspectedUnavailableProducts</strong><span>Availability watch</span></article>
+        <article class="metric-card"><strong>@Readiness.UnavailableProducts</strong><span>Unavailable</span></article>
     </section>
 }
 
@@ -131,6 +134,7 @@
         <div><p class="eyebrow">Local catalogue</p><h2>Review queue</h2></div>
         <div class="catalogue-filters">
             <label>Review <select @bind="ReviewFilter"><option value="All">All</option>@foreach (var status in Enum.GetValues<ProductReviewStatus>()) { <option value="@status">@status</option> }</select></label>
+            <label>Availability <select @bind="AvailabilityFilter"><option value="All">All</option>@foreach (var status in Enum.GetValues<ProductAvailabilityState>()) { <option value="@status">@status</option> }</select></label>
             <label class="flag-filter"><input type="checkbox" @bind="FlaggedOnly" /> Flagged only</label>
             <label class="flag-filter"><input type="checkbox" @bind="ReadyToReviewOnly" /> Clear candidates</label>
             <span class="count-badge">@DisplayedProducts.Count / @Products.Count</span>
@@ -142,12 +146,13 @@
     }
     else
     {
-        <div class="table-scroll"><table class="admin-table catalogue-review-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Details</th><th>Quality</th><th>Review</th><th>Link</th><th>Actions</th></tr></thead><tbody>
+        <div class="table-scroll"><table class="admin-table catalogue-review-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Details</th><th>Availability</th><th>Quality</th><th>Review</th><th>Link</th><th>Actions</th></tr></thead><tbody>
         @foreach (var product in DisplayedProducts)
         {
             <tr>
                 <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.DisplayTitle">@product.DisplayTitle</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small>@if (product.IsFeatured) { <span class="editorial-chip">Featured · @product.DisplayOrder</span> } else if (product.HasEditorialContent) { <span class="editorial-chip">Edited</span> }</div></div></td>
                 <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td><td>@if (product.LastDetailRefreshedUtc is null) { <span class="table-status missing">Basic only</span> } else { <span class="table-status ready">@product.MediaCount media</span><small class="table-detail-time">@product.LastDetailRefreshedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }</td>
+                <td><span class="table-status @(product.AvailabilityState == ProductAvailabilityState.Available ? "ready" : "missing")">@product.AvailabilityState</span>@if (product.LastCheckedUtc is not null) { <small class="table-detail-time">Checked @product.LastCheckedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }@if (product.ConsecutiveUnavailableChecks > 0) { <small class="table-detail-time">@product.ConsecutiveUnavailableChecks direct miss@(product.ConsecutiveUnavailableChecks == 1 ? "" : "es")</small> }</td>
                 <td>@if (product.Flags.Count == 0) { <span class="quality-clear">Clear</span> } else { <details class="quality-flags"><summary>@product.Flags.Count flag@(product.Flags.Count == 1 ? "" : "s")</summary><ul>@foreach (var flag in product.Flags) { <li><strong>@flag.Code</strong>@flag.Message</li> }</ul></details> }</td>
                 <td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
                 <td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td>
@@ -172,6 +177,7 @@
     private bool IsEnriching;
     private bool IsSaving;
     private string ReviewFilter = "All";
+    private string AvailabilityFilter = "All";
     private bool FlaggedOnly;
     private bool ReadyToReviewOnly;
     private EditorialForm? Editor;
@@ -184,6 +190,7 @@
 
     private IReadOnlyList<ProductRow> DisplayedProducts => Products
         .Where(product => ReviewFilter == "All" || string.Equals(product.ReviewStatus.ToString(), ReviewFilter, StringComparison.Ordinal))
+        .Where(product => AvailabilityFilter == "All" || string.Equals(product.AvailabilityState.ToString(), AvailabilityFilter, StringComparison.Ordinal))
         .Where(product => !FlaggedOnly || product.Flags.Count > 0)
         .Where(product => !ReadyToReviewOnly || product.IsClearReviewCandidate)
         .OrderByDescending(product => product.IsClearReviewCandidate)
@@ -254,6 +261,9 @@
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
                 item.Product.LastDetailRefreshedUtc,
                 item.Product.Media.Count,
+                item.Product.AvailabilityState,
+                item.Product.LastCheckedUtc,
+                item.Product.ConsecutiveUnavailableChecks,
                 item.ReviewStatus,
                 item.AutomatedReviewFlags,
                 item.IsFeatured,
@@ -362,6 +372,9 @@
         long? Volume,
         DateTimeOffset? LastDetailRefreshedUtc,
         int MediaCount,
+        ProductAvailabilityState AvailabilityState,
+        DateTimeOffset? LastCheckedUtc,
+        int ConsecutiveUnavailableChecks,
         ProductReviewStatus ReviewStatus,
         string? SerializedFlags,
         bool IsFeatured,

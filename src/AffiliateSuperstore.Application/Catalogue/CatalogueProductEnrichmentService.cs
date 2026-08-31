@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text.Json;
 using AffiliateSuperstore.AliExpress;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
@@ -14,7 +12,11 @@ public sealed record CatalogueProductEnrichmentResult(
     int ProductsEnriched,
     int ProductsMissing,
     int MediaItemsStored,
-    string? Error);
+    string? Error,
+    int ProductsChanged = 0,
+    int ProductsSuspectedUnavailable = 0,
+    int ProductsConfirmedUnavailable = 0,
+    int ProductsRestored = 0);
 
 public sealed class CatalogueProductEnrichmentService(
     IAffiliateProductDetailSource source,
@@ -24,6 +26,8 @@ public sealed class CatalogueProductEnrichmentService(
 {
     private static readonly SemaphoreSlim RefreshGate = new(1, 1);
     public static readonly TimeSpan DefaultFreshness = TimeSpan.FromHours(24);
+    public static readonly TimeSpan SuspectedUnavailableRetry = TimeSpan.FromHours(6);
+    public static readonly TimeSpan ConfirmedUnavailableRetry = TimeSpan.FromDays(7);
     private const int DetailBatchSize = 50;
 
     public async Task<CatalogueProductEnrichmentResult> RunAsync(
@@ -54,6 +58,8 @@ public sealed class CatalogueProductEnrichmentService(
     {
         var now = timeProvider.GetUtcNow();
         var staleBefore = now - DefaultFreshness;
+        var suspectedBefore = now - SuspectedUnavailableRetry;
+        var unavailableBefore = now - ConfirmedUnavailableRetry;
         var jobId = Guid.CreateVersion7();
         Guid shopId;
         string[] productIds;
@@ -68,9 +74,15 @@ public sealed class CatalogueProductEnrichmentService(
                 .Where(item => item.ShopId == shopId &&
                                item.IsActive &&
                                item.ReviewStatus == ProductReviewStatus.Approved &&
-                               item.Product.IsEligible &&
+                               (item.Product.IsEligible || item.Product.AvailabilityState == ProductAvailabilityState.Unavailable) &&
                                item.Product.AffiliateLinks.Any(link => link.ShopId == shopId && link.Status == AffiliateLinkStatus.Active) &&
-                               (force || item.Product.LastDetailRefreshedUtc == null || item.Product.LastDetailRefreshedUtc < staleBefore))
+                               (force ||
+                                (item.Product.AvailabilityState == ProductAvailabilityState.Available &&
+                                 (item.Product.LastDetailRefreshedUtc == null || item.Product.LastDetailRefreshedUtc < staleBefore)) ||
+                                (item.Product.AvailabilityState == ProductAvailabilityState.SuspectedUnavailable &&
+                                 (item.Product.LastCheckedUtc == null || item.Product.LastCheckedUtc < suspectedBefore)) ||
+                                (item.Product.AvailabilityState == ProductAvailabilityState.Unavailable &&
+                                 (item.Product.LastCheckedUtc == null || item.Product.LastCheckedUtc < unavailableBefore))))
                 .OrderBy(item => item.Product.LastDetailRefreshedUtc)
                 .ThenByDescending(item => item.IsFeatured)
                 .ThenBy(item => item.DisplayOrder)
@@ -140,44 +152,61 @@ public sealed class CatalogueProductEnrichmentService(
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         var enriched = 0;
         var mediaStored = 0;
+        var changed = 0;
+        var suspectedUnavailable = 0;
+        var confirmedUnavailable = 0;
+        var restored = 0;
+        var correlationId = jobId.ToString("N");
 
         foreach (var productId in selected)
         {
             if (!products.TryGetValue(productId, out var product) || !returned.TryGetValue(productId, out var detail)) continue;
 
             UpdateProduct(product, detail, now);
-            context.ProductSnapshots.Add(CreateSnapshot(detail, now));
-            context.ProductMedia.RemoveRange(currentMedia.Where(item => item.ProductId == productId));
+            var observation = ProductObservationTracker.RecordReturned(
+                context,
+                product,
+                detail,
+                "aliexpress.affiliate.productdetail.get",
+                correlationId,
+                now);
+            if (observation.ContentChanged) changed++;
+            if (observation.Restored) restored++;
 
-            var position = 0;
-            foreach (var imageUrl in BuildImageUrls(detail))
+            var existingMedia = currentMedia.Where(item => item.ProductId == productId).ToArray();
+            if (observation.ContentChanged || existingMedia.Length == 0)
             {
-                context.ProductMedia.Add(new ProductMediaRecord
+                context.ProductMedia.RemoveRange(existingMedia);
+                var position = 0;
+                foreach (var imageUrl in BuildImageUrls(detail))
                 {
-                    Id = Guid.CreateVersion7(),
-                    ProductId = productId,
-                    Type = ProductMediaType.Image,
-                    Url = imageUrl,
-                    Position = position++,
-                    RefreshedUtc = now
-                });
-                mediaStored++;
-            }
-            if (IsSafeRemoteMediaUrl(detail.VideoUrl))
-            {
-                context.ProductMedia.Add(new ProductMediaRecord
+                    context.ProductMedia.Add(new ProductMediaRecord
+                    {
+                        Id = Guid.CreateVersion7(),
+                        ProductId = productId,
+                        Type = ProductMediaType.Image,
+                        Url = imageUrl,
+                        Position = position++,
+                        RefreshedUtc = now
+                    });
+                    mediaStored++;
+                }
+                if (IsSafeRemoteMediaUrl(detail.VideoUrl))
                 {
-                    Id = Guid.CreateVersion7(),
-                    ProductId = productId,
-                    Type = ProductMediaType.Video,
-                    Url = detail.VideoUrl!,
-                    Position = 0,
-                    RefreshedUtc = now
-                });
-                mediaStored++;
+                    context.ProductMedia.Add(new ProductMediaRecord
+                    {
+                        Id = Guid.CreateVersion7(),
+                        ProductId = productId,
+                        Type = ProductMediaType.Video,
+                        Url = detail.VideoUrl!,
+                        Position = 0,
+                        RefreshedUtc = now
+                    });
+                    mediaStored++;
+                }
             }
 
-            if (shopProducts.TryGetValue(productId, out var shopProduct))
+            if (observation.ContentChanged && shopProducts.TryGetValue(productId, out var shopProduct))
             {
                 var assessment = qualityAssessmentService.AssessForPublication(
                     product.Title,
@@ -194,6 +223,20 @@ public sealed class CatalogueProductEnrichmentService(
             enriched++;
         }
 
+        foreach (var productId in selected.Where(productId => !returned.ContainsKey(productId)))
+        {
+            if (!products.TryGetValue(productId, out var product)) continue;
+            product.LastDetailRefreshedUtc = now;
+            var observation = ProductObservationTracker.RecordMissingDirect(
+                context,
+                product,
+                "aliexpress.affiliate.productdetail.get",
+                correlationId,
+                now);
+            if (observation.SuspectedUnavailable) suspectedUnavailable++;
+            if (observation.ConfirmedUnavailable) confirmedUnavailable++;
+        }
+
         var missing = selected.Length - enriched;
         var status = missing == 0 ? IngestionJobStatus.Succeeded : IngestionJobStatus.PartiallySucceeded;
         var job = await context.IngestionJobs.SingleAsync(item => item.Id == jobId, cancellationToken);
@@ -202,9 +245,10 @@ public sealed class CatalogueProductEnrichmentService(
         job.ItemsRejected = missing;
         job.Status = status;
         job.CompletedUtc = now;
-        job.Checkpoint = $"enriched={enriched};missing={missing};media={mediaStored};complete=true";
+        job.Checkpoint = $"enriched={enriched};missing={missing};changed={changed};suspected={suspectedUnavailable};unavailable={confirmedUnavailable};restored={restored};media={mediaStored};complete=true";
         await context.SaveChangesAsync(cancellationToken);
-        return new(jobId, status, selected.Length, enriched, missing, mediaStored, null);
+        return new(jobId, status, selected.Length, enriched, missing, mediaStored, null,
+            changed, suspectedUnavailable, confirmedUnavailable, restored);
     }
 
     private static void UpdateProduct(ProductRecord product, AliExpressProduct detail, DateTimeOffset now)
@@ -225,23 +269,6 @@ public sealed class CatalogueProductEnrichmentService(
         product.LastDetailRefreshedUtc = now;
     }
 
-    private static ProductSnapshotRecord CreateSnapshot(AliExpressProduct product, DateTimeOffset now) => new()
-    {
-        ProductId = product.ProductId,
-        FetchedUtc = now,
-        SalePrice = ParseDecimal(product.TargetSalePrice),
-        OriginalPrice = ParseDecimal(product.TargetOriginalPrice),
-        Currency = product.Currency ?? "GBP",
-        CommissionRate = ParseRate(product.CommissionRate),
-        HotProductCommissionRate = ParseRate(product.HotProductCommissionRate),
-        DiscountText = product.Discount,
-        EvaluationRate = ParseRate(product.EvaluationRate),
-        RecentSalesVolume = product.RecentSalesVolume,
-        TaxRate = ParseRate(product.TaxRate),
-        IsAvailable = true,
-        RawJson = JsonSerializer.Serialize(product)
-    };
-
     private static IReadOnlyList<string> BuildImageUrls(AliExpressProduct detail) =>
         new[] { detail.MainImageUrl }
             .Concat(detail.SmallImageUrls ?? [])
@@ -253,18 +280,6 @@ public sealed class CatalogueProductEnrichmentService(
     private static bool IsSafeRemoteMediaUrl(string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
         (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
-
-    private static decimal? ParseDecimal(string? value) =>
-        decimal.TryParse(value?.Trim().TrimEnd('%'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : null;
-
-    private static decimal? ParseRate(string? value)
-    {
-        var parsed = ParseDecimal(value);
-        if (parsed is null) return null;
-        return value?.Contains('%', StringComparison.Ordinal) == true || parsed > 1 ? parsed / 100 : parsed;
-    }
 
     private async Task CompleteEmptyAsync(Guid jobId, DateTimeOffset now, CancellationToken cancellationToken)
     {

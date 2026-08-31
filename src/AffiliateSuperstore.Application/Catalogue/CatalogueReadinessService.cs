@@ -17,6 +17,9 @@ public sealed record CatalogueReadinessReport(
     int EditoriallyCompleteProducts,
     int IndexableProducts,
     int StaleProducts,
+    int AvailableProducts,
+    int SuspectedUnavailableProducts,
+    int UnavailableProducts,
     DateTimeOffset? LastCatalogueRefreshUtc)
 {
     public int IndexingTarget => CatalogueSeoPolicy.MinimumIndexableProductsPerShop;
@@ -45,6 +48,7 @@ public sealed class CatalogueReadinessService(
                 item.EditorialDescription,
                 item.Product.MainImageUrl,
                 item.Product.LastRefreshedUtc,
+                item.Product.AvailabilityState,
                 item.Product.Snapshots
                     .OrderByDescending(snapshot => snapshot.FetchedUtc)
                     .Select(snapshot => snapshot.SalePrice)
@@ -80,6 +84,9 @@ public sealed class CatalogueReadinessService(
                 (item.EditorialDescription?.Trim().Length ?? 0) >= CatalogueSeoPolicy.MinimumEditorialDescriptionLength),
             indexable,
             products.Count(item => item.LastRefreshedUtc < staleBefore),
+            products.Count(item => item.AvailabilityState == ProductAvailabilityState.Available),
+            products.Count(item => item.AvailabilityState == ProductAvailabilityState.SuspectedUnavailable),
+            products.Count(item => item.AvailabilityState == ProductAvailabilityState.Unavailable),
             products.Count == 0 ? null : products.Max(item => item.LastRefreshedUtc));
     }
 
@@ -91,6 +98,7 @@ public sealed class CatalogueReadinessService(
         string? EditorialDescription,
         string? ImageUrl,
         DateTimeOffset LastRefreshedUtc,
+        ProductAvailabilityState AvailabilityState,
         decimal? Price,
         bool HasActiveLink);
 }

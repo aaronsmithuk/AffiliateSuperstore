@@ -1,10 +1,18 @@
 # AI-assisted catalogue and content automation plan
 
-Status: decision-ready implementation plan; no production changes
+Status: implementation in progress; production automation remains disabled
 
 Prepared: 30 August 2026
 
 Scope: catalogue freshness, product identity, editorial repair and reviewed content creation
+
+Implementation status (31 August 2026): the MVP observation/lifecycle foundation
+is complete locally. Product observations now carry raw/content hashes and source
+correlation, unchanged content creates no duplicate snapshot/change event,
+direct-detail misses require repeated evidence spanning at least 24 hours before
+withdrawal, positive evidence restores availability, and discovery-query absence
+does not count as lifecycle evidence. The admin catalogue exposes lifecycle
+totals, filters and evidence counts. Durable SQL work leasing is the next slice.
 
 ## Executive decision
 
@@ -627,8 +635,8 @@ answers and legal review.
 
 1. Confirm SmarterASP .NET 10/SQL version/task entitlement; capture the current
    AliExpress agreement and ask support for quota/cache/permission answers.
-2. Add source observation hash, `LastCheckedUtc`, lifecycle evidence/state,
-   consecutive misses and price/change events; backfill safely.
+2. **Complete locally:** source observation/content hashes, `LastCheckedUtc`,
+   lifecycle evidence/state, consecutive misses, change events and safe backfill.
 3. Add SQL automation items, unique idempotency keys, leases, bounded runs,
    retry classes and harmless wake endpoint; keep production disabled.
 4. Implement direct refresh cohorts, expiry grace rules, feed-health metrics and

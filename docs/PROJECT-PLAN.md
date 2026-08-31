@@ -98,7 +98,7 @@ The MVP is complete when:
 | 0. Evidence and feasibility | API, programme rules, hosting direction, basket limits and compliance evidence | Complete; 2025 agreement still to capture |
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
-| 3. Persistence | SQL Server catalogue, snapshots, ordered product media, links, clicks, jobs and order state | Complete |
+| 3. Persistence | SQL Server catalogue, snapshots, ordered product media, links, clicks, jobs and order state | Complete; additive freshness/lifecycle evidence and change history are included |
 | 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, batched 24-hour detail/media enrichment, retry, quality assessment, guarded editorial approval and audited link renewal are working |
 | 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
@@ -137,8 +137,8 @@ place in the main delivery sequence.
 | Workstream | Main-build outcome | Dependencies | Status |
 |---|---|---|---|
 | AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Planned; blocks production enablement, not offline development |
-| AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Next implementation slice |
-| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Planned |
+| AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Complete locally; migration, admin visibility and lifecycle regression coverage added 31 August 2026 |
+| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Next implementation slice |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Planned |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Planned |
 | AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
@@ -336,19 +336,15 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Register the selected canonical domain, create the isolated SmarterASP site,
-1 GB .NET Core pool and SQL Server 2022 database, configure protected
-pool-scoped environment variables, then perform the gated first release from
-[`PRODUCTION-RELEASE.md`](PRODUCTION-RELEASE.md). In parallel, start AI-0 and
-AI-1: capture the current affiliate agreement and host/API constraints, confirm
-whether delivery estimates are available through the permitted API surface,
-then add observation hashes and evidence-backed lifecycle state without
-enabling production automation or a model provider. The following AI slice is
-AI-2 durable SQL work leasing/wake-up, followed by AI-3 deterministic identity
-and a paged, explainable review queue; editorial versions, hosted/local model
-trials and blog generation remain later, gated work.
+Keep custom-domain TLS and protected production secrets as the next production
+gate. Development now moves to AI-2 durable SQL work leasing/wake-up: unique
+idempotency keys, recoverable leases, bounded retries, independent job types and
+health visibility. AI-3 deterministic identity and a paged, explainable review
+queue follows; editorial versions, hosted/local model trials and blog generation
+remain later, gated work. The AI-1 freshness schema is complete locally but is
+not deployed or enabled as production automation by this development change.
 
 Impression tracking can be added when a real CTR is operationally useful. The
-local catalogue-depth gate has been met; indexing and public deployment remain
-blocked on visual/content review, admin authentication and production release
-checks.
+local catalogue-depth gate has been met. Indexing remains blocked on final
+visual/content review and protected production configuration; the provider-hosted
+production release is live while canonical-domain TLS remains deferred.
