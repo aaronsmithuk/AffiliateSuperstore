@@ -189,12 +189,11 @@ if (app.Environment.IsDevelopment() && !string.IsNullOrWhiteSpace(databaseConnec
     {
         await database.Database.MigrateAsync();
     }
-
-    await app.Services.GetRequiredService<ShopConfigurationSynchronizer>().SynchronizeAsync();
 }
 
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
+    await app.Services.GetRequiredService<ShopConfigurationSynchronizer>().SynchronizeAsync();
     await app.Services.GetRequiredService<AdminAccountProvisioner>().EnsureBootstrapAccountAsync();
 }
 
