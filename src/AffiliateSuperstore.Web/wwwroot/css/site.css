@@ -752,11 +752,13 @@
   background: var(--ds-color-surface);
 }
 
-.product-gallery a {
+.product-gallery button {
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--ds-color-line);
   border-radius: var(--ds-radius-md);
   background: var(--ds-color-surface-subtle);
+  cursor: pointer;
 }
 
 .product-gallery img {
@@ -764,8 +766,18 @@
   transition: transform 160ms ease;
 }
 
-.product-gallery a:hover img {
+.product-gallery button:hover img {
   transform: scale(1.035);
+}
+
+.product-gallery button[aria-pressed="true"] {
+  border-color: var(--shop-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--shop-primary) 32%, transparent);
+}
+
+.product-gallery button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--shop-primary) 45%, transparent);
+  outline-offset: 2px;
 }
 
 .product-video {

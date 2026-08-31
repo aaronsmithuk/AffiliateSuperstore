@@ -15,13 +15,15 @@
         <div class="product-detail-media">
             @if (Model.Product.ImageUrls.Count > 0)
             {
-                <a class="product-featured-image" href="@Model.Product.ImageUrls[0]" target="_blank" rel="noopener" aria-label="Open full-size product image"><img src="@Model.Product.ImageUrls[0]" alt="@Model.Product.Title" referrerpolicy="no-referrer" /></a>
+                <div class="product-featured-image"><img data-product-main-image src="@Model.Product.ImageUrls[0]" alt="@Model.Product.Title" referrerpolicy="no-referrer" /></div>
                 @if (Model.Product.ImageUrls.Count > 1)
                 {
-                    <div class="product-gallery" aria-label="Product image gallery">
-                        @foreach (var imageUrl in Model.Product.ImageUrls.Skip(1))
+                    <div class="product-gallery" data-product-gallery aria-label="Choose a product image">
+                        @for (var imageIndex = 0; imageIndex < Model.Product.ImageUrls.Count; imageIndex++)
                         {
-                            <a href="@imageUrl" target="_blank" rel="noopener"><img src="@imageUrl" alt="Additional view of @Model.Product.Title" loading="lazy" referrerpolicy="no-referrer" /></a>
+                            var imageUrl = Model.Product.ImageUrls[imageIndex];
+                            var imageNumber = imageIndex + 1;
+                            <button type="button" data-gallery-image="@imageUrl" data-gallery-alt="@Model.Product.Title, image @imageNumber of @Model.Product.ImageUrls.Count" aria-label="Show image @imageNumber of @Model.Product.ImageUrls.Count" aria-pressed="@(imageIndex == 0 ? "true" : "false")"><img src="@imageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /></button>
                         }
                     </div>
                 }
