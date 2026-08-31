@@ -90,6 +90,9 @@ public sealed class PersistenceModelTests
         var product = context.Model.FindEntityType(typeof(ProductRecord))!;
         var changeEvent = context.Model.FindEntityType(typeof(ProductChangeEventRecord))!;
         var workItem = context.Model.FindEntityType(typeof(AutomationWorkItemRecord))!;
+        var identity = context.Model.FindEntityType(typeof(ProductIdentityProfileRecord))!;
+        var candidate = context.Model.FindEntityType(typeof(ProductMatchCandidateRecord))!;
+        var member = context.Model.FindEntityType(typeof(CanonicalProductMemberRecord))!;
 
         Assert.Contains(shop.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(ShopRecord.Slug));
         Assert.Contains(snapshots.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.FetchedUtc)]));
@@ -98,6 +101,9 @@ public sealed class PersistenceModelTests
         Assert.Contains(changeEvent.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductChangeEventRecord.ProductId), nameof(ProductChangeEventRecord.OccurredUtc)]));
         Assert.Contains(workItem.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(AutomationWorkItemRecord.IdempotencyKey));
         Assert.True(workItem.FindProperty(nameof(AutomationWorkItemRecord.RowVersion))!.IsConcurrencyToken);
+        Assert.Contains(identity.GetIndexes(), index => index.Properties.Single().Name == nameof(ProductIdentityProfileRecord.NormalizedGtin));
+        Assert.Contains(candidate.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductMatchCandidateRecord.LeftProductId), nameof(ProductMatchCandidateRecord.RightProductId), nameof(ProductMatchCandidateRecord.MatcherVersion)]));
+        Assert.Contains(member.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(CanonicalProductMemberRecord.ProductId));
         Assert.True(product.FindProperty(nameof(ProductRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, product.FindProperty(nameof(ProductRecord.RowVersion))!.ValueGenerated);
     }

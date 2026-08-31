@@ -123,6 +123,18 @@ public sealed class CatalogueAutomationWorker(
                     result.ProductsSelected);
                 return result.JobId;
             }
+            case AutomationWorkType.IdentityRefresh:
+            {
+                var service = scope.ServiceProvider.GetRequiredService<ProductIdentityService>();
+                var result = await service.RebuildAsync(lease.ShopSlug, cancellationToken: cancellationToken);
+                logger.LogInformation(
+                    "Durable identity refresh for {ShopSlug} read {ProductsRead} products, updated {ProfilesUpdated} profiles and created {CandidatesCreated} candidates.",
+                    lease.ShopSlug,
+                    result.ProductsRead,
+                    result.ProfilesUpdated,
+                    result.CandidatesCreated);
+                return null;
+            }
             case AutomationWorkType.LinkRefresh:
             {
                 var service = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();

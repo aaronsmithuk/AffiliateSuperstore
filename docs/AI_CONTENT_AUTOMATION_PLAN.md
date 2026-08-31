@@ -15,7 +15,16 @@ does not count as lifecycle evidence. The admin catalogue exposes lifecycle
 totals, filters and evidence counts. The durable automation slice is also complete
 locally: independent work types use unique idempotency keys, recoverable SQL
 leases/checkpoints, bounded exponential retry/dead-letter handling and a bounded
-parameter-free `/health/wake` signal. Deterministic identity/review is next.
+parameter-free `/health/wake` signal. The deterministic identity core is also
+complete locally: versioned NFKC/GTIN/model/pack/size/colour/material profiles,
+bounded category blocks, hard-conflict classification, current/superseded
+evidence, non-destructive canonical membership and a filtered 25-row admin
+review queue now run as a fourth durable work type. A live 230-offer SQL run
+reduced an over-broad first pass from 1,753 variant suggestions to four after
+title-evidence and multi-size safeguards; all older matcher evidence remained
+auditable but was superseded. Production automation remains disabled. Image
+hashing and a larger reviewer-labelled calibration set remain AI-3 follow-on
+work before any automatic canonical linking is considered.
 
 ## Executive decision
 
@@ -645,8 +654,9 @@ answers and legal review.
    endpoint; production remains disabled.
 4. Implement direct refresh cohorts, expiry grace rules, feed-health metrics and
    link-health dashboard using the official adapters.
-5. Add normalizers, pack/size/unit parsing, exact identity/image metadata and
-   match evidence tables; deterministic review suggestions only.
+5. **Core complete locally:** add versioned normalizers, GTIN/model/pack/size/unit
+   parsing, bounded match evidence tables and paged deterministic review. Image
+   hashes and expanded labelled calibration remain follow-on work.
 6. Add content mechanical rules, immutable content versions/diffs and enhanced
    review queues.
 7. Create identity/lifecycle/copy gold sets and shadow-mode reports.

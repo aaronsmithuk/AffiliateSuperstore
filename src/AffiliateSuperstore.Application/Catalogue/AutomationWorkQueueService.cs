@@ -51,6 +51,9 @@ public sealed class AutomationWorkQueueService(
                 shop.Id, shop.Slug, AutomationWorkType.ProductRefresh,
                 TimeSpan.FromHours(options.RefreshEveryHours), 80, options.MaximumAttempts, now, cancellationToken);
             planned += await EnqueueIfDueAsync(
+                shop.Id, shop.Slug, AutomationWorkType.IdentityRefresh,
+                TimeSpan.FromHours(options.RefreshEveryHours), 70, options.MaximumAttempts, now, cancellationToken);
+            planned += await EnqueueIfDueAsync(
                 shop.Id, shop.Slug, AutomationWorkType.LinkRefresh,
                 TimeSpan.FromHours(options.LinkRefreshHours), 60, options.MaximumAttempts, now, cancellationToken);
         }

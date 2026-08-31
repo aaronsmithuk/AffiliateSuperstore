@@ -154,6 +154,7 @@ builder.Services.AddTransient<CatalogueDiscoveryPlanService>();
 builder.Services.AddTransient<CatalogueReadinessService>();
 builder.Services.AddTransient<AffiliateLinkRenewalService>();
 builder.Services.AddTransient<ProductQualityAssessmentService>();
+builder.Services.AddTransient<ProductIdentityService>();
 builder.Services.AddTransient<CatalogueEditorialService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<OutboundRedirectService>();

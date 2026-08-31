@@ -14,6 +14,10 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ProductSnapshotRecord> ProductSnapshots => Set<ProductSnapshotRecord>();
     public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
     public DbSet<ProductChangeEventRecord> ProductChangeEvents => Set<ProductChangeEventRecord>();
+    public DbSet<ProductIdentityProfileRecord> ProductIdentityProfiles => Set<ProductIdentityProfileRecord>();
+    public DbSet<ProductMatchCandidateRecord> ProductMatchCandidates => Set<ProductMatchCandidateRecord>();
+    public DbSet<CanonicalProductRecord> CanonicalProducts => Set<CanonicalProductRecord>();
+    public DbSet<CanonicalProductMemberRecord> CanonicalProductMembers => Set<CanonicalProductMemberRecord>();
     public DbSet<AffiliateLinkRecord> AffiliateLinks => Set<AffiliateLinkRecord>();
     public DbSet<OutboundClickRecord> OutboundClicks => Set<OutboundClickRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
@@ -30,6 +34,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureProductSnapshot(modelBuilder);
         ConfigureProductMedia(modelBuilder);
         ConfigureProductChangeEvent(modelBuilder);
+        ConfigureProductIdentity(modelBuilder);
         ConfigureAffiliateLink(modelBuilder);
         ConfigureOutboundClick(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
@@ -161,6 +166,61 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasOne(item => item.Product).WithMany(product => product.ChangeEvents).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
         entity.HasIndex(item => new { item.ProductId, item.OccurredUtc });
         entity.HasIndex(item => new { item.Kind, item.OccurredUtc });
+    }
+
+    private static void ConfigureProductIdentity(ModelBuilder modelBuilder)
+    {
+        var profile = modelBuilder.Entity<ProductIdentityProfileRecord>();
+        profile.ToTable("ProductIdentityProfiles");
+        profile.HasKey(item => item.ProductId);
+        profile.Property(item => item.ProductId).HasMaxLength(64);
+        profile.Property(item => item.NormalizedTitle).HasMaxLength(1000).IsRequired();
+        profile.Property(item => item.NormalizedGtin).HasMaxLength(32);
+        profile.Property(item => item.NormalizedModel).HasMaxLength(100);
+        profile.Property(item => item.SizeCentimetres).HasPrecision(12, 3);
+        profile.Property(item => item.Colour).HasMaxLength(60);
+        profile.Property(item => item.Material).HasMaxLength(100);
+        profile.Property(item => item.TokensJson).HasMaxLength(4000).IsRequired();
+        profile.Property(item => item.InputHash).HasMaxLength(64).IsRequired();
+        profile.Property(item => item.NormalizerVersion).HasMaxLength(40).IsRequired();
+        profile.HasOne(item => item.Product).WithOne(product => product.IdentityProfile).HasForeignKey<ProductIdentityProfileRecord>(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        profile.HasIndex(item => item.NormalizedGtin);
+        profile.HasIndex(item => new { item.PackCount, item.SizeCentimetres });
+
+        var candidate = modelBuilder.Entity<ProductMatchCandidateRecord>();
+        candidate.ToTable("ProductMatchCandidates");
+        candidate.HasKey(item => item.Id);
+        candidate.Property(item => item.LeftProductId).HasMaxLength(64).IsRequired();
+        candidate.Property(item => item.RightProductId).HasMaxLength(64).IsRequired();
+        candidate.Property(item => item.SuggestedRelationship).HasConversion<string>().HasMaxLength(30);
+        candidate.Property(item => item.ReviewStatus).HasConversion<string>().HasMaxLength(30);
+        candidate.Property(item => item.Confidence).HasPrecision(6, 5);
+        candidate.Property(item => item.BlockingReason).HasMaxLength(500).IsRequired();
+        candidate.Property(item => item.EvidenceJson).HasMaxLength(4000).IsRequired();
+        candidate.Property(item => item.ConflictJson).HasMaxLength(2000);
+        candidate.Property(item => item.MatcherVersion).HasMaxLength(40).IsRequired();
+        candidate.Property(item => item.ReviewedBy).HasMaxLength(256);
+        candidate.Property(item => item.RowVersion).IsRowVersion();
+        candidate.HasOne(item => item.LeftProduct).WithMany().HasForeignKey(item => item.LeftProductId).OnDelete(DeleteBehavior.Restrict);
+        candidate.HasOne(item => item.RightProduct).WithMany().HasForeignKey(item => item.RightProductId).OnDelete(DeleteBehavior.Restrict);
+        candidate.HasIndex(item => new { item.LeftProductId, item.RightProductId, item.MatcherVersion }).IsUnique();
+        candidate.HasIndex(item => new { item.ReviewStatus, item.IsCurrent, item.Confidence, item.GeneratedUtc });
+
+        var canonical = modelBuilder.Entity<CanonicalProductRecord>();
+        canonical.ToTable("CanonicalProducts");
+        canonical.HasKey(item => item.Id);
+        canonical.Property(item => item.DisplayName).HasMaxLength(500).IsRequired();
+        canonical.Property(item => item.RowVersion).IsRowVersion();
+
+        var member = modelBuilder.Entity<CanonicalProductMemberRecord>();
+        member.ToTable("CanonicalProductMembers");
+        member.HasKey(item => new { item.CanonicalProductId, item.ProductId });
+        member.Property(item => item.ProductId).HasMaxLength(64);
+        member.Property(item => item.Relationship).HasConversion<string>().HasMaxLength(30);
+        member.HasOne(item => item.CanonicalProduct).WithMany(product => product.Members).HasForeignKey(item => item.CanonicalProductId).OnDelete(DeleteBehavior.Cascade);
+        member.HasOne(item => item.Product).WithOne(product => product.CanonicalMembership).HasForeignKey<CanonicalProductMemberRecord>(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
+        member.HasOne(item => item.EvidenceCandidate).WithMany().HasForeignKey(item => item.EvidenceCandidateId).OnDelete(DeleteBehavior.SetNull);
+        member.HasIndex(item => item.ProductId).IsUnique();
     }
 
     private static void ConfigureAffiliateLink(ModelBuilder modelBuilder)

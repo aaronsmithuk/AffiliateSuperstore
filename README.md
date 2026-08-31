@@ -145,7 +145,8 @@ The current suite covers request signing and normalisation, shop resolution,
 database constraints and configuration sync, ingestion success/failure and its
 quality gate, batched product-detail/media enrichment, guarded discovery-plan
 execution, publication readiness,
-automation timing, approved-only redirect behaviour and anonymous list state,
+automation timing, deterministic product identity/version supersession,
+reviewed canonical membership, approved-only redirect behaviour and anonymous list state,
 cursor-based order reconciliation, S2S idempotency and click
 attribution, archive export safety and click/link performance aggregation.
 
@@ -167,8 +168,9 @@ a checked release archive with `./scripts/New-SmarterAspRelease.ps1`.
 
 The adopted umbrella-brand/domain decision and point-in-time checks are in
 [`docs/DOMAIN-RECOMMENDATION.md`](docs/DOMAIN-RECOMMENDATION.md). Wonder Aisle
-is now the canonical product identity; `wonderaisle.co.uk` remains unregistered
-until the live-domain action is explicitly approved.
+is now the canonical product identity; `wonderaisle.co.uk` is registered, mapped
+and serving the deployed application while managed custom-domain TLS remains the
+public-launch blocker.
 
 The visual exploration contract and parallel-design-task boundaries are in
 [`docs/DESIGN-SYSTEM-BRIEF.md`](docs/DESIGN-SYSTEM-BRIEF.md).

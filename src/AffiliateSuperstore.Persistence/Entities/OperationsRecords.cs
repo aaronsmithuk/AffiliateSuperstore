@@ -92,6 +92,7 @@ public enum AutomationWorkType
 {
     CatalogueDiscovery,
     ProductRefresh,
+    IdentityRefresh,
     LinkRefresh
 }
 

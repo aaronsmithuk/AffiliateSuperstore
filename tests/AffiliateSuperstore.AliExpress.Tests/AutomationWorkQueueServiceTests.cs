@@ -17,12 +17,12 @@ public sealed class AutomationWorkQueueServiceTests
         var first = await service.PlanDueAsync(options);
         var duplicate = await service.PlanDueAsync(options);
 
-        Assert.Equal(3, first);
+        Assert.Equal(4, first);
         Assert.Equal(0, duplicate);
         await using var context = factory.CreateDbContext();
-        Assert.Equal(3, await context.AutomationWorkItems.CountAsync());
-        Assert.Equal(3, await context.AutomationWorkItems.Select(item => item.Type).Distinct().CountAsync());
-        Assert.Equal(3, await context.AutomationWorkItems.Select(item => item.IdempotencyKey).Distinct().CountAsync());
+        Assert.Equal(4, await context.AutomationWorkItems.CountAsync());
+        Assert.Equal(4, await context.AutomationWorkItems.Select(item => item.Type).Distinct().CountAsync());
+        Assert.Equal(4, await context.AutomationWorkItems.Select(item => item.IdempotencyKey).Distinct().CountAsync());
     }
 
     [Fact]

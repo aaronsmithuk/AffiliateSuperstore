@@ -62,6 +62,8 @@ public sealed class ProductRecord
     public ICollection<ProductSnapshotRecord> Snapshots { get; set; } = [];
     public ICollection<ProductMediaRecord> Media { get; set; } = [];
     public ICollection<ProductChangeEventRecord> ChangeEvents { get; set; } = [];
+    public ProductIdentityProfileRecord? IdentityProfile { get; set; }
+    public CanonicalProductMemberRecord? CanonicalMembership { get; set; }
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
 }
@@ -95,6 +97,88 @@ public sealed class ProductChangeEventRecord
     public string? DetailsJson { get; set; }
 
     public ProductRecord Product { get; set; } = null!;
+}
+
+public sealed class ProductIdentityProfileRecord
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string NormalizedTitle { get; set; } = string.Empty;
+    public string? NormalizedGtin { get; set; }
+    public string? NormalizedModel { get; set; }
+    public int? PackCount { get; set; }
+    public decimal? SizeCentimetres { get; set; }
+    public string? Colour { get; set; }
+    public string? Material { get; set; }
+    public string TokensJson { get; set; } = "[]";
+    public string InputHash { get; set; } = string.Empty;
+    public string NormalizerVersion { get; set; } = "1.0";
+    public DateTimeOffset UpdatedUtc { get; set; }
+
+    public ProductRecord Product { get; set; } = null!;
+}
+
+public enum ProductRelationship
+{
+    Primary,
+    Duplicate,
+    Translation,
+    Variant,
+    Bundle,
+    Related,
+    NotRelated
+}
+
+public enum ProductMatchReviewStatus
+{
+    Pending,
+    Accepted,
+    Rejected
+}
+
+public sealed class ProductMatchCandidateRecord
+{
+    public Guid Id { get; set; }
+    public string LeftProductId { get; set; } = string.Empty;
+    public string RightProductId { get; set; } = string.Empty;
+    public ProductRelationship SuggestedRelationship { get; set; }
+    public ProductMatchReviewStatus ReviewStatus { get; set; } = ProductMatchReviewStatus.Pending;
+    public bool IsCurrent { get; set; } = true;
+    public decimal Confidence { get; set; }
+    public string BlockingReason { get; set; } = string.Empty;
+    public string EvidenceJson { get; set; } = "{}";
+    public string? ConflictJson { get; set; }
+    public string MatcherVersion { get; set; } = "1.0";
+    public DateTimeOffset GeneratedUtc { get; set; }
+    public DateTimeOffset? ReviewedUtc { get; set; }
+    public string? ReviewedBy { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+
+    public ProductRecord LeftProduct { get; set; } = null!;
+    public ProductRecord RightProduct { get; set; } = null!;
+}
+
+public sealed class CanonicalProductRecord
+{
+    public Guid Id { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public DateTimeOffset CreatedUtc { get; set; }
+    public DateTimeOffset UpdatedUtc { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+
+    public ICollection<CanonicalProductMemberRecord> Members { get; set; } = [];
+}
+
+public sealed class CanonicalProductMemberRecord
+{
+    public Guid CanonicalProductId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
+    public ProductRelationship Relationship { get; set; }
+    public Guid? EvidenceCandidateId { get; set; }
+    public DateTimeOffset LinkedUtc { get; set; }
+
+    public CanonicalProductRecord CanonicalProduct { get; set; } = null!;
+    public ProductRecord Product { get; set; } = null!;
+    public ProductMatchCandidateRecord? EvidenceCandidate { get; set; }
 }
 
 public enum ProductMediaType

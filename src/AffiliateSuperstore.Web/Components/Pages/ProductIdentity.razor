@@ -1,0 +1,286 @@
+@page "/admin/identity"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
+@rendermode InteractiveServer
+@inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
+@inject ProductIdentityService IdentityService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Product identity review</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Catalogue intelligence</p>
+        <h1>Product identity</h1>
+        <p class="lede">Deterministic duplicate, bundle and variant suggestions. Source offers remain separate until you review the evidence.</p>
+    </div>
+    <div class="topbar-actions">
+        <label class="identity-shop-select">Shop
+            <select @bind="SelectedShop" disabled="@IsBusy">
+                @foreach (var shop in Shops)
+                {
+                    <option value="@shop.Slug">@shop.DisplayName</option>
+                }
+            </select>
+        </label>
+        <button class="button" type="button" @onclick="RebuildAsync" disabled="@IsBusy">@(IsRebuilding ? "Rebuilding…" : "Rebuild evidence")</button>
+        <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsBusy">Refresh</button>
+    </div>
+</header>
+
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert-card @(MessageIsError ? "error-card" : "success-card") quality-result" role="status"><strong>@(MessageIsError ? "Action blocked" : "Identity updated")</strong><span>@Message</span></div>
+}
+
+<section class="database-hero healthy">
+    <div>
+        <p class="eyebrow">Review boundary</p>
+        <h2>Suggestions are automatic; grouping is not</h2>
+        <p>Accepting a row records canonical membership and its evidence. Rejecting records the decision. Neither action edits or deletes the underlying AliExpress offers.</p>
+    </div>
+    <span class="database-health">Review-first</span>
+</section>
+
+<section class="metric-grid" aria-label="Product identity totals">
+    <article class="metric-card"><strong>@Metrics.Profiles</strong><span>Normalised offers</span></article>
+    <article class="metric-card"><strong>@Metrics.Pending</strong><span>Awaiting review</span></article>
+    <article class="metric-card"><strong>@Metrics.Accepted</strong><span>Accepted evidence</span></article>
+    <article class="metric-card"><strong>@Metrics.Rejected</strong><span>Rejected suggestions</span></article>
+    <article class="metric-card"><strong>@Metrics.CanonicalProducts</strong><span>Canonical products</span></article>
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading catalogue-table-heading">
+        <div><p class="eyebrow">Evidence queue</p><h2>Candidate relationships</h2></div>
+        <div class="catalogue-filters">
+            <label>Status
+                <select value="@StatusFilter" @onchange="ChangeStatusAsync">
+                    <option value="All">All</option>
+                    @foreach (var status in Enum.GetValues<ProductMatchReviewStatus>())
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </label>
+            <label>Relationship
+                <select value="@RelationshipFilter" @onchange="ChangeRelationshipAsync">
+                    <option value="All">All</option>
+                    @foreach (var relationship in Enum.GetValues<ProductRelationship>())
+                    {
+                        <option value="@relationship">@relationship</option>
+                    }
+                </select>
+            </label>
+            <span class="count-badge">@TotalRows</span>
+        </div>
+    </div>
+
+    @if (IsLoading && Rows.Count == 0)
+    {
+        <p class="database-empty">Loading product identity evidence…</p>
+    }
+    else if (Rows.Count == 0)
+    {
+        <p class="database-empty">No candidates match these filters. Run a rebuild after products have been enriched.</p>
+    }
+    else
+    {
+        <div class="identity-list">
+            @foreach (var row in Rows)
+            {
+                <article class="identity-candidate">
+                    <div class="identity-candidate-heading">
+                        <div>
+                            <span class="result-badge @StatusClass(row.Status)">@row.Status</span>
+                            <span class="identity-relationship">@row.Relationship</span>
+                            <strong>@(row.Confidence * 100m).ToString("0.0")%</strong>
+                        </div>
+                        <small>Generated @LocalTime(row.GeneratedUtc) · matcher @row.MatcherVersion</small>
+                    </div>
+                    <div class="identity-offer-grid">
+                        @Offer(row.Left, "Offer A")
+                        @Offer(row.Right, "Offer B")
+                    </div>
+                    <div class="identity-evidence">
+                        <div><span>Candidate block</span><strong>@row.BlockingReason</strong></div>
+                        @if (!string.IsNullOrWhiteSpace(row.Conflicts))
+                        {
+                            <div class="identity-conflict"><span>Hard conflict</span><strong>@FriendlyConflicts(row.Conflicts)</strong></div>
+                        }
+                        <details><summary>Complete scored evidence</summary><pre>@PrettyJson(row.Evidence)</pre></details>
+                    </div>
+                    <div class="identity-review-actions">
+                        @if (row.Status == ProductMatchReviewStatus.Pending)
+                        {
+                            <button class="button refresh-button" type="button" @onclick="() => ReviewAsync(row.Id, false)" disabled="@IsBusy">Reject</button>
+                            <button class="button button-primary" type="button" @onclick="() => ReviewAsync(row.Id, true)" disabled="@IsBusy">Accept relationship</button>
+                        }
+                        else
+                        {
+                            <span>Reviewed @LocalTime(row.ReviewedUtc) by @(row.ReviewedBy ?? "administrator")</span>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+
+    <div class="identity-pager">
+        <span>Page @PageNumber of @TotalPages · @TotalRows candidates</span>
+        <div>
+            <button class="button refresh-button" type="button" @onclick="PreviousPageAsync" disabled="@(IsBusy || PageNumber <= 1)">Previous</button>
+            <button class="button refresh-button" type="button" @onclick="NextPageAsync" disabled="@(IsBusy || PageNumber >= TotalPages)">Next</button>
+        </div>
+    </div>
+</section>
+
+@code {
+    private const int PageSize = 25;
+    private List<ShopChoice> Shops = [];
+    private List<CandidateRow> Rows = [];
+    private IdentityMetrics Metrics = new(0, 0, 0, 0, 0);
+    private string SelectedShop = "plushies";
+    private string StatusFilter = nameof(ProductMatchReviewStatus.Pending);
+    private string RelationshipFilter = "All";
+    private int PageNumber = 1;
+    private int TotalRows;
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalRows / (decimal)PageSize));
+    private bool IsLoading;
+    private bool IsRebuilding;
+    private bool IsBusy => IsLoading || IsRebuilding;
+    private string? Message;
+    private bool MessageIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var context = await ContextFactory.CreateDbContextAsync();
+        Shops = await context.Shops.AsNoTracking().Where(item => item.IsEnabled)
+            .OrderBy(item => item.DisplayName)
+            .Select(item => new ShopChoice(item.Slug, item.DisplayName))
+            .ToListAsync();
+        if (Shops.Count > 0 && Shops.All(item => item.Slug != SelectedShop)) SelectedShop = Shops[0].Slug;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            await using var context = await ContextFactory.CreateDbContextAsync();
+            var shopProductIds = context.ShopProducts.AsNoTracking()
+                .Where(item => item.Shop.Slug == SelectedShop && item.IsActive)
+                .Select(item => item.ProductId);
+            var candidates = context.ProductMatchCandidates.AsNoTracking()
+                .Where(item => shopProductIds.Contains(item.LeftProductId) && shopProductIds.Contains(item.RightProductId) &&
+                               (item.ReviewStatus != ProductMatchReviewStatus.Pending || item.IsCurrent));
+            var profileCount = await context.ProductIdentityProfiles.AsNoTracking()
+                .CountAsync(item => shopProductIds.Contains(item.ProductId));
+            Metrics = new IdentityMetrics(
+                profileCount,
+                await candidates.CountAsync(item => item.ReviewStatus == ProductMatchReviewStatus.Pending),
+                await candidates.CountAsync(item => item.ReviewStatus == ProductMatchReviewStatus.Accepted),
+                await candidates.CountAsync(item => item.ReviewStatus == ProductMatchReviewStatus.Rejected),
+                await context.CanonicalProducts.AsNoTracking().CountAsync(item => item.Members.Any(member => shopProductIds.Contains(member.ProductId))));
+
+            if (Enum.TryParse<ProductMatchReviewStatus>(StatusFilter, out var status))
+                candidates = candidates.Where(item => item.ReviewStatus == status);
+            if (Enum.TryParse<ProductRelationship>(RelationshipFilter, out var relationship))
+                candidates = candidates.Where(item => item.SuggestedRelationship == relationship);
+
+            TotalRows = await candidates.CountAsync();
+            PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
+            Rows = await candidates
+                .OrderBy(item => item.ReviewStatus == ProductMatchReviewStatus.Pending ? 0 : 1)
+                .ThenByDescending(item => item.Confidence)
+                .ThenByDescending(item => item.GeneratedUtc)
+                .Skip((PageNumber - 1) * PageSize)
+                .Take(PageSize)
+                .Select(item => new CandidateRow(
+                    item.Id,
+                    item.SuggestedRelationship,
+                    item.ReviewStatus,
+                    item.Confidence,
+                    item.BlockingReason,
+                    item.EvidenceJson,
+                    item.ConflictJson,
+                    item.MatcherVersion,
+                    item.GeneratedUtc,
+                    item.ReviewedUtc,
+                    item.ReviewedBy,
+                    new OfferRow(item.LeftProductId, item.LeftProduct.Title, item.LeftProduct.MainImageUrl, item.LeftProduct.IdentityProfile!.NormalizedGtin, item.LeftProduct.IdentityProfile.NormalizedModel, item.LeftProduct.IdentityProfile.PackCount, item.LeftProduct.IdentityProfile.SizeCentimetres, item.LeftProduct.IdentityProfile.Colour, item.LeftProduct.IdentityProfile.Material),
+                    new OfferRow(item.RightProductId, item.RightProduct.Title, item.RightProduct.MainImageUrl, item.RightProduct.IdentityProfile!.NormalizedGtin, item.RightProduct.IdentityProfile.NormalizedModel, item.RightProduct.IdentityProfile.PackCount, item.RightProduct.IdentityProfile.SizeCentimetres, item.RightProduct.IdentityProfile.Colour, item.RightProduct.IdentityProfile.Material)))
+                .ToListAsync();
+        }
+        catch (Exception exception)
+        {
+            Message = exception.Message;
+            MessageIsError = true;
+        }
+        finally { IsLoading = false; }
+    }
+
+    private async Task RebuildAsync()
+    {
+        IsRebuilding = true;
+        Message = null;
+        try
+        {
+            var result = await IdentityService.RebuildAsync(SelectedShop);
+            Message = $"Read {result.ProductsRead} offers, updated {result.ProfilesUpdated} profiles, created {result.CandidatesCreated} candidates and refreshed {result.CandidatesUpdated} pending candidates.";
+            MessageIsError = false;
+        }
+        catch (Exception exception)
+        {
+            Message = exception.Message;
+            MessageIsError = true;
+        }
+        finally { IsRebuilding = false; }
+        await LoadAsync();
+    }
+
+    private async Task ReviewAsync(Guid id, bool accept)
+    {
+        IsLoading = true;
+        Message = null;
+        var identity = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name ?? "administrator";
+        var result = await IdentityService.ReviewAsync(id, accept, identity);
+        Message = result.Message;
+        MessageIsError = !result.Succeeded;
+        IsLoading = false;
+        await LoadAsync();
+    }
+
+    private async Task ChangeStatusAsync(ChangeEventArgs args) { StatusFilter = args.Value?.ToString() ?? "All"; PageNumber = 1; await LoadAsync(); }
+    private async Task ChangeRelationshipAsync(ChangeEventArgs args) { RelationshipFilter = args.Value?.ToString() ?? "All"; PageNumber = 1; await LoadAsync(); }
+    private async Task PreviousPageAsync() { if (PageNumber > 1) PageNumber--; await LoadAsync(); }
+    private async Task NextPageAsync() { if (PageNumber < TotalPages) PageNumber++; await LoadAsync(); }
+
+    private RenderFragment Offer(OfferRow offer, string label) => @<article class="identity-offer">
+        @if (!string.IsNullOrWhiteSpace(offer.ImageUrl)) { <img src="@offer.ImageUrl" alt="" referrerpolicy="no-referrer" /> }
+        <div><span>@label</span><a href="/@SelectedShop/product/@offer.ProductId" target="_blank">@offer.Title</a><small>@offer.ProductId</small><p>@Facts(offer)</p></div>
+    </article>;
+
+    private static string Facts(OfferRow offer)
+    {
+        var facts = new List<string>();
+        if (offer.Gtin is not null) facts.Add($"GTIN {offer.Gtin}");
+        if (offer.Model is not null) facts.Add($"Model {offer.Model}");
+        if (offer.PackCount is not null) facts.Add($"Pack {offer.PackCount}");
+        if (offer.SizeCentimetres is not null) facts.Add($"{offer.SizeCentimetres:0.##} cm");
+        if (offer.Colour is not null) facts.Add(offer.Colour);
+        if (offer.Material is not null) facts.Add(offer.Material);
+        return facts.Count == 0 ? "No structured identity facts extracted" : string.Join(" · ", facts);
+    }
+
+    private static string FriendlyConflicts(string value) => value.Trim('[', ']').Replace("\"", string.Empty).Replace(",", " ·");
+    private static string PrettyJson(string value) { try { using var document = System.Text.Json.JsonDocument.Parse(value); return System.Text.Json.JsonSerializer.Serialize(document.RootElement, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }); } catch { return value; } }
+    private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    private static string StatusClass(ProductMatchReviewStatus status) => status == ProductMatchReviewStatus.Accepted ? "success" : status == ProductMatchReviewStatus.Rejected ? "failure" : string.Empty;
+
+    private sealed record ShopChoice(string Slug, string DisplayName);
+    private sealed record IdentityMetrics(int Profiles, int Pending, int Accepted, int Rejected, int CanonicalProducts);
+    private sealed record OfferRow(string ProductId, string Title, string? ImageUrl, string? Gtin, string? Model, int? PackCount, decimal? SizeCentimetres, string? Colour, string? Material);
+    private sealed record CandidateRow(Guid Id, ProductRelationship Relationship, ProductMatchReviewStatus Status, decimal Confidence, string BlockingReason, string Evidence, string? Conflicts, string MatcherVersion, DateTimeOffset GeneratedUtc, DateTimeOffset? ReviewedUtc, string? ReviewedBy, OfferRow Left, OfferRow Right);
+}
