@@ -14,16 +14,19 @@ public sealed record ProductIdentityRebuildResult(
     int ProductsRead,
     int ProfilesUpdated,
     int CandidatesCreated,
-    int CandidatesUpdated);
+    int CandidatesUpdated,
+    int ImageFingerprintsCreated = 0,
+    int ImageFingerprintsFailedOrSkipped = 0);
 
 public sealed record ProductIdentityCommandResult(bool Succeeded, string Message);
 
 public sealed class ProductIdentityService(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ProductImageFingerprintService? imageFingerprintService = null)
 {
     public const string NormalizerVersion = "1.4";
-    public const string MatcherVersion = "1.5";
+    public const string MatcherVersion = "1.6";
     private const int MaximumCandidatesPerProduct = 50;
     private static readonly Regex Whitespace = new(@"\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex NonToken = new(@"[^\p{L}\p{N}]+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -46,6 +49,9 @@ public sealed class ProductIdentityService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(shopSlug);
         if (maximumProducts is < 2 or > 5000) throw new ArgumentOutOfRangeException(nameof(maximumProducts));
+        var imageResult = imageFingerprintService is null
+            ? new ProductImageFingerprintResult(0, 0, 0, 0)
+            : await imageFingerprintService.RefreshAsync(shopSlug, Math.Min(maximumProducts, 100), cancellationToken);
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         var products = await context.ShopProducts
             .AsNoTracking()
@@ -90,6 +96,11 @@ public sealed class ProductIdentityService(
         }
         await context.SaveChangesAsync(cancellationToken);
 
+        var fingerprints = await context.ProductImageFingerprints
+            .AsNoTracking()
+            .Where(item => ids.Contains(item.ProductId) && item.Status == ProductImageFingerprintStatus.Succeeded && item.ContentSha256 != null)
+            .ToDictionaryAsync(item => item.ProductId, item => item.ContentSha256!, cancellationToken);
+
         var productLookup = products.ToDictionary(item => item.AliExpressProductId, StringComparer.Ordinal);
         var scored = new List<ScoredCandidate>();
         var profileRows = profiles.Values.Where(item => ids.Contains(item.ProductId)).OrderBy(item => item.ProductId).ToArray();
@@ -99,7 +110,7 @@ public sealed class ProductIdentityService(
             {
                 var left = profileRows[leftIndex];
                 var right = profileRows[rightIndex];
-                var match = Score(left, right, productLookup[left.ProductId], productLookup[right.ProductId]);
+                var match = Score(left, right, productLookup[left.ProductId], productLookup[right.ProductId], fingerprints);
                 if (match is not null) scored.Add(match);
             }
         }
@@ -155,7 +166,7 @@ public sealed class ProductIdentityService(
             candidatesUpdated++;
         }
         await context.SaveChangesAsync(cancellationToken);
-        return new(products.Length, updated, created, candidatesUpdated);
+        return new(products.Length, updated, created, candidatesUpdated, imageResult.FingerprintsCreated, imageResult.FailedOrSkipped);
     }
 
     public async Task<ProductIdentityCommandResult> ReviewAsync(
@@ -253,9 +264,17 @@ public sealed class ProductIdentityService(
         };
     }
 
-    private static ScoredCandidate? Score(ProductIdentityProfileRecord left, ProductIdentityProfileRecord right, ProductRecord leftProduct, ProductRecord rightProduct)
+    private static ScoredCandidate? Score(
+        ProductIdentityProfileRecord left,
+        ProductIdentityProfileRecord right,
+        ProductRecord leftProduct,
+        ProductRecord rightProduct,
+        IReadOnlyDictionary<string, string> fingerprints)
     {
         var exactGtin = left.NormalizedGtin is not null && left.NormalizedGtin == right.NormalizedGtin;
+        var exactImage = fingerprints.TryGetValue(left.ProductId, out var leftImage) &&
+            fingerprints.TryGetValue(right.ProductId, out var rightImage) &&
+            string.Equals(leftImage, rightImage, StringComparison.Ordinal);
         var sameCategory = !string.IsNullOrWhiteSpace(leftProduct.SecondLevelCategoryId) && leftProduct.SecondLevelCategoryId == rightProduct.SecondLevelCategoryId;
         if (!exactGtin && !sameCategory) return null;
         var leftTokens = ReadTokens(left.TokensJson);
@@ -264,7 +283,7 @@ public sealed class ProductIdentityService(
         var union = leftTokens.Union(rightTokens).Count();
         var tokenScore = union == 0 ? 0m : (decimal)intersection / union;
         var sameModel = left.NormalizedModel is not null && left.NormalizedModel == right.NormalizedModel;
-        if (!exactGtin && !sameModel && tokenScore < .55m) return null;
+        if (!exactGtin && !exactImage && !sameModel && tokenScore < .55m) return null;
         var conflicts = new List<string>();
         ProductRelationship relationship;
         decimal confidence;
@@ -298,6 +317,11 @@ public sealed class ProductIdentityService(
             confidence = .90m;
             conflicts.Add($"colour differs ({left.Colour} vs {right.Colour})");
         }
+        else if (exactImage)
+        {
+            relationship = ProductRelationship.Duplicate;
+            confidence = .97m;
+        }
         else
         {
             var attributeScore = Same(left.PackCount, right.PackCount) * .08m +
@@ -312,6 +336,7 @@ public sealed class ProductIdentityService(
         var evidence = JsonSerializer.Serialize(new
         {
             ExactGtin = exactGtin,
+            ExactImageSha256 = exactImage,
             SameCategory = sameCategory,
             SameModel = sameModel,
             TokenJaccard = tokenScore,
@@ -329,7 +354,7 @@ public sealed class ProductIdentityService(
             right.ProductId,
             relationship,
             confidence,
-            exactGtin ? "exact valid GTIN" : "same AliExpress category with deterministic title/attribute evidence",
+            exactGtin ? "exact valid GTIN" : exactImage ? "exact main-image byte hash within the same AliExpress category" : "same AliExpress category with deterministic title/attribute evidence",
             evidence,
             conflicts.Count == 0 ? null : JsonSerializer.Serialize(conflicts));
     }

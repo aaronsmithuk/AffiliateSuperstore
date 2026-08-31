@@ -22,9 +22,10 @@ evidence, non-destructive canonical membership and a filtered 25-row admin
 review queue now run as a fourth durable work type. A live 230-offer SQL run
 reduced an over-broad first pass from 1,753 variant suggestions to four after
 title-evidence and multi-size safeguards; all older matcher evidence remained
-auditable but was superseded. Production automation remains disabled. Image
-hashing and a larger reviewer-labelled calibration set remain AI-3 follow-on
-work before any automatic canonical linking is considered. The AI-4 editorial
+auditable but was superseded. Production automation remains disabled. Exact
+main-image byte hashing is now implemented as bounded, CDN-allow-listed,
+versioned review evidence. A larger reviewer-labelled calibration set remains
+the AI-3 follow-on before any automatic canonical linking is considered. The AI-4 editorial
 quality core is now complete locally: edits are immutable named revisions,
 unsupported authenticity/delivery/price/safety/rating/superlative, numerical
 and material claims are blocked mechanically, warnings prevent approval, and

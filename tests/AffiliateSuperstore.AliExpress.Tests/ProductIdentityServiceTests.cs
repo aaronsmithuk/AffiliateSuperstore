@@ -83,6 +83,53 @@ public sealed class ProductIdentityServiceTests
         Assert.False(candidate.IsCurrent);
     }
 
+    [Fact]
+    public async Task RebuildAsync_UsesExactImageHashAsReviewEvidenceWithoutAutomaticLinking()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await using (var seed = factory.CreateDbContext())
+        {
+            var now = DateTimeOffset.UtcNow;
+            var shopId = Guid.CreateVersion7();
+            seed.Shops.Add(new ShopRecord
+            {
+                Id = shopId, Slug = "plushies", DisplayName = "The Plushy Shop", PathPrefix = "/plushies",
+                TrackingId = "theplushyshop", DefaultSearchQuery = "plush toy", SeoTitle = "Plush toys",
+                SeoDescription = "Curated plush toys", PrimaryColour = "#000000", AccentColour = "#ffffff",
+                CreatedUtc = now, UpdatedUtc = now
+            });
+            var products = new[]
+            {
+                Product("image-a", "Woodland fox companion", now),
+                Product("image-b", "Rust coloured animal cushion", now)
+            };
+            seed.Products.AddRange(products);
+            seed.ShopProducts.AddRange(products.Select(product => new ShopProductRecord
+            {
+                ShopId = shopId, ProductId = product.AliExpressProductId, IsActive = true,
+                FirstIncludedUtc = now, LastIncludedUtc = now
+            }));
+            seed.ProductImageFingerprints.AddRange(products.Select(product => new ProductImageFingerprintRecord
+            {
+                ProductId = product.AliExpressProductId, SourceUrl = "https://ae01.alicdn.com/kf/shared.jpg",
+                SourceUrlHash = new string('a', 64), ContentSha256 = new string('b', 64), ContentLength = 100,
+                ContentType = "image/jpeg", Status = ProductImageFingerprintStatus.Succeeded, AttemptCount = 1,
+                LastAttemptUtc = now, FingerprintedUtc = now, FingerprinterVersion = ProductImageFingerprintService.FingerprinterVersion
+            }));
+            await seed.SaveChangesAsync();
+        }
+        var service = new ProductIdentityService(factory, TimeProvider.System);
+
+        await service.RebuildAsync("plushies");
+
+        await using var context = factory.CreateDbContext();
+        var candidate = await context.ProductMatchCandidates.SingleAsync();
+        Assert.Equal(ProductRelationship.Duplicate, candidate.SuggestedRelationship);
+        Assert.Equal(.97m, candidate.Confidence);
+        Assert.Contains("ExactImageSha256\":true", candidate.EvidenceJson, StringComparison.Ordinal);
+        Assert.Empty(await context.CanonicalProductMembers.ToListAsync());
+    }
+
     private static bool Pair(ProductMatchCandidateRecord item, string left, string right) =>
         item.LeftProductId == left && item.RightProductId == right ||
         item.LeftProductId == right && item.RightProductId == left;

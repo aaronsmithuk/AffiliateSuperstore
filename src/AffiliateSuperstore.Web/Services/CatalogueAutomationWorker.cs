@@ -128,9 +128,10 @@ public sealed class CatalogueAutomationWorker(
                 var service = scope.ServiceProvider.GetRequiredService<ProductIdentityService>();
                 var result = await service.RebuildAsync(lease.ShopSlug, cancellationToken: cancellationToken);
                 logger.LogInformation(
-                    "Durable identity refresh for {ShopSlug} read {ProductsRead} products, updated {ProfilesUpdated} profiles and created {CandidatesCreated} candidates.",
+                    "Durable identity refresh for {ShopSlug} read {ProductsRead} products, fingerprinted {ImagesFingerprinted} images, updated {ProfilesUpdated} profiles and created {CandidatesCreated} candidates.",
                     lease.ShopSlug,
                     result.ProductsRead,
+                    result.ImageFingerprintsCreated,
                     result.ProfilesUpdated,
                     result.CandidatesCreated);
                 return null;

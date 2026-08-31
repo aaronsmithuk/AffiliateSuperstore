@@ -228,7 +228,7 @@
         try
         {
             var result = await IdentityService.RebuildAsync(SelectedShop);
-            Message = $"Read {result.ProductsRead} offers, updated {result.ProfilesUpdated} profiles, created {result.CandidatesCreated} candidates and refreshed {result.CandidatesUpdated} pending candidates.";
+            Message = $"Read {result.ProductsRead} offers, fingerprinted {result.ImageFingerprintsCreated} images ({result.ImageFingerprintsFailedOrSkipped} failed or skipped), updated {result.ProfilesUpdated} profiles, created {result.CandidatesCreated} candidates and refreshed {result.CandidatesUpdated} pending candidates.";
             MessageIsError = false;
         }
         catch (Exception exception)

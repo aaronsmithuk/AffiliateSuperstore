@@ -5,6 +5,7 @@ using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Net;
 
 var repositoryRoot = FindRepositoryRoot(Environment.CurrentDirectory);
 var configuration = new ConfigurationBuilder()
@@ -32,6 +33,21 @@ await using (var database = contextFactory.CreateDbContext())
 
 await new ShopConfigurationSynchronizer(contextFactory, superstoreOptions, TimeProvider.System)
     .SynchronizeAsync();
+
+if (args.Length == 1 && string.Equals(args[0], "--identity", StringComparison.OrdinalIgnoreCase))
+{
+    using var imageClient = new HttpClient(new HttpClientHandler
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.None
+    }) { Timeout = TimeSpan.FromSeconds(20) };
+    var fingerprintService = new ProductImageFingerprintService(imageClient, contextFactory, TimeProvider.System);
+    var fingerprints = await fingerprintService.RefreshAsync("plushies", maximumProducts: 100);
+    var identity = await new ProductIdentityService(contextFactory, TimeProvider.System).RebuildAsync("plushies");
+    Console.WriteLine($"Images selected: {fingerprints.ProductsSelected}; new/changed hashes: {fingerprints.FingerprintsCreated}; unchanged: {fingerprints.FingerprintsUnchanged}; failed/skipped: {fingerprints.FailedOrSkipped}");
+    Console.WriteLine($"Identity profiles updated: {identity.ProfilesUpdated}; candidates created: {identity.CandidatesCreated}; candidates refreshed: {identity.CandidatesUpdated}");
+    return 0;
+}
 
 using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("AffiliateSuperstore-CatalogueIngest/0.1");

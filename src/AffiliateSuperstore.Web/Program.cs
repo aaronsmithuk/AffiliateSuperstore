@@ -11,6 +11,7 @@ using AffiliateSuperstore.Web.Components;
 using AffiliateSuperstore.Web.Hosting;
 using AffiliateSuperstore.Web.Security;
 using AffiliateSuperstore.Web.Services;
+using System.Net;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -154,6 +155,12 @@ builder.Services.AddTransient<CatalogueDiscoveryPlanService>();
 builder.Services.AddTransient<CatalogueReadinessService>();
 builder.Services.AddTransient<AffiliateLinkRenewalService>();
 builder.Services.AddTransient<ProductQualityAssessmentService>();
+builder.Services.AddHttpClient<ProductImageFingerprintService>(client => client.Timeout = TimeSpan.FromSeconds(20))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.None
+    });
 builder.Services.AddTransient<ProductIdentityService>();
 builder.Services.AddTransient<EditorialContentValidator>();
 builder.Services.AddTransient<CatalogueEditorialService>();

@@ -63,6 +63,7 @@ public sealed class ProductRecord
     public ICollection<ProductMediaRecord> Media { get; set; } = [];
     public ICollection<ProductChangeEventRecord> ChangeEvents { get; set; } = [];
     public ProductIdentityProfileRecord? IdentityProfile { get; set; }
+    public ProductImageFingerprintRecord? ImageFingerprint { get; set; }
     public CanonicalProductMemberRecord? CanonicalMembership { get; set; }
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
@@ -113,6 +114,32 @@ public sealed class ProductIdentityProfileRecord
     public string InputHash { get; set; } = string.Empty;
     public string NormalizerVersion { get; set; } = "1.0";
     public DateTimeOffset UpdatedUtc { get; set; }
+
+    public ProductRecord Product { get; set; } = null!;
+}
+
+public enum ProductImageFingerprintStatus
+{
+    Succeeded,
+    Failed,
+    Skipped
+}
+
+public sealed class ProductImageFingerprintRecord
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string SourceUrl { get; set; } = string.Empty;
+    public string SourceUrlHash { get; set; } = string.Empty;
+    public string? ContentSha256 { get; set; }
+    public long? ContentLength { get; set; }
+    public string? ContentType { get; set; }
+    public ProductImageFingerprintStatus Status { get; set; }
+    public string? FailureReason { get; set; }
+    public int AttemptCount { get; set; }
+    public DateTimeOffset LastAttemptUtc { get; set; }
+    public DateTimeOffset? FingerprintedUtc { get; set; }
+    public string FingerprinterVersion { get; set; } = "1.0";
+    public byte[] RowVersion { get; set; } = [];
 
     public ProductRecord Product { get; set; } = null!;
 }

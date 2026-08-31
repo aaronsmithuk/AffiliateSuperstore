@@ -30,6 +30,8 @@ catalogue review and automation schedule.
 - Restart-safe multi-query discovery with normal refresh, failure retry,
   stale-job recovery and audited proactive affiliate-link renewal
 - Mandatory persisted product-quality checks with a human approval gate
+- Bounded exact-byte SHA-256 fingerprints for approved AliExpress image CDN
+  hosts, retained as explainable identity-review evidence with retry state
 - Versioned editorial curation for public titles, descriptions, featuring and
   display order, with source-claim validation, named provenance, field diffs,
   optimistic edit protection and restore-as-new-revision history

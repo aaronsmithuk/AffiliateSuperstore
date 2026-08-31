@@ -16,6 +16,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
     public DbSet<ProductChangeEventRecord> ProductChangeEvents => Set<ProductChangeEventRecord>();
     public DbSet<ProductIdentityProfileRecord> ProductIdentityProfiles => Set<ProductIdentityProfileRecord>();
+    public DbSet<ProductImageFingerprintRecord> ProductImageFingerprints => Set<ProductImageFingerprintRecord>();
     public DbSet<ProductMatchCandidateRecord> ProductMatchCandidates => Set<ProductMatchCandidateRecord>();
     public DbSet<CanonicalProductRecord> CanonicalProducts => Set<CanonicalProductRecord>();
     public DbSet<CanonicalProductMemberRecord> CanonicalProductMembers => Set<CanonicalProductMemberRecord>();
@@ -37,6 +38,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureProductMedia(modelBuilder);
         ConfigureProductChangeEvent(modelBuilder);
         ConfigureProductIdentity(modelBuilder);
+        ConfigureProductImageFingerprint(modelBuilder);
         ConfigureAffiliateLink(modelBuilder);
         ConfigureOutboundClick(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
@@ -249,6 +251,26 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         member.HasOne(item => item.Product).WithOne(product => product.CanonicalMembership).HasForeignKey<CanonicalProductMemberRecord>(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
         member.HasOne(item => item.EvidenceCandidate).WithMany().HasForeignKey(item => item.EvidenceCandidateId).OnDelete(DeleteBehavior.SetNull);
         member.HasIndex(item => item.ProductId).IsUnique();
+    }
+
+    private static void ConfigureProductImageFingerprint(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<ProductImageFingerprintRecord>();
+        entity.ToTable("ProductImageFingerprints");
+        entity.HasKey(item => item.ProductId);
+        entity.Property(item => item.ProductId).HasMaxLength(64);
+        entity.Property(item => item.SourceUrl).HasMaxLength(2048).IsRequired();
+        entity.Property(item => item.SourceUrlHash).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.ContentSha256).HasMaxLength(64);
+        entity.Property(item => item.ContentType).HasMaxLength(100);
+        entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.FailureReason).HasMaxLength(500);
+        entity.Property(item => item.FingerprinterVersion).HasMaxLength(40).IsRequired();
+        entity.Property(item => item.RowVersion).IsRowVersion();
+        entity.HasOne(item => item.Product).WithOne(product => product.ImageFingerprint)
+            .HasForeignKey<ProductImageFingerprintRecord>(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasIndex(item => item.ContentSha256);
+        entity.HasIndex(item => new { item.Status, item.LastAttemptUtc });
     }
 
     private static void ConfigureAffiliateLink(ModelBuilder modelBuilder)
