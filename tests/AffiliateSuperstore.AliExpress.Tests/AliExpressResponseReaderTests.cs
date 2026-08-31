@@ -42,6 +42,26 @@ public sealed class AliExpressResponseReaderTests
     }
 
     [Fact]
+    public void ReadProducts_ParsesProductDetailMedia()
+    {
+        const string json = """
+            {"resp_result":{"result":{"products":{"product":[{
+              "product_id":"1005001234567890",
+              "product_title":"Green plush frog",
+              "product_small_image_urls":{"string":["https://example.test/one.jpg","https://example.test/two.jpg"]},
+              "product_video_url":"https://example.test/demo.mp4",
+              "ean_code":"1234567890123"
+            }]}}}}
+            """;
+
+        var product = Assert.Single(AliExpressResponseReader.ReadProducts(json).Items);
+
+        Assert.Equal(["https://example.test/one.jpg", "https://example.test/two.jpg"], product.SmallImageUrls);
+        Assert.Equal("https://example.test/demo.mp4", product.VideoUrl);
+        Assert.Equal("1234567890123", product.EanCode);
+    }
+
+    [Fact]
     public void ReadPromotionLinks_SupportsNestedPromotionLinkArray()
     {
         const string json = """

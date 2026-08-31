@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject CatalogueIngestionService IngestionService
 @inject CatalogueDiscoveryPlanService DiscoveryPlanService
+@inject CatalogueProductEnrichmentService ProductEnrichmentService
 @inject CatalogueReadinessService ReadinessService
 @inject ProductQualityAssessmentService QualityAssessmentService
 @inject CatalogueEditorialService EditorialService
@@ -18,7 +19,7 @@
         <h1>Product ingestion</h1>
         <p class="lede">Discover, snapshot and link products for the configured plushies shop.</p>
     </div>
-    <div class="topbar-actions"><button class="button" type="button" @onclick="RunDiscoveryPlanAsync" disabled="@IsBusy">@(IsRunningPlan ? "Expanding…" : $"Run full discovery plan ({ConfiguredRequestCount})")</button><button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsBusy">@(IsAssessing ? "Checking…" : "Run quality checks")</button><a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a></div>
+    <div class="topbar-actions"><button class="button" type="button" @onclick="RunDiscoveryPlanAsync" disabled="@IsBusy">@(IsRunningPlan ? "Expanding…" : $"Run full discovery plan ({ConfiguredRequestCount})")</button><button class="button refresh-button" type="button" @onclick="RefreshDetailsAsync" disabled="@IsBusy">@(IsEnriching ? "Refreshing details…" : "Refresh product details")</button><button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsBusy">@(IsAssessing ? "Checking…" : "Run quality checks")</button><a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a></div>
 </header>
 
 @if (PlanResult is not null)
@@ -28,6 +29,10 @@
 @if (Reassessment is not null)
 {
     <div class="alert-card success-card quality-result"><strong>Quality checks complete</strong><span>@Reassessment.ProductsChecked products checked · @Reassessment.ProductsFlagged flagged · @Reassessment.ProductsDemoted previously approved products returned to review.</span></div>
+}
+@if (EnrichmentResult is not null)
+{
+    <div class="alert-card @(EnrichmentResult.Status == IngestionJobStatus.Failed ? "error-card" : "success-card") quality-result" role="status"><strong>Product details @EnrichmentResult.Status.ToString().ToLowerInvariant()</strong><span>@EnrichmentResult.ProductsEnriched of @EnrichmentResult.ProductsSelected products enriched · @EnrichmentResult.MediaItemsStored gallery/video items stored · @EnrichmentResult.ProductsMissing missing. @EnrichmentResult.Error</span></div>
 }
 @if (CommandResult is not null)
 {
@@ -136,12 +141,12 @@
     }
     else
     {
-        <div class="table-scroll"><table class="admin-table catalogue-review-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Quality</th><th>Review</th><th>Link</th><th>Actions</th></tr></thead><tbody>
+        <div class="table-scroll"><table class="admin-table catalogue-review-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Volume</th><th>Details</th><th>Quality</th><th>Review</th><th>Link</th><th>Actions</th></tr></thead><tbody>
         @foreach (var product in DisplayedProducts)
         {
             <tr>
                 <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.DisplayTitle">@product.DisplayTitle</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small>@if (product.IsFeatured) { <span class="editorial-chip">Featured · @product.DisplayOrder</span> } else if (product.HasEditorialContent) { <span class="editorial-chip">Edited</span> }</div></div></td>
-                <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td>
+                <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td><td>@if (product.LastDetailRefreshedUtc is null) { <span class="table-status missing">Basic only</span> } else { <span class="table-status ready">@product.MediaCount media</span><small class="table-detail-time">@product.LastDetailRefreshedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }</td>
                 <td>@if (product.Flags.Count == 0) { <span class="quality-clear">Clear</span> } else { <details class="quality-flags"><summary>@product.Flags.Count flag@(product.Flags.Count == 1 ? "" : "s")</summary><ul>@foreach (var flag in product.Flags) { <li><strong>@flag.Code</strong>@flag.Message</li> }</ul></details> }</td>
                 <td><span class="review-status @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
                 <td><span class="table-status @(product.HasActiveLink ? "ready" : "missing")">@(product.HasActiveLink ? "Ready" : "Missing")</span></td>
@@ -158,10 +163,12 @@
     private CatalogueDiscoveryPlanResult? PlanResult;
     private CatalogueReadinessReport? Readiness;
     private ProductReassessmentResult? Reassessment;
+    private CatalogueProductEnrichmentResult? EnrichmentResult;
     private List<ProductRow> Products = [];
     private bool IsRunning;
     private bool IsRunningPlan;
     private bool IsAssessing;
+    private bool IsEnriching;
     private bool IsSaving;
     private string ReviewFilter = "All";
     private bool FlaggedOnly;
@@ -169,7 +176,7 @@
     private EditorialForm? Editor;
     private CatalogueCommandResult? CommandResult;
 
-    private bool IsBusy => IsRunning || IsRunningPlan || IsAssessing || IsSaving;
+    private bool IsBusy => IsRunning || IsRunningPlan || IsEnriching || IsAssessing || IsSaving;
     private CatalogueAutomationOptions Options => AutomationOptions.Value;
     private ShopDefinition ConfiguredShop => SuperstoreOptions.Shops.Single(shop => string.Equals(shop.Slug, "plushies", StringComparison.OrdinalIgnoreCase));
     private int ConfiguredRequestCount => CatalogueDiscoveryPlanner.Build(ConfiguredShop, Options.PageSize).Count;
@@ -244,6 +251,8 @@
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.CommissionRate).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
+                item.Product.LastDetailRefreshedUtc,
+                item.Product.Media.Count,
                 item.ReviewStatus,
                 item.AutomatedReviewFlags,
                 item.IsFeatured,
@@ -262,6 +271,17 @@
             await LoadProductsAsync();
         }
         finally { IsAssessing = false; }
+    }
+
+    private async Task RefreshDetailsAsync()
+    {
+        IsEnriching = true;
+        try
+        {
+            EnrichmentResult = await ProductEnrichmentService.RunAsync("plushies", force: true);
+            await LoadProductsAsync();
+        }
+        finally { IsEnriching = false; }
     }
 
     private async Task SetReviewAsync(string productId, ProductReviewStatus status)
@@ -339,6 +359,8 @@
         string? Currency,
         decimal? CommissionRate,
         long? Volume,
+        DateTimeOffset? LastDetailRefreshedUtc,
+        int MediaCount,
         ProductReviewStatus ReviewStatus,
         string? SerializedFlags,
         bool IsFeatured,

@@ -73,7 +73,9 @@ builder.Services.AddHttpClient<IAliExpressClient, AliExpressClient>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("AffiliateSuperstore-ApiLab/0.1");
 });
 builder.Services.AddTransient<IAffiliateCatalogueSource, AliExpressCatalogueSource>();
+builder.Services.AddTransient<IAffiliateProductDetailSource, AliExpressProductDetailSource>();
 builder.Services.AddTransient<CatalogueIngestionService>();
+builder.Services.AddTransient<CatalogueProductEnrichmentService>();
 builder.Services.AddTransient<CatalogueDiscoveryPlanService>();
 builder.Services.AddTransient<CatalogueReadinessService>();
 builder.Services.AddTransient<AffiliateLinkRenewalService>();

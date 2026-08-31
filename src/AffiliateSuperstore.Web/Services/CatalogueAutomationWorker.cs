@@ -81,6 +81,20 @@ public sealed class CatalogueAutomationWorker(
                 discoveryResult.ProductsWritten,
                 discoveryResult.LinksCreatedOrRefreshed);
 
+            if (discoveryResult.Status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded)
+            {
+                var enrichment = scope.ServiceProvider.GetRequiredService<CatalogueProductEnrichmentService>();
+                var enrichmentResult = await enrichment.RunAsync(shop.Slug, cancellationToken: cancellationToken);
+                logger.LogInformation(
+                    "Product detail refresh {JobId} for {ShopSlug} finished with {Status}: {Enriched}/{Selected} products enriched with {Media} media items.",
+                    enrichmentResult.JobId,
+                    shop.Slug,
+                    enrichmentResult.Status,
+                    enrichmentResult.ProductsEnriched,
+                    enrichmentResult.ProductsSelected,
+                    enrichmentResult.MediaItemsStored);
+            }
+
             var renewal = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
             var renewalResult = await renewal.RunAsync(
                 shop.Slug,

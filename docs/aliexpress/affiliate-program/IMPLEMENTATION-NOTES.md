@@ -36,6 +36,15 @@ account settings change.
 
 - API product pricing is described as real time, but locally cached catalogue
   pages still need freshness timestamps and scheduled refreshes.
+- The Standard Affiliate `productdetail.get` operation can supply aggregate
+  positive-feedback rate, recent sales, seller/category data, SKU/EAN, a small
+  image gallery and sometimes listing video. It does not expose individual
+  review text, review photos, author identities or a star-distribution feed;
+  do not scrape these from product pages or describe the aggregate rate as
+  reviews collected by this shop.
+- Refresh approved, actively linked products through `productdetail.get` in
+  batches of up to 50 IDs. Persist the returned media and an immutable
+  commercial snapshot, and show independent price/detail freshness times.
 - Check the Specific Product List monthly. It is published by the 10th, becomes
   effective three days later and can override normal category commission.
 - Store-specific rates can also override category commission. Preserve the

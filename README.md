@@ -21,8 +21,9 @@ catalogue review and automation schedule.
 - Domain/path-aware shop resolution, theming and SEO metadata
 - Bootstrap-free custom design tokens with controlled per-shop theme profiles
 - Dedicated-or-fallback Tracking IDs plus campaign, placement and opaque click attribution
-- EF Core SQL Server model and migrations for shops, products, immutable
-  snapshots, review state, links, clicks, jobs and affiliate orders
+- EF Core SQL Server model and migrations for shops, products, ordered image/
+  video media, immutable snapshots, review state, links, clicks, jobs and
+  affiliate orders
 - Live catalogue ingestion through the API with tracked-link generation
 - A guarded 12-request full-discovery plan and publication-readiness report,
   with a single-run lock and stop-on-failure behaviour
@@ -33,6 +34,10 @@ catalogue review and automation schedule.
   display order; source-listing risks cannot be hidden by rewritten copy
 - Approved-only public catalogue, product detail and local category/price/sort
   controls
+- Batched Standard API product-detail enrichment for approved products, with
+  persisted galleries, optional listing video, SKU/EAN, aggregate feedback,
+  sales, seller and freshness facts; individual AliExpress reviews are not
+  exposed by the Affiliate API
 - Canonical URLs, safe robots rules, quality-gated XML sitemap and Product /
   ItemList structured data, with production indexing disabled by default
 - Auditable `/go/{shop}/{product}` redirect
@@ -93,6 +98,10 @@ pages (12 sequential API calls), stops on the first failure and cannot overlap
 another plan in the same application process. It checks persisted job history
 every 15 minutes, so an application restart does not duplicate a recent run.
 Production automation is off by default.
+After a due discovery run, approved linked products whose detail data is older
+than 24 hours are refreshed in batches of up to 50 IDs. A forced detail refresh
+is also available on `/admin/catalogue`; its result reports enriched products,
+missing API results and stored media items.
 
 Development also reconciles affiliate orders every 60 minutes. Its first run
 queries the documented 180-day window; later runs use a 48-hour overlap,
@@ -111,7 +120,8 @@ dotnet test ./AffiliateSuperstore.slnx
 
 The current suite covers request signing and normalisation, shop resolution,
 database constraints and configuration sync, ingestion success/failure and its
-quality gate, guarded discovery-plan execution, publication readiness,
+quality gate, batched product-detail/media enrichment, guarded discovery-plan
+execution, publication readiness,
 automation timing, approved-only redirect behaviour and anonymous list state,
 cursor-based order reconciliation, S2S idempotency and click
 attribution, archive export safety and click/link performance aggregation.

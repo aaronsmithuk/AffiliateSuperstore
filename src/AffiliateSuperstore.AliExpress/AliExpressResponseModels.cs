@@ -27,7 +27,10 @@ public sealed record AliExpressProduct(
     string? ShopId,
     string? ShopName,
     string? ShopUrl,
-    string? TaxRate);
+    string? TaxRate,
+    IReadOnlyList<string>? SmallImageUrls = null,
+    string? VideoUrl = null,
+    string? EanCode = null);
 
 public sealed record AliExpressPromotionLink(
     string SourceUrl,

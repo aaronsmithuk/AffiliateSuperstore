@@ -120,7 +120,10 @@ public static class AliExpressResponseReader
             GetString(item, "shop_id"),
             GetString(item, "shop_name"),
             GetString(item, "shop_url"),
-            GetString(item, "tax_rate"));
+            GetString(item, "tax_rate"),
+            GetStringArray(item, "product_small_image_urls"),
+            GetString(item, "product_video_url"),
+            GetString(item, "ean_code"));
 
     private static AliExpressOrder ReadOrder(JsonElement item) =>
         new(
@@ -205,6 +208,28 @@ public static class AliExpressResponseReader
         return value.ValueKind is JsonValueKind.String or JsonValueKind.Number
             ? value.ToString()
             : null;
+    }
+
+    private static IReadOnlyList<string> GetStringArray(JsonElement parent, string name)
+    {
+        if (parent.ValueKind != JsonValueKind.Object || !parent.TryGetProperty(name, out var value))
+        {
+            return [];
+        }
+
+        var items = value.ValueKind switch
+        {
+            JsonValueKind.Array => value.EnumerateArray(),
+            JsonValueKind.Object when value.TryGetProperty("string", out var strings) && strings.ValueKind == JsonValueKind.Array => strings.EnumerateArray(),
+            _ => default
+        };
+
+        return items
+            .Where(item => item.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetString())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Cast<string>()
+            .ToArray();
     }
 
     private static int? GetInt(JsonElement parent, string name) =>

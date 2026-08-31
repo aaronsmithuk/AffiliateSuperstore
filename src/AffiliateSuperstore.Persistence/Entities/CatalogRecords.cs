@@ -38,17 +38,39 @@ public sealed class ProductRecord
     public string? SellerId { get; set; }
     public string? SellerName { get; set; }
     public string? SellerUrl { get; set; }
+    public string? SkuId { get; set; }
+    public string? EanCode { get; set; }
     public bool IsEligible { get; set; } = true;
     public string? IneligibilityReason { get; set; }
     public DateTimeOffset FirstSeenUtc { get; set; }
     public DateTimeOffset LastSeenUtc { get; set; }
     public DateTimeOffset LastRefreshedUtc { get; set; }
+    public DateTimeOffset? LastDetailRefreshedUtc { get; set; }
     public byte[] RowVersion { get; set; } = [];
 
     public ICollection<ShopProductRecord> Shops { get; set; } = [];
     public ICollection<ProductSnapshotRecord> Snapshots { get; set; } = [];
+    public ICollection<ProductMediaRecord> Media { get; set; } = [];
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
+}
+
+public enum ProductMediaType
+{
+    Image,
+    Video
+}
+
+public sealed class ProductMediaRecord
+{
+    public Guid Id { get; set; }
+    public string ProductId { get; set; } = string.Empty;
+    public ProductMediaType Type { get; set; }
+    public string Url { get; set; } = string.Empty;
+    public int Position { get; set; }
+    public DateTimeOffset RefreshedUtc { get; set; }
+
+    public ProductRecord Product { get; set; } = null!;
 }
 
 public sealed class ShopProductRecord

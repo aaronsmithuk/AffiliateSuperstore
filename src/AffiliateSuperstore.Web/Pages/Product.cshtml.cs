@@ -51,6 +51,9 @@ public sealed class ProductModel(
                 item.Product.FirstLevelCategoryName,
                 item.Product.SecondLevelCategoryName,
                 item.Product.SellerName,
+                item.Product.SkuId,
+                item.Product.EanCode,
+                item.Product.LastDetailRefreshedUtc,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.OriginalPrice).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
@@ -61,8 +64,15 @@ public sealed class ProductModel(
             .SingleOrDefaultAsync(cancellationToken);
         if (product is null) return NotFound();
 
+        var media = await context.ProductMedia.AsNoTracking()
+            .Where(item => item.ProductId == product.ProductId)
+            .OrderBy(item => item.Type)
+            .ThenBy(item => item.Position)
+            .Select(item => new ProductMediaView(item.Type, item.Url, item.Position))
+            .ToListAsync(cancellationToken);
+
         Shop = shop;
-        Product = product;
+        Product = product with { Media = media };
         CanonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/{shop.Slug}/product/{product.ProductId}";
         IsIndexable = seoOptions.IndexingEnabled && seoPolicy.IsProductIndexable(
             product.EditorialTitle,
@@ -70,7 +80,7 @@ public sealed class ProductModel(
             product.ImageUrl,
             product.SalePrice,
             product.LastCheckedUtc);
-        StructuredDataJson = BuildStructuredData(product);
+        StructuredDataJson = BuildStructuredData(Product);
         var savedProductIds = basketStore.Get(HttpContext, shop.Slug);
         SavedCount = savedProductIds.Count;
         IsSaved = savedProductIds.Contains(product.ProductId, StringComparer.Ordinal);
@@ -105,8 +115,9 @@ public sealed class ProductModel(
             ["@type"] = "Product",
             ["name"] = product.Title,
             ["description"] = product.EditorialDescription,
-            ["image"] = string.IsNullOrWhiteSpace(product.ImageUrl) ? null : new[] { product.ImageUrl },
-            ["sku"] = product.ProductId,
+            ["image"] = product.ImageUrls.Count == 0 ? null : product.ImageUrls,
+            ["sku"] = product.SkuId ?? product.ProductId,
+            ["gtin13"] = string.IsNullOrWhiteSpace(product.EanCode) ? null : product.EanCode,
             ["category"] = product.SecondCategory ?? product.FirstCategory,
             ["url"] = CanonicalUrl
         };
@@ -137,6 +148,9 @@ public sealed class ProductModel(
         string? FirstCategory,
         string? SecondCategory,
         string? SellerName,
+        string? SkuId,
+        string? EanCode,
+        DateTimeOffset? LastDetailRefreshedUtc,
         decimal? SalePrice,
         decimal? OriginalPrice,
         string? Currency,
@@ -146,7 +160,23 @@ public sealed class ProductModel(
         DateTimeOffset LastCheckedUtc)
     {
         public string Title => EditorialTitle ?? SourceTitle;
+        public IReadOnlyList<ProductMediaView> Media { get; init; } = [];
+        public IReadOnlyList<string> ImageUrls => Media
+            .Where(item => item.Type == ProductMediaType.Image)
+            .Select(item => item.Url)
+            .Prepend(ImageUrl)
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        public IReadOnlyList<string> VideoUrls => Media
+            .Where(item => item.Type == ProductMediaType.Video)
+            .Select(item => item.Url)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
+
+    public sealed record ProductMediaView(ProductMediaType Type, string Url, int Position);
 
     public sealed record RelatedProduct(
         string ProductId,

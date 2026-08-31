@@ -10,6 +10,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ProductRecord> Products => Set<ProductRecord>();
     public DbSet<ShopProductRecord> ShopProducts => Set<ShopProductRecord>();
     public DbSet<ProductSnapshotRecord> ProductSnapshots => Set<ProductSnapshotRecord>();
+    public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
     public DbSet<AffiliateLinkRecord> AffiliateLinks => Set<AffiliateLinkRecord>();
     public DbSet<OutboundClickRecord> OutboundClicks => Set<OutboundClickRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
@@ -22,6 +23,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureProduct(modelBuilder);
         ConfigureShopProduct(modelBuilder);
         ConfigureProductSnapshot(modelBuilder);
+        ConfigureProductMedia(modelBuilder);
         ConfigureAffiliateLink(modelBuilder);
         ConfigureOutboundClick(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
@@ -67,11 +69,14 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.SellerId).HasMaxLength(64);
         entity.Property(item => item.SellerName).HasMaxLength(500);
         entity.Property(item => item.SellerUrl).HasMaxLength(2048);
+        entity.Property(item => item.SkuId).HasMaxLength(64);
+        entity.Property(item => item.EanCode).HasMaxLength(64);
         entity.Property(item => item.IneligibilityReason).HasMaxLength(1000);
         entity.Property(item => item.RowVersion).IsRowVersion();
         entity.HasIndex(item => item.LastRefreshedUtc);
         entity.HasIndex(item => new { item.IsEligible, item.LastSeenUtc });
         entity.HasIndex(item => item.SellerId);
+        entity.HasIndex(item => item.LastDetailRefreshedUtc);
     }
 
     private static void ConfigureShopProduct(ModelBuilder modelBuilder)
@@ -108,6 +113,18 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasOne(item => item.Product).WithMany(product => product.Snapshots).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
         entity.HasIndex(item => new { item.ProductId, item.FetchedUtc }).IsUnique();
         entity.HasIndex(item => item.FetchedUtc);
+    }
+
+    private static void ConfigureProductMedia(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<ProductMediaRecord>();
+        entity.ToTable("ProductMedia");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.Type).HasConversion<string>().HasMaxLength(20);
+        entity.Property(item => item.Url).HasMaxLength(2048).IsRequired();
+        entity.HasOne(item => item.Product).WithMany(product => product.Media).HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasIndex(item => new { item.ProductId, item.Type, item.Position }).IsUnique();
     }
 
     private static void ConfigureAffiliateLink(ModelBuilder modelBuilder)

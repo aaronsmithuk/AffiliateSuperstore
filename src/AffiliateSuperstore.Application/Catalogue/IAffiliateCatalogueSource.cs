@@ -16,6 +16,13 @@ public interface IAffiliateCatalogueSource
         CancellationToken cancellationToken = default);
 }
 
+public interface IAffiliateProductDetailSource
+{
+    Task<IReadOnlyList<AliExpressProduct>> GetDetailsAsync(
+        IReadOnlyCollection<string> productIds,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class AliExpressCatalogueSource(IAliExpressClient client) : IAffiliateCatalogueSource
 {
     public async Task<AliExpressPage<AliExpressProduct>> SearchAsync(
@@ -64,6 +71,35 @@ public sealed class AliExpressCatalogueSource(IAliExpressClient client) : IAffil
 
         throw new InvalidOperationException(
             $"AliExpress {operation} failed: {result.PlatformResponseCode ?? ((int)result.HttpStatusCode).ToString()} " +
+            $"{result.PlatformResponseMessage}".TrimEnd());
+    }
+}
+
+public sealed class AliExpressProductDetailSource(IAliExpressClient client) : IAffiliateProductDetailSource
+{
+    public async Task<IReadOnlyList<AliExpressProduct>> GetDetailsAsync(
+        IReadOnlyCollection<string> productIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(productIds);
+        if (productIds.Count is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(productIds), "AliExpress product detail requests must contain between 1 and 50 product IDs.");
+        }
+
+        var result = await client.GetProductDetailsAsync(
+            new AliExpressProductDetailRequest { ProductIds = productIds },
+            cancellationToken);
+        EnsureSuccess(result);
+        return AliExpressResponseReader.ReadProducts(result.RawResponse).Items;
+    }
+
+    private static void EnsureSuccess(AliExpressApiCallResult result)
+    {
+        if (result.IsSuccess) return;
+
+        throw new InvalidOperationException(
+            $"AliExpress product detail refresh failed: {result.PlatformResponseCode ?? ((int)result.HttpStatusCode).ToString()} " +
             $"{result.PlatformResponseMessage}".TrimEnd());
     }
 }

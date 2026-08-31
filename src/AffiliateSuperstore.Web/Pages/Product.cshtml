@@ -12,7 +12,29 @@
     <header class="product-shop-header"><a href="@Model.Shop.PathPrefix"><span aria-hidden="true">←</span> @Model.Shop.Theme.LogoText</a><a href="/basket/@Model.Shop.Slug">Saved list <strong>@Model.SavedCount</strong></a></header>
     <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><a href="@Model.Shop.PathPrefix">@Model.Shop.DisplayName</a><span aria-hidden="true">/</span><span>@(Model.Product.SecondCategory ?? "Product")</span></nav>
     <div class="product-detail-grid">
-        <div class="product-detail-media">@if (!string.IsNullOrWhiteSpace(Model.Product.ImageUrl)) { <img src="@Model.Product.ImageUrl" alt="@Model.Product.Title" referrerpolicy="no-referrer" /> } else { <div class="product-image-placeholder">Image unavailable</div> }</div>
+        <div class="product-detail-media">
+            @if (Model.Product.ImageUrls.Count > 0)
+            {
+                <a class="product-featured-image" href="@Model.Product.ImageUrls[0]" target="_blank" rel="noopener" aria-label="Open full-size product image"><img src="@Model.Product.ImageUrls[0]" alt="@Model.Product.Title" referrerpolicy="no-referrer" /></a>
+                @if (Model.Product.ImageUrls.Count > 1)
+                {
+                    <div class="product-gallery" aria-label="Product image gallery">
+                        @foreach (var imageUrl in Model.Product.ImageUrls.Skip(1))
+                        {
+                            <a href="@imageUrl" target="_blank" rel="noopener"><img src="@imageUrl" alt="Additional view of @Model.Product.Title" loading="lazy" referrerpolicy="no-referrer" /></a>
+                        }
+                    </div>
+                }
+                @foreach (var videoUrl in Model.Product.VideoUrls)
+                {
+                    <video class="product-video" controls preload="metadata" playsinline><source src="@videoUrl" />Your browser cannot play this product video.</video>
+                }
+            }
+            else
+            {
+                <div class="product-image-placeholder">Image unavailable</div>
+            }
+        </div>
         <div class="product-detail-copy">
             <p class="shop-kicker">Curated find</p>
             <h1>@Model.Product.Title</h1>
@@ -24,8 +46,13 @@
             @if (!string.IsNullOrWhiteSpace(Model.Product.EditorialDescription)) { <p class="product-description">@Model.Product.EditorialDescription</p> }
             <dl class="product-facts">
                 @if (!string.IsNullOrWhiteSpace(Model.Product.SellerName)) { <div><dt>AliExpress seller</dt><dd>@Model.Product.SellerName</dd></div> }
+                @if (!string.IsNullOrWhiteSpace(Model.Product.SecondCategory ?? Model.Product.FirstCategory)) { <div><dt>Category</dt><dd>@(Model.Product.SecondCategory ?? Model.Product.FirstCategory)</dd></div> }
+                @if (Model.Product.ImageUrls.Count > 1) { <div><dt>Listing gallery</dt><dd>@Model.Product.ImageUrls.Count product images</dd></div> }
+                <div><dt>Product reference</dt><dd>@Model.Product.ProductId</dd></div>
                 <div><dt>Price checked</dt><dd>@Model.Product.LastCheckedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</dd></div>
+                @if (Model.Product.LastDetailRefreshedUtc is not null) { <div><dt>Details checked</dt><dd>@Model.Product.LastDetailRefreshedUtc.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm")</dd></div> }
             </dl>
+            <aside class="listing-data-note"><strong>About this listing data</strong><p>The score shown is AliExpress’s aggregate positive-feedback rate, not reviews collected by this shop. Available colours, sizes, delivery dates and the final price are confirmed on AliExpress.</p></aside>
             <div class="product-actions">
                 <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
                 @if (Model.IsSaved)
