@@ -1,5 +1,6 @@
 @page "/admin/automation"
 @layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject IOptions<CatalogueAutomationOptions> AutomationOptions

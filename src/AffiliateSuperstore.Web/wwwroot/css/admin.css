@@ -133,6 +133,19 @@ textarea {
     color: #fff;
 }
 
+.admin-signout-link {
+    width: fit-content;
+    margin-top: 6px;
+    color: var(--lime);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.admin-signout-link:hover,
+.admin-signout-link:focus-visible {
+    text-decoration: underline;
+}
+
 .admin-main {
     min-width: 0;
     padding: 44px clamp(24px, 4vw, 64px) 64px;

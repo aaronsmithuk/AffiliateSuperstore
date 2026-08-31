@@ -1,5 +1,6 @@
 @page "/admin/orders"
 @layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject AffiliateOrderReconciliationService ReconciliationService

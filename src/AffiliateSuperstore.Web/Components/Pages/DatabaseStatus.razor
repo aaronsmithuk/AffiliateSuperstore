@@ -1,5 +1,6 @@
 @page "/admin/database"
 @layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @inject DatabaseStatusService DatabaseStatusService
 

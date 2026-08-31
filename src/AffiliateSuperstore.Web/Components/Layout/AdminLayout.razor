@@ -38,8 +38,13 @@
         </nav>
 
         <div class="admin-sidebar-note">
-            <strong>Local development only</strong>
-            <span>Authentication has deliberately not been added yet.</span>
+            <AuthorizeView Policy="@AdminAuthorization.PolicyName" Context="owner">
+                <Authorized>
+                    <strong>@owner.User.Identity?.Name</strong>
+                    <span>Authenticated administrator</span>
+                    <a class="admin-signout-link" href="/admin/logout">Sign out</a>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </aside>
 

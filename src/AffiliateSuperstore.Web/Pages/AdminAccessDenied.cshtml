@@ -1,0 +1,15 @@
+@page "/admin/access-denied"
+@model AffiliateSuperstore.Web.Pages.AdminAccessDeniedModel
+@{
+    ViewData["Title"] = "Admin access denied";
+    ViewData["Robots"] = "noindex, nofollow";
+}
+
+<section class="auth-shell" aria-labelledby="admin-denied-title">
+    <div class="auth-card">
+        <p class="auth-eyebrow">Private control room</p>
+        <h1 id="admin-denied-title">Administrator access required</h1>
+        <p class="auth-intro">This signed-in account does not have the owner role required for the administration area.</p>
+        <a class="auth-submit auth-submit-link" href="/admin/login">Use the owner account</a>
+    </div>
+</section>

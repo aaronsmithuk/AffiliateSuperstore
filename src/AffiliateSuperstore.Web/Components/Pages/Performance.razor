@@ -1,5 +1,6 @@
 @page "/admin/performance"
 @layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @inject AffiliatePerformanceService PerformanceService
 

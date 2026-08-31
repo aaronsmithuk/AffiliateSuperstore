@@ -1,6 +1,7 @@
 # .NET build output
 **/bin/
 **/obj/
+**/.build/
 artifacts/
 
 # Visual Studio / Rider / VS Code

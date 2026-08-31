@@ -1,5 +1,6 @@
 @page "/admin/catalogue"
 @layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @inject CatalogueIngestionService IngestionService
 @inject CatalogueDiscoveryPlanService DiscoveryPlanService

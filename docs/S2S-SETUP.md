@@ -73,4 +73,6 @@ After deploying but before enabling the AliExpress rule:
 5. Repeat the same callback and confirm the counts do not increase.
 6. Remove the synthetic records before launch.
 
-Do not enable S2S on the current unauthenticated local-development deployment.
+Do not enable S2S on local development: the admin is authenticated, but there
+is no stable public HTTPS callback URL and the local token is not a production
+secret.

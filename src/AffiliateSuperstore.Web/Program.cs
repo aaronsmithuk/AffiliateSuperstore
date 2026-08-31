@@ -8,7 +8,9 @@ using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Core.Tracking;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Web.Components;
+using AffiliateSuperstore.Web.Security;
 using AffiliateSuperstore.Web.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +20,10 @@ builder.Services.AddRazorPages();
 builder.Services
     .AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services
+    .AddOptions<AdminAuthenticationOptions>()
+    .Bind(builder.Configuration.GetSection(AdminAuthenticationOptions.SectionName));
 
 builder.Services
     .AddOptions<AliExpressOptions>()
@@ -64,9 +70,44 @@ else
 {
     builder.Services.AddPooledDbContextFactory<AffiliateSuperstoreDbContext>(options =>
         options.UseSqlServer(databaseConnection, sql => sql.EnableRetryOnFailure()));
+    builder.Services
+        .AddIdentity<IdentityUser, IdentityRole>(options =>
+        {
+            options.Password.RequiredLength = 12;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireDigit = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+            options.SignIn.RequireConfirmedAccount = false;
+            options.User.RequireUniqueEmail = false;
+        })
+        .AddEntityFrameworkStores<AffiliateSuperstoreDbContext>()
+        .AddDefaultTokenProviders();
+    builder.Services.ConfigureApplicationCookie(options =>
+    {
+        options.Cookie.Name = "AffiliateSuperstore.Admin";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.LoginPath = "/admin/login";
+        options.AccessDeniedPath = "/admin/access-denied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+    });
+    builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+        options.ValidationInterval = TimeSpan.FromMinutes(15));
     builder.Services.AddSingleton<DatabaseStatusService>();
     builder.Services.AddSingleton<ShopConfigurationSynchronizer>();
+    builder.Services.AddSingleton<AdminAccountProvisioner>();
 }
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(AdminAuthorization.PolicyName, policy =>
+        policy.RequireRole(AdminAuthorization.RoleName));
 builder.Services.AddHttpClient<IAliExpressClient, AliExpressClient>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
@@ -108,6 +149,11 @@ if (app.Environment.IsDevelopment() && !string.IsNullOrWhiteSpace(databaseConnec
     await app.Services.GetRequiredService<ShopConfigurationSynchronizer>().SynchronizeAsync();
 }
 
+if (!string.IsNullOrWhiteSpace(databaseConnection))
+{
+    await app.Services.GetRequiredService<AdminAccountProvisioner>().EnsureBootstrapAccountAsync();
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -120,6 +166,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
@@ -170,6 +217,6 @@ app.MapGet("/admin/orders/export.csv", async (
     if (!environment.IsDevelopment()) return Results.NotFound();
     var export = await exportService.CreateCsvAsync(cancellationToken);
     return Results.File(export.Content, "text/csv; charset=utf-8", export.FileName);
-});
+}).RequireAuthorization(AdminAuthorization.PolicyName);
 
 app.Run();

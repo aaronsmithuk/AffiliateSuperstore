@@ -1,0 +1,37 @@
+@page "/admin/setup"
+@model AffiliateSuperstore.Web.Pages.AdminSetupModel
+@{
+    ViewData["Title"] = "Create local administrator";
+    ViewData["Robots"] = "noindex, nofollow";
+}
+
+<section class="auth-shell" aria-labelledby="admin-setup-title">
+    <div class="auth-card">
+        <p class="auth-eyebrow">Development-only setup</p>
+        <h1 id="admin-setup-title">Create the first owner account</h1>
+        <p class="auth-intro">This page disappears as soon as an account exists and is unavailable outside the development environment.</p>
+
+        <form method="post" class="auth-form">
+            <div asp-validation-summary="ModelOnly" class="auth-validation" role="alert"></div>
+
+            <label asp-for="Input.Username"></label>
+            <input asp-for="Input.Username" autocomplete="username" autofocus />
+            <span asp-validation-for="Input.Username" class="auth-field-error"></span>
+
+            <label asp-for="Input.Password"></label>
+            <input asp-for="Input.Password" autocomplete="new-password" />
+            <span asp-validation-for="Input.Password" class="auth-field-error"></span>
+            <small>At least 12 characters, including upper and lower case, a number and a symbol.</small>
+
+            <label asp-for="Input.ConfirmPassword"></label>
+            <input asp-for="Input.ConfirmPassword" autocomplete="new-password" />
+            <span asp-validation-for="Input.ConfirmPassword" class="auth-field-error"></span>
+
+            <button type="submit" class="auth-submit">Create owner and enter admin</button>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

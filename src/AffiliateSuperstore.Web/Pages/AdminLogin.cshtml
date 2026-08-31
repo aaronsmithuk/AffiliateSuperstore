@@ -1,0 +1,46 @@
+@page "/admin/login"
+@model AffiliateSuperstore.Web.Pages.AdminLoginModel
+@{
+    ViewData["Title"] = "Administrator sign in";
+    ViewData["Robots"] = "noindex, nofollow";
+}
+
+<section class="auth-shell" aria-labelledby="admin-login-title">
+    <div class="auth-card">
+        <p class="auth-eyebrow">Affiliate Superstore control room</p>
+        <h1 id="admin-login-title">Administrator sign in</h1>
+        <p class="auth-intro">Use the private owner account to manage catalogue imports, automation, orders and reporting.</p>
+
+        <form method="post" class="auth-form">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="auth-validation" role="alert"></div>
+
+            <label asp-for="Input.Username"></label>
+            <input asp-for="Input.Username" autocomplete="username" autofocus />
+            <span asp-validation-for="Input.Username" class="auth-field-error"></span>
+
+            <label asp-for="Input.Password"></label>
+            <input asp-for="Input.Password" autocomplete="current-password" />
+            <span asp-validation-for="Input.Password" class="auth-field-error"></span>
+
+            <label class="auth-checkbox">
+                <input asp-for="Input.RememberMe" />
+                <span>Keep me signed in on this device</span>
+            </label>
+
+            <button type="submit" class="auth-submit">Sign in</button>
+        </form>
+
+        @if (Model.DevelopmentSetupAvailable)
+        {
+            <div class="auth-setup-note">
+                <strong>No local owner exists yet.</strong>
+                <span>Create the first development account on the <a href="/admin/setup">secure setup page</a>.</span>
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

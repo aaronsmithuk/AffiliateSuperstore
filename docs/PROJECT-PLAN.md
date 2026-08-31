@@ -103,7 +103,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Planned |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; owner-only Identity, lockout, protected admin routes/export, local first-owner setup and production bootstrap configuration are complete; domain, host verification, release and monitoring remain |
 
 ## AI-assisted catalogue and content integration
 
@@ -220,8 +220,9 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
 - Automated quality screening now catches common prohibited, off-niche,
   ambiguous-quantity, variant-pricing and third-party-character risks, but it
   deliberately does not replace human editorial and image review.
-- Public admin access is forbidden until authentication and authorisation are
-  implemented.
+- Admin access now requires the ASP.NET Core Identity Administrator role. There
+  is no registration; local first-owner setup is loopback/Development/empty-
+  database only and production uses temporary protected bootstrap settings.
 - The expanded live discovery pool still includes pet toys, variant-price
   listings and likely third-party-character merchandise. Those products are
   held from publication by persisted flags or manual review; the local launch
@@ -232,7 +233,7 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
 
 ## Current implementation snapshot
 
-As of 30 August 2026, the local SQL Server database contains one configured
+As of 31 August 2026, the local SQL Server database contains one configured
 shop, 211 products, 232 immutable price/commission snapshots, 211 active
 affiliate links and 18 successful ingestion jobs. The guarded full-discovery
 run completed all 12 planned API requests, reading and writing 196 products and
@@ -313,8 +314,8 @@ complete 180-day recovery scan every 30 days and refresh every known
 non-terminal sub-order directly until Completed Settlement or Invalid.
 Checkpoints and metrics are stored in the shared ingestion-job history. The SQL
 order table is the authoritative archive beyond the API query window. A
-spreadsheet-injection-safe CSV backup is available only in Development until
-admin authentication is implemented. A live account run on 30 August 2026
+spreadsheet-injection-safe CSV backup is available only to an authenticated
+administrator in Development. A live account run on 30 August 2026
 completed successfully and found no orders in the current retention window;
 AliExpress's platform code 405 / "The result is empty" is normalised only for
 that exact benign response.
@@ -328,14 +329,14 @@ conversion rather than claiming an impression-to-click CTR.
 The S2S paid-order route has an immutable, duplicate-suppressed inbox and feeds
 the same order/click model, including base commission, CPX incentive and new-
 buyer bonus fields. Because AliExpress documents no callback signature, it is
-disabled by default and additionally requires a fixed secret parameter. It
-must not be enabled until the application has an authenticated admin, a public
-HTTPS endpoint and protected production configuration. See `docs/S2S-SETUP.md`.
+disabled by default and additionally requires a fixed secret parameter. Admin
+authentication is complete; S2S must remain disabled until a public HTTPS
+endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Integrate the reviewed visual-system work, then add admin authentication and
-complete the production S2S/release configuration. In parallel, start AI-0 and
+Integrate the reviewed visual-system work, then complete the domain choice,
+production S2S/release configuration and monitoring. In parallel, start AI-0 and
 AI-1: capture the current affiliate agreement and host/API constraints, confirm
 whether delivery estimates are available through the permitted API surface,
 then add observation hashes and evidence-backed lifecycle state without

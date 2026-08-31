@@ -1,10 +1,12 @@
 using AffiliateSuperstore.Persistence.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace AffiliateSuperstore.Persistence;
 
 public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuperstoreDbContext> options)
-    : DbContext(options)
+    : IdentityDbContext<IdentityUser, IdentityRole, string>(options)
 {
     public DbSet<ShopRecord> Shops => Set<ShopRecord>();
     public DbSet<ProductRecord> Products => Set<ProductRecord>();
@@ -19,6 +21,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         ConfigureShop(modelBuilder);
         ConfigureProduct(modelBuilder);
         ConfigureShopProduct(modelBuilder);

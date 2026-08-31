@@ -1,6 +1,7 @@
 using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -92,6 +93,23 @@ public sealed class PersistenceModelTests
         Assert.Contains(snapshots.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.FetchedUtc)]));
         Assert.True(product.FindProperty(nameof(ProductRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, product.FindProperty(nameof(ProductRecord.RowVersion))!.ValueGenerated);
+    }
+
+    [Fact]
+    public void DatabaseModel_IncludesIdentityUsersRolesAndUniqueUserName()
+    {
+        using var context = CreateContext();
+        var user = context.Model.FindEntityType(typeof(IdentityUser));
+        var role = context.Model.FindEntityType(typeof(IdentityRole));
+
+        Assert.NotNull(user);
+        Assert.NotNull(role);
+        Assert.Equal("AspNetUsers", user!.GetTableName());
+        Assert.Equal("AspNetRoles", role!.GetTableName());
+        Assert.Contains(user.GetIndexes(), index =>
+            index.IsUnique &&
+            index.Properties.Select(property => property.Name)
+                .SequenceEqual([nameof(IdentityUser.NormalizedUserName)]));
     }
 
     [Fact]

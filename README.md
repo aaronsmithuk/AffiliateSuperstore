@@ -52,7 +52,8 @@ catalogue review and automation schedule.
 - Protected 90-day anonymous shopping list with item count and one-by-one
   AliExpress hand-off
 - GB shipping market, GBP and English defaults
-- No admin authentication yet; the admin must remain local until it is added
+- Owner-only ASP.NET Core Identity authentication across every admin page and
+  order export, with lockout protection and no public registration
 
 ## Configure the local App Secret
 
@@ -86,6 +87,26 @@ Development uses SQL Server LocalDB database `AffiliateSuperstoreLocal` and
 applies checked-in migrations on application startup. A production connection
 string must be supplied by the host; production does not auto-migrate.
 
+On the first local run, visit `/admin/setup` from the same machine and create
+the owner account. The setup route is available only in Development, only over
+a loopback connection and only while the user table is empty. After that,
+`/admin/login` is the sole entry point; five failed attempts lock the account
+for 15 minutes. There is no public registration flow.
+
+For production, create the first owner through protected host configuration:
+
+```text
+AdminAuthentication__BootstrapUsername=<owner-name>
+AdminAuthentication__BootstrapPassword=<strong-unique-password>
+```
+
+Both values are required together. Startup creates the owner and Administrator
+role idempotently but never resets an existing password. Remove the bootstrap
+password from hosting configuration after the first successful startup. Do not
+put either credential in `appsettings.json`, source control or deployment
+artifacts. Persist ASP.NET Core Data Protection keys on the production host so
+admin and saved-list cookies remain valid across restarts.
+
 To run a catalogue job from the command line instead of the admin:
 
 ```powershell
@@ -107,8 +128,8 @@ Development also reconciles affiliate orders every 60 minutes. Its first run
 queries the documented 180-day window; later runs use a 48-hour overlap,
 refresh every locally open sub-order by ID and force another full 180-day scan
 every 30 days. SQL is the authoritative long-term archive. A CSV backup can be
-downloaded from the local-development Orders page; it deliberately returns 404
-outside Development until admin authentication is implemented. Production
+downloaded by an authenticated owner from the local-development Orders page;
+it deliberately returns 404 outside Development. Production
 order automation is off by default. S2S production setup is documented in
 [`docs/S2S-SETUP.md`](docs/S2S-SETUP.md).
 

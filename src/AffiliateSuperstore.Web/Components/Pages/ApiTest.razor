@@ -1,6 +1,7 @@
 @page "/admin"
 @page "/admin/api-test"
 @layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @using System.Text.Json
 @inject IAliExpressClient AliExpressClient

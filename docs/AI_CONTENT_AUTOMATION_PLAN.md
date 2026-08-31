@@ -65,7 +65,7 @@ This plan covers suggestions and workflow changes only. It does not authorize:
 | Rules already identify off-scope, safety, IP, ambiguous quantity and excessive-title issues; flagged approved items are demoted but clean items are never auto-approved. | [`ProductQualityAssessmentService.cs`](../src/AffiliateSuperstore.Application/Catalogue/ProductQualityAssessmentService.cs#L23) | This is the right safety pattern. Add content-quality rules and model suggestions behind the same one-way demotion/human approval gate. |
 | Admin has a review queue with Approve/Needs review/Reject actions, but only loads 50 active plushies records and cannot edit/version copy or inspect match evidence. | [`Catalogue.razor`](../src/AffiliateSuperstore.Web/Components/Pages/Catalogue.razor#L65) | Extend this screen into work-item queues with filters, diffs, evidence, bulk-safe actions and optimistic concurrency. |
 | Public catalogue and product pages require active, eligible, approved products with active affiliate links. | [`Shop.cshtml.cs`](../src/AffiliateSuperstore.Web/Pages/Shop.cshtml.cs#L50), [`Product.cshtml.cs`](../src/AffiliateSuperstore.Web/Pages/Product.cshtml.cs#L28) | Lifecycle changes can safely hide an offer by changing eligibility/activity or link state; no generated copy bypasses approval. |
-| Admin authentication is absent and migrations run automatically only in development. | [`README.md`](../README.md#L36), [`Program.cs`](../src/AffiliateSuperstore.Web/Program.cs#L72) | Do not expose mutation or review endpoints publicly. Production schema changes require a separately applied migration and rollback plan. |
+| Admin routes and exports now require the owner-only Identity Administrator role; migrations still run automatically only in development. | [`README.md`](../README.md), [`Program.cs`](../src/AffiliateSuperstore.Web/Program.cs) | Keep mutation/review endpoints behind the policy. Production schema changes require a separately applied migration and rollback plan. |
 | CI restores, builds and tests on .NET 10. | [`.github/workflows/build.yml`](../.github/workflows/build.yml) | Add deterministic unit/integration tests and offline eval fixtures to the same build; never call paid or live APIs in CI. |
 
 ### Hosting and affiliate constraints
@@ -461,7 +461,8 @@ Controls:
 
 ### Security and privacy
 
-Authenticate and authorize the admin before production, as already required.
+The owner-only admin is authenticated and authorized; preserve that policy for
+every future review, mutation, export and AI-control route.
 Use host environment configuration/User Secrets for API keys, separate service
 credentials by provider, least-privilege database access, outbound-domain
 allowlists, SSRF-safe image fetching (HTTPS, host allowlist, size/type/time caps),

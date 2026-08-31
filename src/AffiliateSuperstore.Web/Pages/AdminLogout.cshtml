@@ -1,0 +1,18 @@
+@page "/admin/logout"
+@model AffiliateSuperstore.Web.Pages.AdminLogoutModel
+@{
+    ViewData["Title"] = "Sign out";
+    ViewData["Robots"] = "noindex, nofollow";
+}
+
+<section class="auth-shell" aria-labelledby="admin-logout-title">
+    <div class="auth-card">
+        <p class="auth-eyebrow">Affiliate Superstore control room</p>
+        <h1 id="admin-logout-title">Sign out?</h1>
+        <p class="auth-intro">Your public shop remains available; this only closes the private administration session.</p>
+        <form method="post" class="auth-form">
+            <button type="submit" class="auth-submit">Sign out</button>
+            <a class="auth-secondary" href="/admin/api-test">Return to admin</a>
+        </form>
+    </div>
+</section>
