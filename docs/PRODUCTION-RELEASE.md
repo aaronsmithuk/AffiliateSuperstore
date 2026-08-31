@@ -108,6 +108,39 @@ were removed after verification. Custom-domain HTTP reaches the application
 and redirects to HTTPS; the missing custom-domain certificate prevents that
 redirect target from completing TLS.
 
+## Second production release record
+
+Release `49e6304` was deployed on 31 August 2026 from a clean, validated
+release bundle. All 116 tests passed and the published `web.config` was
+verified as OutOfProcess. A fresh isolated database backup completed
+successfully before the six pending migrations were applied in provider-safe
+static batches. Production now reports all 13 migrations and 26 tables.
+
+The release corrected production shop synchronisation, so startup created the
+configured `plushies` shop. A temporary owner bootstrap was used once to create
+the `aaronsmithmsc` administrator; both bootstrap environment variables were
+removed immediately afterwards. The AliExpress App Secret remains in the
+dedicated pool and was never placed in the release archive or repository.
+
+A single controlled automation cycle completed catalogue discovery, product
+enrichment, affiliate-link refresh and image/identity processing successfully
+on the first attempt. It imported 188 products into review. Eight distinct
+products with active affiliate links and clean automated checks were given
+original, versioned editorial copy and approved as the public starter range.
+Catalogue automation was then returned to `false` and the isolated pool was
+restarted.
+
+`/health/live`, `/health/ready`, `/`, `/plushies` and a representative product
+detail return HTTP 200. The public shop reports eight results and the outbound
+route returns an AliExpress redirect. All neighbouring production sites also
+returned HTTP 200 after the release. The temporary maintenance marker and
+uploaded release ZIP were removed after verification.
+
+Administrator cookies intentionally remain Secure in Production. Until the
+custom-domain certificate is installed, the public HTTP catalogue works but a
+browser cannot retain an administrator session over HTTP. Do not weaken the
+cookie policy; complete managed TLS before using the production admin UI.
+
 ## Build a release bundle
 
 From the repository root:

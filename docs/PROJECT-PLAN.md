@@ -104,7 +104,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; domain registration, isolated site/pool/database provisioning, backup, seven database migrations and release `c46789e` are complete; provider-hostname application and SQL health checks pass, while custom-domain TLS, production AliExpress secret, bootstrap owner and automation/indexing enablement remain |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; release `49e6304`, an isolated backup, all 13 migrations, the production AliExpress secret, owner account and an eight-product reviewed starter catalogue are live; all health and neighbouring-site checks pass, while custom-domain TLS, indexing and S2S enablement remain |
 
 ## AI-assisted catalogue and content integration
 
@@ -336,11 +336,12 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Keep custom-domain TLS and protected production secrets as the next production
-gate. AI-1 freshness, AI-2 durable work leasing and the AI-3 deterministic
-identity/review core and AI-4 versioned editorial quality core are complete
-locally but are not deployed or enabled as production automation by these
-development changes. Development next returns to the bounded AI-3 reviewer-
+Keep custom-domain TLS as the next production gate. AI-1 freshness, AI-2
+durable work leasing, AI-3 deterministic identity/review and AI-4 versioned
+editorial quality are deployed. A controlled production automation cycle
+successfully imported 188 review candidates and published eight reviewed
+starter products; recurring production automation was returned to disabled
+after verification. Development next returns to the bounded AI-3 reviewer-
 labelled threshold calibration work, then assembles the joint
 identity/lifecycle/copy gold-set report. Hosted/local model trials and blog
 generation remain later, gated work.
