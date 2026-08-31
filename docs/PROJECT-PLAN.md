@@ -44,7 +44,7 @@ be reusable for additional shops without another application runtime.
 | Basket | Anonymous local shopping list with one-by-one affiliate hand-off |
 | Identity | No customer account for MVP; anonymous cookie/browser identifier only where necessary |
 | Multi-shop routing | One neutral primary domain with shops under paths such as `/plushies` |
-| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; the domain is registered, mapped and resolving, with managed custom-domain TLS still pending |
+| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; the domain is registered, mapped and resolving, the application is deployed, and managed custom-domain TLS is the remaining public-launch blocker |
 | AliExpress credentials | .NET configuration with local User Secrets in development and protected hosting configuration in production |
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
@@ -104,7 +104,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; Wonder Aisle is adopted, owner Identity, OutOfProcess publishing, persistent key enforcement, health probes and reproducible release/migration/rollback tooling are complete, and host capability is verified; registration, isolated resource creation and first live release remain |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; domain registration, isolated site/pool/database provisioning, backup, seven database migrations and release `c46789e` are complete; provider-hostname application and SQL health checks pass, while custom-domain TLS, production AliExpress secret, bootstrap owner and automation/indexing enablement remain |
 
 ## AI-assisted catalogue and content integration
 

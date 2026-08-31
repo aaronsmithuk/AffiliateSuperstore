@@ -23,9 +23,9 @@ shape:
 | Secrets | Pool-scoped Environment Variables on `hydraadmin-001E96`; the production connection string is configured there and never in source control or a shared pool |
 | Database | Provisioned as the isolated 1000 MB MSSQL 2022 database `db_a34d03_wonderaisle` |
 | Scheduled URL | Three slots are available and unused; add `/health/wake` only after the first release is stable |
-| Deployment | The website surface provides VSDeploy/Web Deploy and FTP; prefer Web Deploy after downloading target-specific settings privately |
+| Deployment | Release `c46789e` was deployed through the target-scoped File Manager because the downloaded publish profile omitted its password and resetting the account-wide Web Deploy password could disrupt other sites |
 | Domain | `wonderaisle.co.uk` is registered, attached and resolving through `ns1.site4now.net`, `ns2.site4now.net` and `ns3.site4now.net`; apex and `www` resolve to the hosting service |
-| TLS | The temporary hostname certificate is installed; the managed free certificate for `wonderaisle.co.uk` is still pending control-panel availability |
+| TLS | The temporary hostname certificate is installed; the current SSL screen does not expose SmarterASP's documented `Request Free SSL` action for `wonderaisle.co.uk`, so custom-domain TLS remains the public-launch blocker |
 
 The plan currently has four existing websites split across two pools. The new
 pool removes all application siblings from Wonder Aisle's runtime failure and
@@ -34,14 +34,13 @@ sites `circlesofstone.co.uk`, `iloveplushies.co.uk`, `ilovefnaf.co.uk`,
 `ilovewitchcraft.co.uk`, `ilovefitness.co.uk`, `animesuperstore.co.uk` and
 `propertiesandhomes.co.uk`.
 
-## Information required before the first deployment
+## Information required before public launch
 
 - managed HTTPS certificate installation for the canonical domain;
-- every sibling website in the same hosting account;
-- a tested backup/restore route for the new production database;
-- Web Deploy or FTP deployment details, supplied outside source control; and
-- exact environment-variable names and a post-bootstrap plan for removing the
-  temporary owner password.
+- an AliExpress production App Secret supplied through the dedicated pool;
+- bootstrap administrator credentials supplied through the dedicated pool and
+  removed after the first successful owner login; and
+- final production catalogue/API checks after those protected values are set.
 
 Provider references:
 
@@ -83,10 +82,31 @@ out administrators and invalidates saved-list cookies. It must be writable by
 the application identity, excluded from downloads and logs, retained across
 deployments, and covered by backup policy.
 
-The account-root directory `\wonderaisle-private\keys` was provisioned outside
-the deployable `\wonderaisle` site root. The dedicated pool uses the relative
-setting `..\wonderaisle-private\keys`, which resolves from the application
-content root without placing key material under `wwwroot`.
+The provider denied the application identity access to the account-root
+directory originally prepared for keys. The deployed site therefore uses
+`App_Data\keys`, which is inside the site content root but outside the public
+`wwwroot`. The directory is writable by the isolated Wonder Aisle pool,
+persists across file-manager releases and contains the generated key ring.
+
+## First production release record
+
+Release `c46789e` was built from a clean detached worktree on 31 August 2026.
+All 90 tests passed and both the project and generated hosting configuration
+validated as OutOfProcess. The database backup was verified at
+`\db\db_a34d03_wonderaisle_8_31_2026_5.bak` before applying the migration.
+
+SmarterASP's SQL Studio parser rejected EF's dynamic `EXEC` wrappers and large
+multi-statement batches, so the same idempotent statements were applied in
+small static batches. `__EFMigrationsHistory` was then verified to contain all
+seven expected migrations, and the object explorer reported 18 tables.
+
+The deployed application returns `200` for `/`, `/plushies`, `/health/live`
+and `/health/ready` on `https://hydraadmin-001-site5.gtempurl.com`. The
+readiness response confirms the production SQL connection. Temporary startup
+logging, both uploaded ZIP files and the provider `default.asp` placeholder
+were removed after verification. Custom-domain HTTP reaches the application
+and redirects to HTTPS; the missing custom-domain certificate prevents that
+redirect target from completing TLS.
 
 ## Build a release bundle
 
