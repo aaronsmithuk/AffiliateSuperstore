@@ -73,7 +73,7 @@ public sealed class ProductModel(
 
         Shop = shop;
         Product = product with { Media = media };
-        CanonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/{shop.Slug}/product/{product.ProductId}";
+        CanonicalUrl = superstoreOptions.BuildPublicUrl($"/{shop.Slug}/product/{product.ProductId}");
         IsIndexable = seoOptions.IndexingEnabled && seoPolicy.IsProductIndexable(
             product.EditorialTitle,
             product.EditorialDescription,

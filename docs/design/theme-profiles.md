@@ -259,7 +259,7 @@ Catalogue notice:
 Product-detail expansion:
 
 > Final price, variants, delivery estimate, seller terms and checkout are
-> confirmed at AliExpress. Affiliate Superstore is not the seller and does not
+> confirmed at AliExpress. Wonder Aisle is not the seller and does not
 > receive your payment details.
 
 The link label should describe destination and purpose, for example `Check price

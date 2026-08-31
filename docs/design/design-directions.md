@@ -1,4 +1,4 @@
-# Affiliate Superstore design directions
+# Wonder Aisle design directions
 
 Status: design exploration only  
 Date: 30 August 2026  

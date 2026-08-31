@@ -12,7 +12,7 @@ public sealed class ShopResolver : IShopResolver
     public ShopResolver(AffiliateSuperstoreOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        Validate(options.Shops);
+        Validate(options);
 
         _shops = options.Shops
             .Where(shop => shop.IsEnabled)
@@ -58,8 +58,20 @@ public sealed class ShopResolver : IShopResolver
         return value.Length == 1 ? value : value.TrimEnd('/');
     }
 
-    private static void Validate(IReadOnlyCollection<ShopDefinition> shops)
+    private static void Validate(AffiliateSuperstoreOptions options)
     {
+        var shops = options.Shops;
+        if (!Uri.TryCreate(options.CanonicalBaseUrl, UriKind.Absolute, out var canonicalBaseUrl) ||
+            canonicalBaseUrl.Scheme != Uri.UriSchemeHttps ||
+            canonicalBaseUrl.AbsolutePath != "/" ||
+            !string.IsNullOrEmpty(canonicalBaseUrl.Query) ||
+            !string.IsNullOrEmpty(canonicalBaseUrl.Fragment) ||
+            !string.IsNullOrEmpty(canonicalBaseUrl.UserInfo))
+        {
+            throw new InvalidOperationException(
+                "The canonical base URL must be an HTTPS origin without a path, query, fragment or credentials.");
+        }
+
         if (shops.Count == 0)
         {
             throw new InvalidOperationException("At least one shop must be configured.");

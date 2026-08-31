@@ -1,14 +1,17 @@
 using AffiliateSuperstore.Application.Catalogue;
+using AffiliateSuperstore.Core.Shops;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AffiliateSuperstore.Web.Pages;
 
-public sealed class RobotsModel(CatalogueSeoOptions seoOptions) : PageModel
+public sealed class RobotsModel(
+    CatalogueSeoOptions seoOptions,
+    AffiliateSuperstoreOptions superstoreOptions) : PageModel
 {
     public IActionResult OnGet()
     {
-        var origin = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+        var origin = superstoreOptions.CanonicalBaseUrl.TrimEnd('/');
         var rules = seoOptions.IndexingEnabled
             ? """
               Disallow: /admin/

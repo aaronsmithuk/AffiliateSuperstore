@@ -48,6 +48,21 @@ public sealed class ShopResolverTests
     }
 
     [Theory]
+    [InlineData("http://wonderaisle.co.uk")]
+    [InlineData("https://wonderaisle.co.uk/plushies")]
+    [InlineData("https://user@wonderaisle.co.uk")]
+    public void Constructor_RejectsUnsafeCanonicalBaseUrl(string canonicalBaseUrl)
+    {
+        var options = new AffiliateSuperstoreOptions
+        {
+            CanonicalBaseUrl = canonicalBaseUrl,
+            Shops = [CreateShop("plushies", "/plushies")]
+        };
+
+        Assert.Throws<InvalidOperationException>(() => new ShopResolver(options));
+    }
+
+    [Theory]
     [InlineData("purple", "playful")]
     [InlineData("#6f4bc3", "playful; background:red")]
     public void Constructor_RejectsUnsafeThemeConfiguration(string primaryColour, string profile)

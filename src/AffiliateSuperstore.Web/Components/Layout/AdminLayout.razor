@@ -1,11 +1,12 @@
 @inherits LayoutComponentBase
+@inject AffiliateSuperstore.Core.Shops.AffiliateSuperstoreOptions SuperstoreOptions
 
 <div class="admin-shell">
     <aside class="admin-sidebar">
         <a class="admin-brand" href="/admin/api-test">
-            <span class="brand-mark">AS</span>
+            <span class="brand-mark">WA</span>
             <span>
-                <strong>Affiliate Superstore</strong>
+                <strong>@SuperstoreOptions.BrandName</strong>
                 <small>Control room</small>
             </span>
         </a>

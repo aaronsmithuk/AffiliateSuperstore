@@ -1,27 +1,50 @@
 # Production release runbook
 
-This runbook targets SmarterASP.NET and protects other sites that may share the
-same IIS application pool. It prepares and validates releases; it does not
-authorize a live upload, DNS change or pool recycle.
+This runbook targets SmarterASP.NET and protects the owner's existing sites.
+It prepares and validates releases; it does not authorize domain registration,
+resource creation, a live upload, DNS change or pool recycle.
 
 SmarterASP's public documentation currently lists .NET 10 in framework-
 dependent mode, which matches this publish profile, and its hosting page lists
 SQL Server 2025 through older supported versions. The scheduled URL feature and
-dedicated application pools are documented for Premium plans and above; the
-features must still be confirmed on this specific account before release.
+dedicated application pools are documented for Premium plans and above and
+were confirmed on this specific account on 31 August 2026.
+
+## Verified account design
+
+The signed-in, read-only control-panel audit established this deployment
+shape:
+
+| Resource | Verified state / first-release choice |
+|---|---|
+| Hosting plan | Existing EU plan, .NET Core 10 supported |
+| Website | Create a new `wonderaisle` site mapped to `\wonderaisle`; do not reuse an existing site root |
+| Application pool | Create a new 1024 MB .NET Core pool from the plan's unallocated RAM and assign only Wonder Aisle |
+| Secrets | Configure on that new pool through Environment Variables; never put Wonder Aisle secrets on either existing shared pool |
+| Database | Create a new 1000 MB MSSQL 2022 database with suffix `wonderaisle`; do not reuse any Hydra database |
+| Scheduled URL | Three slots are available and unused; add `/health/wake` only after the first release is stable |
+| Deployment | The website surface provides VSDeploy/Web Deploy and FTP; prefer Web Deploy after downloading target-specific settings privately |
+| Domain | `wonderaisle.co.uk` was shown available but has not been registered or attached |
+
+The plan currently has four existing websites split across two pools. The new
+pool removes all application siblings from Wonder Aisle's runtime failure and
+secret boundary. Account-wide pre/post checks should still cover the public
+sites `circlesofstone.co.uk`, `iloveplushies.co.uk`, `ilovefnaf.co.uk`,
+`ilovewitchcraft.co.uk`, `ilovefitness.co.uk`, `animesuperstore.co.uk` and
+`propertiesandhomes.co.uk`.
 
 ## Information required before the first deployment
 
-- final canonical domain and HTTPS certificate status;
-- the exact SmarterASP website and mapped target directory;
+- registered canonical domain and HTTPS certificate status;
+- the assigned temporary hostname and generated application-pool name after
+  the approved resource-creation step;
 - every sibling website in the same hosting account;
-- whether the target has a dedicated pool (assume shared until confirmed);
-- confirmation that the account supports the .NET 10 Hosting Bundle;
-- production SQL Server connection details and a tested backup/restore route;
+- production SQL Server connection details for the new database and a tested
+  backup/restore route;
 - a persistent private directory outside `wwwroot` for Data Protection keys;
 - Web Deploy or FTP deployment details, supplied outside source control; and
-- scheduled-URL entitlement if `/health/wake` will be requested every 15
-  minutes.
+- exact environment-variable names and a post-bootstrap plan for removing the
+  temporary owner password.
 
 Provider references:
 
@@ -29,11 +52,14 @@ Provider references:
 - [scheduled URL tasks](https://www.smarterasp.net/support/kb/a2018/set-schedule-tasks-on-your-own-purpose_.aspx)
 - [dedicated application pools](https://www.smarterasp.net/support/kb/a2247/why-do-you-need-dedicated-pool-per-site.aspx)
 - [hosting and SQL Server versions](https://www.smarterasp.net/asp.net_hosting)
+- [pool-scoped environment variables](https://www.smarterasp.net/support/kb/a2437/how-to-set-environment-variable-for-your-account.aspx)
 
 ## Required protected configuration
 
-Supply these through the hosting control panel or process environment. Never
-put values in the repository, publish archive or command history.
+Supply these as environment variables on the dedicated Wonder Aisle pool.
+SmarterASP variables are pool-scoped and visible to every site assigned to that
+pool, which is why no existing site may share it. Never put the values in the
+repository, publish archive or command history.
 
 | Setting | First release value |
 |---|---|
@@ -44,6 +70,7 @@ put values in the repository, publish archive or command history.
 | `AdminAuthentication__BootstrapPassword` | unique strong initial password |
 | `Hosting__DataProtectionKeysPath` | persistent private directory outside `wwwroot` and preferably outside the replaceable site root |
 | `AllowedHosts` | canonical hostname and any temporary verification hostname, separated by semicolons |
+| `Superstore__Shops__0__Hostnames__2` | exact temporary verification hostname until the canonical domain is attached |
 | `CatalogueAutomation__Enabled` | `false` for first release |
 | `OrderReconciliation__Enabled` | `false` for first release |
 | `Seo__IndexingEnabled` | `false` for first release |
@@ -93,7 +120,7 @@ sites:
 ## First database migration
 
 1. Take and verify a production SQL backup.
-2. Confirm the connection targets the new Affiliate Superstore database, not a
+2. Confirm the connection targets the new Wonder Aisle database, not a
    database used by an existing site.
 3. Review `database-migration.sql` and run it using SmarterASP's SQL tooling.
 4. Confirm `__EFMigrationsHistory` contains the expected migrations.

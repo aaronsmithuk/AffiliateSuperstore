@@ -1,16 +1,16 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Affiliate Superstore";
+    ViewData["Title"] = "Curated finds from specialist shops";
     ViewData["Robots"] = "noindex,follow";
-    ViewData["Canonical"] = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/";
+    ViewData["Canonical"] = SuperstoreOptions.BuildPublicUrl();
 }
 
 <section class="platform-intro">
     <p class="platform-kicker">One platform · many specialist shops</p>
     <h1>Curated finds, organised into shops worth browsing.</h1>
     <p class="platform-lead">
-        Affiliate Superstore is the shared platform behind themed collections. Start with our
+        @SuperstoreOptions.BrandName is the shared platform behind themed collections. Start with our
         growing plushies shop, or open the local control room to manage catalogue quality.
     </p>
     <div class="platform-actions"><a class="platform-primary-action" href="/plushies">Browse plushies</a><a class="platform-secondary-action" href="/admin/api-test">Open the control room</a></div>

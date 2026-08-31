@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using AffiliateSuperstore.Application.Catalogue;
+using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,8 @@ namespace AffiliateSuperstore.Web.Pages;
 public sealed class SitemapModel(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
     CatalogueSeoPolicy seoPolicy,
-    CatalogueSeoOptions seoOptions) : PageModel
+    CatalogueSeoOptions seoOptions,
+    AffiliateSuperstoreOptions superstoreOptions) : PageModel
 {
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -43,18 +45,17 @@ public sealed class SitemapModel(
             candidate.Price,
             candidate.LastCheckedUtc)).ToArray()
             : [];
-        var origin = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
         XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
         var urls = new List<XElement>();
         foreach (var shop in indexable.GroupBy(candidate => candidate.ShopSlug))
         {
             if (CatalogueSeoPolicy.IsShopIndexable(shop.Count()))
             {
-                urls.Add(CreateUrlElement(ns, $"{origin}/{shop.Key}", shop.Max(candidate => candidate.LastRefreshedUtc)));
+                urls.Add(CreateUrlElement(ns, superstoreOptions.BuildPublicUrl($"/{shop.Key}"), shop.Max(candidate => candidate.LastRefreshedUtc)));
             }
             urls.AddRange(shop.Select(candidate => CreateUrlElement(
                 ns,
-                $"{origin}/{candidate.ShopSlug}/product/{candidate.ProductId}",
+                superstoreOptions.BuildPublicUrl($"/{candidate.ShopSlug}/product/{candidate.ProductId}"),
                 candidate.LastRefreshedUtc)));
         }
 

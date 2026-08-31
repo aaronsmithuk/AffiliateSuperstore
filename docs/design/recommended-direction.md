@@ -2,7 +2,7 @@
 
 ## Recommendation
 
-Adopt **Modern department store** as the shared Affiliate Superstore foundation.
+Adopt **Modern department store** as the shared Wonder Aisle foundation.
 Use **Playful curator** as the first controlled specialist profile for
 `/plushies`, expressed through the existing shop theme contract rather than
 through different page markup.
@@ -137,7 +137,7 @@ support comprehension and do not replace final legal review.
 
 ## Why this direction wins
 
-Affiliate Superstore has two simultaneous jobs: feel like a useful specialist
+Wonder Aisle has two simultaneous jobs: feel like a useful specialist
 shop and be unmistakably honest about the partner hand-off. Modern Department
 Store creates the clearest hierarchy for both. Search, filtering, price
 freshness, seller evidence, saved items and the AliExpress action all have a

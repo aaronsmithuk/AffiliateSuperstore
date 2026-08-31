@@ -15,7 +15,8 @@ public sealed class ShopModel(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
     AnonymousBasketStore basketStore,
     CatalogueSeoPolicy seoPolicy,
-    CatalogueSeoOptions seoOptions) : PageModel
+    CatalogueSeoOptions seoOptions,
+    AffiliateSuperstoreOptions superstoreOptions) : PageModel
 {
     public ShopDefinition Shop { get; private set; } = null!;
     public IReadOnlyList<ShopProductCard> Products { get; private set; } = [];
@@ -55,7 +56,7 @@ public sealed class ShopModel(
         Category = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
         Sort = sort is "price-asc" or "price-desc" or "newest" ? sort : "popular";
         HasActiveFilters = Query is not null || Category is not null || MinimumPrice is not null || MaximumPrice is not null || Sort != "popular";
-        CanonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}{shop.PathPrefix}";
+        CanonicalUrl = superstoreOptions.BuildPublicUrl(shop.PathPrefix);
         var savedProductIds = basketStore.Get(HttpContext, shop.Slug);
         SavedCount = savedProductIds.Count;
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
@@ -150,7 +151,7 @@ public sealed class ShopModel(
                 {
                     ["@type"] = "ListItem",
                     ["position"] = index + 1,
-                    ["url"] = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/{Shop.Slug}/product/{product.ProductId}",
+                    ["url"] = superstoreOptions.BuildPublicUrl($"/{Shop.Slug}/product/{product.ProductId}"),
                     ["name"] = product.Title
                 }).ToArray()
             });

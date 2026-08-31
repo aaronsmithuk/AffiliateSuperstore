@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Affiliate Superstore</title>
+    <title>@ViewData["Title"] - @SuperstoreOptions.BrandName</title>
     @if (ViewData["Description"] is string description)
     {
         <meta name="description" content="@description" />
@@ -28,7 +28,7 @@
 <body>
     <header class="site-header">
         <nav class="site-navigation" aria-label="Primary navigation">
-            <a class="site-brand" href="/"><span aria-hidden="true">AS</span><strong>Affiliate Superstore</strong></a>
+            <a class="site-brand" href="/"><span aria-hidden="true">WA</span><strong>@SuperstoreOptions.BrandName</strong></a>
             <ul class="site-links">
                 <li><a href="/">Home</a></li>
                 <li><a href="/plushies">Plushies</a></li>
@@ -46,7 +46,7 @@
 
     <footer class="site-footer">
         <div>
-            &copy; 2026 - Affiliate Superstore - <a href="/Privacy">Privacy</a>
+            &copy; 2026 - @SuperstoreOptions.BrandName - <a href="/Privacy">Privacy</a>
         </div>
     </footer>
 

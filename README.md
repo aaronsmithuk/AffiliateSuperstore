@@ -1,4 +1,4 @@
-# Affiliate Superstore
+# Wonder Aisle
 
 A greenfield ASP.NET Core application for UK-focused, themed affiliate shops
 backed by the AliExpress Affiliate API.
@@ -165,9 +165,10 @@ The production configuration, release, sibling-site verification and rollback
 procedure is in [`docs/PRODUCTION-RELEASE.md`](docs/PRODUCTION-RELEASE.md). Build
 a checked release archive with `./scripts/New-SmarterAspRelease.ps1`.
 
-The umbrella-brand recommendation and point-in-time domain checks are in
+The adopted umbrella-brand/domain decision and point-in-time checks are in
 [`docs/DOMAIN-RECOMMENDATION.md`](docs/DOMAIN-RECOMMENDATION.md). Wonder Aisle
-is the preferred brand, subject to registration and formal trade-mark checks.
+is now the canonical product identity; `wonderaisle.co.uk` remains unregistered
+until the live-domain action is explicitly approved.
 
 The visual exploration contract and parallel-design-task boundaries are in
 [`docs/DESIGN-SYSTEM-BRIEF.md`](docs/DESIGN-SYSTEM-BRIEF.md).

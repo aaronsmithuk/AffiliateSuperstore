@@ -1,4 +1,4 @@
-# Affiliate Superstore design-system brief
+# Wonder Aisle design-system brief
 
 Last updated: 30 August 2026
 

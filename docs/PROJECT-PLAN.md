@@ -1,6 +1,6 @@
 # Affiliate Superstore project plan
 
-Last updated: 30 August 2026
+Last updated: 31 August 2026
 
 ## Product objective
 
@@ -39,11 +39,12 @@ be reusable for additional shops without another application runtime.
 | Public UI | ASP.NET Core Razor Pages |
 | Admin UI | Interactive Blazor Server components |
 | Design system | Custom semantic CSS tokens and reusable components; no Bootstrap or per-shop arbitrary CSS |
-| Hosting target | SmarterASP.NET ASP.NET Core and SQL Server; public provider documentation confirms .NET 10 FDD, while this account's pool, SQL and scheduled-task entitlements still require control-panel verification |
+| Hosting target | Existing SmarterASP.NET W1050-EU plan; signed-in inspection confirms .NET 10, a spare isolated 1 GB pool, SQL Server 2022 capacity, Web Deploy and three unused scheduled URLs |
 | Checkout | AliExpress checkout only; no payments or order placement in this application |
 | Basket | Anonymous local shopping list with one-by-one affiliate hand-off |
 | Identity | No customer account for MVP; anonymous cookie/browser identifier only where necessary |
 | Multi-shop routing | One neutral primary domain with shops under paths such as `/plushies` |
+| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; registration remains a separately approved external action |
 | AliExpress credentials | .NET configuration with local User Secrets in development and protected hosting configuration in production |
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
@@ -103,7 +104,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; owner Identity, OutOfProcess publishing, persistent key enforcement, health probes and reproducible release/migration/rollback tooling are complete; domain registration, host capability verification and first live release remain |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; Wonder Aisle is adopted, owner Identity, OutOfProcess publishing, persistent key enforcement, health probes and reproducible release/migration/rollback tooling are complete, and host capability is verified; registration, isolated resource creation and first live release remain |
 
 ## AI-assisted catalogue and content integration
 
@@ -185,12 +186,13 @@ reviewer-labelled catalogue records before matching code enters the application.
 - A repeatable live smoke tool verifies categories, product search, product
   details, featured promotions and link generation.
 
-## Domain direction
+## Domain decision
 
 The domain must be neutral and must not use AliExpress, AE, AliE or a confusing
-variant. Current naming direction:
+variant. The owner selected `wonderaisle.co.uk` on 31 August 2026. Earlier
+shortlist order was:
 
-1. `wonderaisle.co.uk` — preferred umbrella brand.
+1. `wonderaisle.co.uk` — selected umbrella brand and canonical domain.
 2. `playfulfinds.co.uk` — warmer and well suited to the first niche, but less
    naturally supermarket-like.
 3. `wonderbasket.co.uk` — clearly shopping-led, though the product does not
@@ -338,8 +340,9 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Choose and register the canonical domain, confirm SmarterASP .NET 10, SQL,
-scheduled-task and pool capabilities, then perform the gated first release from
+Register the selected canonical domain, create the isolated SmarterASP site,
+1 GB .NET Core pool and SQL Server 2022 database, configure protected
+pool-scoped environment variables, then perform the gated first release from
 [`PRODUCTION-RELEASE.md`](PRODUCTION-RELEASE.md). In parallel, start AI-0 and
 AI-1: capture the current affiliate agreement and host/API constraints, confirm
 whether delivery estimates are available through the permitted API surface,
