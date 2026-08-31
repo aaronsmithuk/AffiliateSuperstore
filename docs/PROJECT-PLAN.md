@@ -39,7 +39,7 @@ be reusable for additional shops without another application runtime.
 | Public UI | ASP.NET Core Razor Pages |
 | Admin UI | Interactive Blazor Server components |
 | Design system | Custom semantic CSS tokens and reusable components; no Bootstrap or per-shop arbitrary CSS |
-| Hosting target | SmarterASP.NET-compatible ASP.NET Core and SQL Server; final runtime support must be checked before deployment |
+| Hosting target | SmarterASP.NET ASP.NET Core and SQL Server; public provider documentation confirms .NET 10 FDD, while this account's pool, SQL and scheduled-task entitlements still require control-panel verification |
 | Checkout | AliExpress checkout only; no payments or order placement in this application |
 | Basket | Anonymous local shopping list with one-by-one affiliate hand-off |
 | Identity | No customer account for MVP; anonymous cookie/browser identifier only where necessary |
@@ -103,7 +103,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; owner-only Identity, lockout, protected admin routes/export, local first-owner setup and production bootstrap configuration are complete; domain, host verification, release and monitoring remain |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; owner Identity, OutOfProcess publishing, persistent key enforcement, health probes and reproducible release/migration/rollback tooling are complete; domain registration, host capability verification and first live release remain |
 
 ## AI-assisted catalogue and content integration
 
@@ -202,8 +202,11 @@ Availability, UK company names and trademarks must be checked immediately
 before registration. A positive domain-availability result is not a trademark
 clearance.
 
-Nominet WHOIS returned **not registered** for all five names at 18:20 UK time
-on 30 August 2026. This is a point-in-time result only; recheck at purchase.
+Nominet RDAP returned **no registered-domain record** for all five names on 31
+August 2026. Companies House exact-name searches also returned no result. This
+is a point-in-time discovery check, not a reservation or trade-mark clearance;
+recheck at purchase. The rationale and architecture are in
+[`DOMAIN-RECOMMENDATION.md`](DOMAIN-RECOMMENDATION.md).
 
 ## Current risks and evidence gaps
 
@@ -227,9 +230,9 @@ on 30 August 2026. This is a point-in-time result only; recheck at purchase.
   listings and likely third-party-character merchandise. Those products are
   held from publication by persisted flags or manual review; the local launch
   set contains only 12 individually checked and edited products.
-- ASP.NET Core Data Protection keys must be stored persistently on the
-  production host so protected shopping-list cookies survive application
-  restarts and deployments.
+- Production now fails fast unless ASP.NET Core Data Protection keys are sent
+  to a configured persistent private directory outside `wwwroot`; the host
+  path and backup behavior still require verification.
 
 ## Current implementation snapshot
 
@@ -335,8 +338,9 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Integrate the reviewed visual-system work, then complete the domain choice,
-production S2S/release configuration and monitoring. In parallel, start AI-0 and
+Choose and register the canonical domain, confirm SmarterASP .NET 10, SQL,
+scheduled-task and pool capabilities, then perform the gated first release from
+[`PRODUCTION-RELEASE.md`](PRODUCTION-RELEASE.md). In parallel, start AI-0 and
 AI-1: capture the current affiliate agreement and host/API constraints, confirm
 whether delivery estimates are available through the permitted API surface,
 then add observation hashes and evidence-backed lifecycle state without

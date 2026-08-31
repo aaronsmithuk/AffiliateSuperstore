@@ -14,6 +14,7 @@ public sealed class RobotsModel(CatalogueSeoOptions seoOptions) : PageModel
               Disallow: /admin/
               Disallow: /basket/
               Disallow: /go/
+              Disallow: /health/
               Disallow: /Error
               """
             : "Disallow: /";

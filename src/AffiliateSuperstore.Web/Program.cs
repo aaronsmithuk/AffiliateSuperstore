@@ -8,12 +8,45 @@ using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Core.Tracking;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Web.Components;
+using AffiliateSuperstore.Web.Hosting;
 using AffiliateSuperstore.Web.Security;
 using AffiliateSuperstore.Web.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var dataProtection = builder.Services
+    .AddDataProtection()
+    .SetApplicationName("AffiliateSuperstore");
+var dataProtectionKeysPath = builder.Configuration["Hosting:DataProtectionKeysPath"]?.Trim();
+if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "Hosting:DataProtectionKeysPath must point to a persistent, private directory in production.");
+    }
+}
+else
+{
+    var keysDirectory = Path.GetFullPath(dataProtectionKeysPath, builder.Environment.ContentRootPath);
+    var webRoot = builder.Environment.WebRootPath;
+    var normalizedWebRoot = string.IsNullOrWhiteSpace(webRoot) ? null : Path.GetFullPath(webRoot);
+    if (normalizedWebRoot is not null &&
+        (keysDirectory.Equals(normalizedWebRoot, StringComparison.OrdinalIgnoreCase) ||
+         keysDirectory.StartsWith(
+             normalizedWebRoot + Path.DirectorySeparatorChar,
+             StringComparison.OrdinalIgnoreCase)))
+    {
+        throw new InvalidOperationException(
+            "Hosting:DataProtectionKeysPath must not be inside the public web root.");
+    }
+
+    Directory.CreateDirectory(keysDirectory);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
+}
 
 // Add services to the container.
 builder.Services.AddRazorPages();
@@ -175,6 +208,7 @@ app.MapRazorPages()
    .WithStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+app.MapOperationalHealthEndpoints();
 
 app.MapMethods("/integrations/aliexpress/s2s", ["GET", "POST"], async (
     HttpRequest request,

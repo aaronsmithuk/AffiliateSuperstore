@@ -54,6 +54,8 @@ catalogue review and automation schedule.
 - GB shipping market, GBP and English defaults
 - Owner-only ASP.NET Core Identity authentication across every admin page and
   order export, with lockout protection and no public registration
+- Pool-safe OutOfProcess SmarterASP publishing, persistent production cookie-
+  key enforcement and public liveness/readiness/wake probes
 
 ## Configure the local App Secret
 
@@ -158,6 +160,14 @@ dotnet run --project ./tools/AffiliateSuperstore.ApiSmokeTest
 
 Research and captured AliExpress source material is indexed in
 [`docs/aliexpress/README.md`](docs/aliexpress/README.md).
+
+The production configuration, release, sibling-site verification and rollback
+procedure is in [`docs/PRODUCTION-RELEASE.md`](docs/PRODUCTION-RELEASE.md). Build
+a checked release archive with `./scripts/New-SmarterAspRelease.ps1`.
+
+The umbrella-brand recommendation and point-in-time domain checks are in
+[`docs/DOMAIN-RECOMMENDATION.md`](docs/DOMAIN-RECOMMENDATION.md). Wonder Aisle
+is the preferred brand, subject to registration and formal trade-mark checks.
 
 The visual exploration contract and parallel-design-task boundaries are in
 [`docs/DESIGN-SYSTEM-BRIEF.md`](docs/DESIGN-SYSTEM-BRIEF.md).

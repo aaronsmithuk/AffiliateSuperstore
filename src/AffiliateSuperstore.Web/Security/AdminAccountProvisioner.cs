@@ -14,7 +14,7 @@ public sealed class AdminAccountProvisioner(
         var password = options.Value.BootstrapPassword;
         if (string.IsNullOrWhiteSpace(username) && string.IsNullOrWhiteSpace(password))
         {
-            logger.LogInformation("No configured admin bootstrap account. Development setup remains available until an administrator exists.");
+            logger.LogInformation("No configured admin bootstrap account. Existing administrator accounts are unchanged.");
             return;
         }
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))

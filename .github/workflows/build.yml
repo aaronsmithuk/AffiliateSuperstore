@@ -26,8 +26,21 @@ jobs:
       - name: Restore
         run: dotnet restore AffiliateSuperstore.slnx
 
+      - name: Restore local tools
+        run: dotnet tool restore
+
       - name: Build
         run: dotnet build AffiliateSuperstore.slnx --configuration Release --no-restore
 
       - name: Test
         run: dotnet test AffiliateSuperstore.slnx --configuration Release --no-build
+
+      - name: Verify migration model
+        run: dotnet ef migrations has-pending-model-changes --project src/AffiliateSuperstore.Persistence --configuration Release --no-build
+
+      - name: Publish SmarterASP bundle
+        run: dotnet publish src/AffiliateSuperstore.Web/AffiliateSuperstore.Web.csproj --configuration Release --no-build --output artifacts/ci-publish -p:PublishProfile=SmarterAsp
+
+      - name: Verify SmarterASP hosting model
+        shell: pwsh
+        run: ./scripts/Test-SmarterAspRelease.ps1 -ProjectPath ./src/AffiliateSuperstore.Web/AffiliateSuperstore.Web.csproj -PublishPath ./artifacts/ci-publish

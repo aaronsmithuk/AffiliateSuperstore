@@ -65,6 +65,9 @@ creating a second inbox event or order.
 
 After deploying but before enabling the AliExpress rule:
 
+Follow the baseline deployment and sibling-site checks in
+[`PRODUCTION-RELEASE.md`](PRODUCTION-RELEASE.md), then:
+
 1. Confirm the admin is authenticated and the endpoint is HTTPS.
 2. Enable the two protected configuration values.
 3. Send a synthetic callback using a non-production order ID.
