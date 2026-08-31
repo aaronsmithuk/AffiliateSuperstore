@@ -6,6 +6,7 @@
 @inject IOptions<CatalogueAutomationOptions> AutomationOptions
 @inject AffiliateSuperstoreOptions SuperstoreOptions
 @inject TimeProvider TimeProvider
+@inject AutomationWorkQueueService WorkQueue
 
 <PageTitle>Catalogue automation</PageTitle>
 
@@ -13,7 +14,7 @@
     <div>
         <p class="eyebrow">Operations</p>
         <h1>Catalogue automation</h1>
-        <p class="lede">Restart-safe scheduling driven by the ingestion history stored in SQL Server.</p>
+        <p class="lede">Restart-safe scheduling with idempotent SQL work items, recoverable leases and bounded retries.</p>
     </div>
     <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsLoading">Refresh</button>
 </header>
@@ -34,6 +35,36 @@
     <article class="metric-card"><strong>@Options.FailureRetryMinutes min</strong><span>Failure retry</span></article>
     <article class="metric-card"><strong>@Options.StaleJobHours h</strong><span>Stale-job threshold</span></article>
     <article class="metric-card"><strong>@Options.LinkRefreshHours h</strong><span>Link validation age</span></article>
+    <article class="metric-card"><strong>@(QueueHealth?.Pending ?? 0)</strong><span>Pending work</span></article>
+    <article class="metric-card"><strong>@(QueueHealth?.Leased ?? 0)</strong><span>Active leases</span></article>
+    <article class="metric-card"><strong>@(QueueHealth?.RetryWaiting ?? 0)</strong><span>Waiting to retry</span></article>
+    <article class="metric-card"><strong>@(QueueHealth?.ExpiredLeases ?? 0)</strong><span>Recoverable leases</span></article>
+    <article class="metric-card"><strong>@(QueueHealth?.DeadLetters ?? 0)</strong><span>Dead letters</span></article>
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Durable queue</p><h2>Recent work items</h2></div><span class="count-badge">@WorkItems.Count</span></div>
+    @if (WorkItems.Count == 0)
+    {
+        <p class="database-empty">No durable automation work has been planned yet.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Type</th><th>Shop</th><th>Status</th><th>Attempts</th><th>Available / completed</th><th>Lease</th><th>Result</th></tr></thead><tbody>
+        @foreach (var item in WorkItems)
+        {
+            <tr>
+                <td><strong>@item.Type</strong><small>@item.IdempotencyKey</small></td>
+                <td>@(item.ShopSlug ?? "—")</td>
+                <td><span class="result-badge @WorkStatusClass(item.Status)">@item.Status</span>@if (!string.IsNullOrWhiteSpace(item.LastError)) { <small title="@item.LastError">@ShortError(item.LastError)</small> }</td>
+                <td>@item.AttemptCount / @item.MaximumAttempts</td>
+                <td>@LocalTime(item.CompletedUtc ?? item.AvailableUtc)</td>
+                <td>@if (item.Status == AutomationWorkStatus.Leased) { <span>@LocalTime(item.LeaseExpiresUtc)</span><small>@item.LeaseOwner</small> } else { <span>—</span> }</td>
+                <td>@(item.ResultJobId?.ToString() ?? "—")</td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
 </section>
 
 <section class="panel catalogue-table-panel">
@@ -61,7 +92,7 @@
 
 <div class="alert-card warning-card automation-note">
     <strong>Configuration-owned for now</strong>
-    <span>Scheduling is deliberately changed through configuration, not this unauthenticated admin. Manual catalogue runs remain available on the Catalogue page.</span>
+    <span>Scheduling remains deliberately configuration-owned rather than editable in the admin UI. Manual catalogue runs remain available on the Catalogue page.</span>
 </div>
 
 @code {
@@ -70,6 +101,8 @@
         .Where(shop => shop.IsEnabled)
         .Sum(shop => CatalogueDiscoveryPlanner.Build(shop, Options.PageSize).Count);
     private List<ShopScheduleRow> Shops = [];
+    private List<WorkItemRow> WorkItems = [];
+    private AutomationQueueHealth? QueueHealth;
     private bool IsLoading;
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -100,6 +133,24 @@
                     isDue));
             }
             Shops = rows;
+            QueueHealth = await WorkQueue.GetHealthAsync();
+            WorkItems = await context.AutomationWorkItems.AsNoTracking()
+                .OrderByDescending(item => item.QueuedUtc)
+                .Take(50)
+                .Select(item => new WorkItemRow(
+                    item.Type,
+                    item.Shop == null ? null : item.Shop.Slug,
+                    item.Status,
+                    item.IdempotencyKey,
+                    item.AttemptCount,
+                    item.MaximumAttempts,
+                    item.AvailableUtc,
+                    item.LeaseOwner,
+                    item.LeaseExpiresUtc,
+                    item.CompletedUtc,
+                    item.LastError,
+                    item.ResultJobId))
+                .ToListAsync();
         }
         finally { IsLoading = false; }
     }
@@ -117,5 +168,8 @@
 
     private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
     private static string StatusClass(IngestionJobStatus? status) => status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded ? "success" : status is null ? string.Empty : "failure";
+    private static string WorkStatusClass(AutomationWorkStatus status) => status == AutomationWorkStatus.Succeeded ? "success" : status is AutomationWorkStatus.DeadLetter or AutomationWorkStatus.Cancelled ? "failure" : string.Empty;
+    private static string ShortError(string error) => error.Length <= 100 ? error : error[..100] + "…";
     private sealed record ShopScheduleRow(string Slug, string DisplayName, IngestionJobStatus? Status, DateTimeOffset? StartedUtc, DateTimeOffset? CompletedUtc, DateTimeOffset? NextDueUtc, bool IsDue);
+    private sealed record WorkItemRow(AutomationWorkType Type, string? ShopSlug, AutomationWorkStatus Status, string IdempotencyKey, int AttemptCount, int MaximumAttempts, DateTimeOffset AvailableUtc, string? LeaseOwner, DateTimeOffset? LeaseExpiresUtc, DateTimeOffset? CompletedUtc, string? LastError, Guid? ResultJobId);
 }

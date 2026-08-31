@@ -89,12 +89,15 @@ public sealed class PersistenceModelTests
         var snapshots = context.Model.FindEntityType(typeof(ProductSnapshotRecord))!;
         var product = context.Model.FindEntityType(typeof(ProductRecord))!;
         var changeEvent = context.Model.FindEntityType(typeof(ProductChangeEventRecord))!;
+        var workItem = context.Model.FindEntityType(typeof(AutomationWorkItemRecord))!;
 
         Assert.Contains(shop.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(ShopRecord.Slug));
         Assert.Contains(snapshots.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.FetchedUtc)]));
         Assert.Contains(snapshots.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.ContentHash)]));
         Assert.Contains(product.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductRecord.AvailabilityState), nameof(ProductRecord.LastCheckedUtc)]));
         Assert.Contains(changeEvent.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductChangeEventRecord.ProductId), nameof(ProductChangeEventRecord.OccurredUtc)]));
+        Assert.Contains(workItem.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(AutomationWorkItemRecord.IdempotencyKey));
+        Assert.True(workItem.FindProperty(nameof(AutomationWorkItemRecord.RowVersion))!.IsConcurrencyToken);
         Assert.True(product.FindProperty(nameof(ProductRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, product.FindProperty(nameof(ProductRecord.RowVersion))!.ValueGenerated);
     }

@@ -1,21 +1,19 @@
 using AffiliateSuperstore.Application.Catalogue;
-using AffiliateSuperstore.Core.Shops;
-using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace AffiliateSuperstore.Web.Services;
 
 public sealed class CatalogueAutomationWorker(
     IServiceScopeFactory scopeFactory,
-    IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
+    AutomationWorkQueueService workQueue,
+    CatalogueAutomationWakeSignal wakeSignal,
     IOptions<CatalogueAutomationOptions> options,
-    AffiliateSuperstoreOptions superstoreOptions,
     TimeProvider timeProvider,
     ILogger<CatalogueAutomationWorker> logger) : BackgroundService
 {
     private readonly CatalogueAutomationOptions _options = options.Value;
+    private readonly string _leaseOwner = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -26,100 +24,151 @@ public sealed class CatalogueAutomationWorker(
         }
 
         ValidateOptions();
-        await RunDueJobsAsync(stoppingToken);
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_options.PollEveryMinutes), timeProvider);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
             await RunDueJobsAsync(stoppingToken);
+            await WaitForPollOrWakeAsync(stoppingToken);
         }
     }
 
     internal async Task RunDueJobsAsync(CancellationToken cancellationToken)
     {
-        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
-        var shops = await context.Shops.AsNoTracking()
-            .Where(shop => shop.IsEnabled)
-            .Select(shop => new { shop.Id, shop.Slug, shop.DefaultSearchQuery })
-            .ToListAsync(cancellationToken);
-        var now = timeProvider.GetUtcNow();
-
-        foreach (var shop in shops)
+        var planned = await workQueue.PlanDueAsync(_options, cancellationToken);
+        if (planned > 0)
         {
-            var configuredShop = superstoreOptions.Shops.SingleOrDefault(item =>
-                string.Equals(item.Slug, shop.Slug, StringComparison.OrdinalIgnoreCase));
-            if (configuredShop is null)
-            {
-                logger.LogWarning("Skipping scheduled catalogue ingestion for unconfigured shop {ShopSlug}.", shop.Slug);
-                continue;
-            }
-
-            var latest = await context.IngestionJobs.AsNoTracking()
-                .Where(job => job.ShopId == shop.Id && job.Type == IngestionJobType.CatalogueDiscovery)
-                .OrderByDescending(job => job.QueuedUtc)
-                .Select(job => new { job.Status, job.StartedUtc, job.CompletedUtc })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (!CatalogueAutomationPlanner.IsDue(
-                    latest?.Status,
-                    latest?.StartedUtc,
-                    latest?.CompletedUtc,
-                    now,
-                    _options))
-            {
-                continue;
-            }
-
-            using var scope = scopeFactory.CreateScope();
-            var discovery = scope.ServiceProvider.GetRequiredService<CatalogueDiscoveryPlanService>();
-            var discoveryResult = await discovery.RunAsync(shop.Slug, _options.PageSize, cancellationToken);
-            logger.LogInformation(
-                "Scheduled catalogue discovery plan for {ShopSlug} finished with {Status}: {Completed}/{Planned} requests, {Written} products and {Links} links.",
-                shop.Slug,
-                discoveryResult.Status,
-                discoveryResult.RequestsCompleted,
-                discoveryResult.RequestsPlanned,
-                discoveryResult.ProductsWritten,
-                discoveryResult.LinksCreatedOrRefreshed);
-
-            if (discoveryResult.Status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded)
-            {
-                var enrichment = scope.ServiceProvider.GetRequiredService<CatalogueProductEnrichmentService>();
-                var enrichmentResult = await enrichment.RunAsync(shop.Slug, cancellationToken: cancellationToken);
-                logger.LogInformation(
-                    "Product detail refresh {JobId} for {ShopSlug} finished with {Status}: {Enriched}/{Selected} products enriched with {Media} media items.",
-                    enrichmentResult.JobId,
-                    shop.Slug,
-                    enrichmentResult.Status,
-                    enrichmentResult.ProductsEnriched,
-                    enrichmentResult.ProductsSelected,
-                    enrichmentResult.MediaItemsStored);
-            }
-
-            var renewal = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
-            var renewalResult = await renewal.RunAsync(
-                shop.Slug,
-                TimeSpan.FromHours(_options.LinkRefreshHours),
-                _options.LinkBatchSize,
-                cancellationToken);
-            logger.LogInformation(
-                "Affiliate link renewal {JobId} for {ShopSlug} finished with {Status}: {Validated} validated, {Replaced} replaced and {Missing} missing.",
-                renewalResult.JobId,
-                shop.Slug,
-                renewalResult.Status,
-                renewalResult.Validated,
-                renewalResult.Replaced,
-                renewalResult.Missing);
+            logger.LogInformation("Planned {WorkItemCount} durable catalogue work items.", planned);
         }
+
+        for (var index = 0; index < _options.MaximumWorkItemsPerTick; index++)
+        {
+            var lease = await workQueue.ClaimNextAsync(
+                _leaseOwner,
+                TimeSpan.FromMinutes(_options.LeaseMinutes),
+                cancellationToken);
+            if (lease is null) break;
+
+            try
+            {
+                var resultJobId = await ExecuteLeaseAsync(lease, cancellationToken);
+                if (!await workQueue.CompleteAsync(lease.Id, _leaseOwner, resultJobId, cancellationToken))
+                {
+                    logger.LogWarning("Work item {WorkItemId} completed after its lease was lost.", lease.Id);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                var status = await workQueue.FailAsync(
+                    lease.Id,
+                    _leaseOwner,
+                    $"{exception.GetType().Name}: {exception.Message}",
+                    _options,
+                    cancellationToken);
+                logger.LogError(
+                    exception,
+                    "Automation work item {WorkItemId} ({WorkType}) failed on attempt {Attempt}/{MaximumAttempts}; queue status is {QueueStatus}.",
+                    lease.Id,
+                    lease.Type,
+                    lease.AttemptCount,
+                    lease.MaximumAttempts,
+                    status);
+            }
+        }
+    }
+
+    private async Task<Guid?> ExecuteLeaseAsync(AutomationWorkLease lease, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(lease.ShopSlug))
+        {
+            throw new InvalidOperationException($"Work item {lease.Id} has no enabled shop.");
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        switch (lease.Type)
+        {
+            case AutomationWorkType.CatalogueDiscovery:
+            {
+                var service = scope.ServiceProvider.GetRequiredService<CatalogueDiscoveryPlanService>();
+                var result = await service.RunAsync(lease.ShopSlug, _options.PageSize, cancellationToken);
+                if (result.Status is IngestionJobStatus.Failed or IngestionJobStatus.Running)
+                {
+                    throw new InvalidOperationException(result.Error ?? $"Discovery finished with {result.Status}.");
+                }
+
+                logger.LogInformation(
+                    "Durable discovery for {ShopSlug} completed {Completed}/{Planned} requests and wrote {Written} products.",
+                    lease.ShopSlug,
+                    result.RequestsCompleted,
+                    result.RequestsPlanned,
+                    result.ProductsWritten);
+                return result.Runs.LastOrDefault()?.JobId;
+            }
+            case AutomationWorkType.ProductRefresh:
+            {
+                var service = scope.ServiceProvider.GetRequiredService<CatalogueProductEnrichmentService>();
+                var result = await service.RunAsync(lease.ShopSlug, cancellationToken: cancellationToken);
+                if (result.Status == IngestionJobStatus.Failed)
+                {
+                    throw new InvalidOperationException(result.Error ?? "Product refresh failed.");
+                }
+
+                logger.LogInformation(
+                    "Durable product refresh {JobId} for {ShopSlug} checked {Enriched}/{Selected} products.",
+                    result.JobId,
+                    lease.ShopSlug,
+                    result.ProductsEnriched,
+                    result.ProductsSelected);
+                return result.JobId;
+            }
+            case AutomationWorkType.LinkRefresh:
+            {
+                var service = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
+                var result = await service.RunAsync(
+                    lease.ShopSlug,
+                    TimeSpan.FromHours(_options.LinkRefreshHours),
+                    _options.LinkBatchSize,
+                    cancellationToken);
+                if (result.Status == IngestionJobStatus.Failed)
+                {
+                    throw new InvalidOperationException(result.Error ?? "Link refresh failed.");
+                }
+
+                logger.LogInformation(
+                    "Durable link refresh {JobId} for {ShopSlug} validated {Validated} and replaced {Replaced} links.",
+                    result.JobId,
+                    lease.ShopSlug,
+                    result.Validated,
+                    result.Replaced);
+                return result.JobId;
+            }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(lease), lease.Type, "Unsupported automation work type.");
+        }
+    }
+
+    private async Task WaitForPollOrWakeAsync(CancellationToken cancellationToken)
+    {
+        using var waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var delay = Task.Delay(TimeSpan.FromMinutes(_options.PollEveryMinutes), timeProvider, waitCancellation.Token);
+        var wake = wakeSignal.WaitAsync(waitCancellation.Token);
+        await Task.WhenAny(delay, wake);
+        await waitCancellation.CancelAsync();
     }
 
     private void ValidateOptions()
     {
         if (_options.RefreshEveryHours is < 1 or > 720) throw new InvalidOperationException("CatalogueAutomation:RefreshEveryHours must be between 1 and 720.");
         if (_options.PollEveryMinutes is < 1 or > 1440) throw new InvalidOperationException("CatalogueAutomation:PollEveryMinutes must be between 1 and 1440.");
-        if (_options.FailureRetryMinutes is < 1 or > 1440) throw new InvalidOperationException("CatalogueAutomation:FailureRetryMinutes must be between 1 and 1440.");
-        if (_options.StaleJobHours is < 1 or > 48) throw new InvalidOperationException("CatalogueAutomation:StaleJobHours must be between 1 and 48.");
         if (_options.PageSize is < 1 or > 50) throw new InvalidOperationException("CatalogueAutomation:PageSize must be between 1 and 50.");
         if (_options.LinkRefreshHours is < 1 or > 720) throw new InvalidOperationException("CatalogueAutomation:LinkRefreshHours must be between 1 and 720.");
         if (_options.LinkBatchSize is < 1 or > 50) throw new InvalidOperationException("CatalogueAutomation:LinkBatchSize must be between 1 and 50.");
+        if (_options.MaximumWorkItemsPerTick is < 1 or > 20) throw new InvalidOperationException("CatalogueAutomation:MaximumWorkItemsPerTick must be between 1 and 20.");
+        if (_options.LeaseMinutes is < 1 or > 120) throw new InvalidOperationException("CatalogueAutomation:LeaseMinutes must be between 1 and 120.");
+        if (_options.MaximumAttempts is < 1 or > 20) throw new InvalidOperationException("CatalogueAutomation:MaximumAttempts must be between 1 and 20.");
+        if (_options.RetryBaseMinutes is < 1 or > 1440) throw new InvalidOperationException("CatalogueAutomation:RetryBaseMinutes must be between 1 and 1440.");
+        if (_options.RetryMaximumMinutes < _options.RetryBaseMinutes || _options.RetryMaximumMinutes > 10080) throw new InvalidOperationException("CatalogueAutomation:RetryMaximumMinutes must be between RetryBaseMinutes and 10080.");
     }
 }

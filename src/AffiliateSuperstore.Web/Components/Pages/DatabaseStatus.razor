@@ -43,6 +43,8 @@ else if (Report is not null)
         <article class="metric-card"><strong>@Report.ClickCount.ToString("N0")</strong><span>Outbound clicks</span></article>
         <article class="metric-card"><strong>@Report.OrderCount.ToString("N0")</strong><span>Orders</span></article>
         <article class="metric-card"><strong>@Report.QueuedOrRunningJobCount.ToString("N0")</strong><span>Active jobs</span></article>
+        <article class="metric-card"><strong>@Report.PendingOrLeasedWorkCount.ToString("N0")</strong><span>Queued automation</span></article>
+        <article class="metric-card"><strong>@Report.DeadLetterWorkCount.ToString("N0")</strong><span>Dead letters</span></article>
     </section>
 
     <div class="database-grid">

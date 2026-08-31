@@ -15,6 +15,11 @@ public sealed class CatalogueAutomationOptions
     public int PageSize { get; set; } = 20;
     public int LinkRefreshHours { get; set; } = 120;
     public int LinkBatchSize { get; set; } = 50;
+    public int MaximumWorkItemsPerTick { get; set; } = 3;
+    public int LeaseMinutes { get; set; } = 15;
+    public int MaximumAttempts { get; set; } = 5;
+    public int RetryBaseMinutes { get; set; } = 15;
+    public int RetryMaximumMinutes { get; set; } = 360;
 }
 
 public static class CatalogueAutomationPlanner

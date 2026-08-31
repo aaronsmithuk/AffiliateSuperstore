@@ -12,7 +12,10 @@ correlation, unchanged content creates no duplicate snapshot/change event,
 direct-detail misses require repeated evidence spanning at least 24 hours before
 withdrawal, positive evidence restores availability, and discovery-query absence
 does not count as lifecycle evidence. The admin catalogue exposes lifecycle
-totals, filters and evidence counts. Durable SQL work leasing is the next slice.
+totals, filters and evidence counts. The durable automation slice is also complete
+locally: independent work types use unique idempotency keys, recoverable SQL
+leases/checkpoints, bounded exponential retry/dead-letter handling and a bounded
+parameter-free `/health/wake` signal. Deterministic identity/review is next.
 
 ## Executive decision
 
@@ -637,8 +640,9 @@ answers and legal review.
    AliExpress agreement and ask support for quota/cache/permission answers.
 2. **Complete locally:** source observation/content hashes, `LastCheckedUtc`,
    lifecycle evidence/state, consecutive misses, change events and safe backfill.
-3. Add SQL automation items, unique idempotency keys, leases, bounded runs,
-   retry classes and harmless wake endpoint; keep production disabled.
+3. **Complete locally:** SQL automation items, unique idempotency keys, leases,
+   checkpoints, bounded runs, retry/dead-letter handling and harmless wake
+   endpoint; production remains disabled.
 4. Implement direct refresh cohorts, expiry grace rules, feed-health metrics and
    link-health dashboard using the official adapters.
 5. Add normalizers, pack/size/unit parsing, exact identity/image metadata and

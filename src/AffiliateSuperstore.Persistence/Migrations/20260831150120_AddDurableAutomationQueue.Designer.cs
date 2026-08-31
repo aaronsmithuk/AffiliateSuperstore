@@ -4,6 +4,7 @@ using AffiliateSuperstore.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AffiliateSuperstore.Persistence.Migrations
 {
     [DbContext(typeof(AffiliateSuperstoreDbContext))]
-    partial class AffiliateSuperstoreDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831150120_AddDurableAutomationQueue")]
+    partial class AddDurableAutomationQueue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -328,10 +331,6 @@ namespace AffiliateSuperstore.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("AvailableUtc")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Checkpoint")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTimeOffset?>("CompletedUtc")
                         .HasColumnType("datetimeoffset");

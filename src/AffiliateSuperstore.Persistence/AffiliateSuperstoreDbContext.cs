@@ -17,6 +17,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<AffiliateLinkRecord> AffiliateLinks => Set<AffiliateLinkRecord>();
     public DbSet<OutboundClickRecord> OutboundClicks => Set<OutboundClickRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
+    public DbSet<AutomationWorkItemRecord> AutomationWorkItems => Set<AutomationWorkItemRecord>();
     public DbSet<AffiliateOrderRecord> AffiliateOrders => Set<AffiliateOrderRecord>();
     public DbSet<AffiliateS2sEventRecord> AffiliateS2sEvents => Set<AffiliateS2sEventRecord>();
 
@@ -32,6 +33,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureAffiliateLink(modelBuilder);
         ConfigureOutboundClick(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
+        ConfigureAutomationWorkItem(modelBuilder);
         ConfigureAffiliateOrder(modelBuilder);
         ConfigureAffiliateS2sEvent(modelBuilder);
     }
@@ -212,6 +214,27 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasOne(item => item.Shop).WithMany(shop => shop.IngestionJobs).HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.SetNull);
         entity.HasIndex(item => new { item.Status, item.QueuedUtc });
         entity.HasIndex(item => new { item.ShopId, item.Type, item.StartedUtc });
+    }
+
+    private static void ConfigureAutomationWorkItem(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<AutomationWorkItemRecord>();
+        entity.ToTable("AutomationWorkItems");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.Type).HasConversion<string>().HasMaxLength(40);
+        entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.IdempotencyKey).HasMaxLength(200).IsRequired();
+        entity.Property(item => item.PayloadJson).HasMaxLength(4000);
+        entity.Property(item => item.Checkpoint).HasMaxLength(1000);
+        entity.Property(item => item.LeaseOwner).HasMaxLength(200);
+        entity.Property(item => item.LastError).HasMaxLength(2000);
+        entity.Property(item => item.CorrelationId).HasMaxLength(100);
+        entity.Property(item => item.RowVersion).IsRowVersion();
+        entity.HasOne(item => item.Shop).WithMany().HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.SetNull);
+        entity.HasIndex(item => item.IdempotencyKey).IsUnique();
+        entity.HasIndex(item => new { item.Status, item.AvailableUtc, item.Priority });
+        entity.HasIndex(item => new { item.ShopId, item.Type, item.QueuedUtc });
+        entity.HasIndex(item => item.LeaseExpiresUtc);
     }
 
     private static void ConfigureAffiliateOrder(ModelBuilder modelBuilder)

@@ -15,6 +15,8 @@ public sealed record DatabaseStatusReport(
     int ClickCount,
     int OrderCount,
     int QueuedOrRunningJobCount,
+    int PendingOrLeasedWorkCount,
+    int DeadLetterWorkCount,
     DateTimeOffset CheckedUtc,
     string? Error);
 
@@ -55,6 +57,13 @@ public sealed class DatabaseStatusService(
                     job => job.Status == Entities.IngestionJobStatus.Queued ||
                            job.Status == Entities.IngestionJobStatus.Running,
                     cancellationToken),
+                await context.AutomationWorkItems.CountAsync(
+                    item => item.Status == Entities.AutomationWorkStatus.Pending ||
+                            item.Status == Entities.AutomationWorkStatus.Leased,
+                    cancellationToken),
+                await context.AutomationWorkItems.CountAsync(
+                    item => item.Status == Entities.AutomationWorkStatus.DeadLetter,
+                    cancellationToken),
                 timeProvider.GetUtcNow(),
                 null);
         }
@@ -65,5 +74,5 @@ public sealed class DatabaseStatusService(
     }
 
     private DatabaseStatusReport Empty(string provider, string databaseName, string error) =>
-        new(false, provider, databaseName, [], [], 0, 0, 0, 0, 0, 0, 0, timeProvider.GetUtcNow(), error);
+        new(false, provider, databaseName, [], [], 0, 0, 0, 0, 0, 0, 0, 0, 0, timeProvider.GetUtcNow(), error);
 }

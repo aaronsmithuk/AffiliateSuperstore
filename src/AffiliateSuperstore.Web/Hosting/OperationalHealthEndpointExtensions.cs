@@ -1,5 +1,8 @@
 using AffiliateSuperstore.Persistence;
+using AffiliateSuperstore.Application.Catalogue;
+using AffiliateSuperstore.Web.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace AffiliateSuperstore.Web.Hosting;
 
@@ -25,8 +28,13 @@ public static class OperationalHealthEndpointExtensions
             HttpResponse response,
             IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
             TimeProvider timeProvider,
+            CatalogueAutomationWakeSignal wakeSignal,
+            IOptions<CatalogueAutomationOptions> automationOptions,
             CancellationToken cancellationToken) =>
-            CheckDatabaseAsync("scheduled-wake", response, contextFactory, timeProvider, cancellationToken))
+        {
+            if (automationOptions.Value.Enabled) wakeSignal.Signal();
+            return CheckDatabaseAsync("scheduled-wake", response, contextFactory, timeProvider, cancellationToken);
+        })
             .AllowAnonymous();
 
         return endpoints;

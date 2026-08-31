@@ -181,9 +181,10 @@ Check in this order:
 9. no `app_offline.htm` remains in the target root.
 
 Only after this baseline is stable should the scheduled task call
-`/health/wake`. It performs a read-only SQL readiness check; application
-startup wakes the background workers, whose persisted due-state prevents a
-request from directly triggering duplicate work.
+`/health/wake`. It performs a read-only SQL readiness check and writes only to a
+bounded in-memory wake signal; it accepts no job parameters. The worker then
+plans due work through unique persisted idempotency keys, so the request cannot
+directly create or execute duplicate work.
 
 ## Rollback
 

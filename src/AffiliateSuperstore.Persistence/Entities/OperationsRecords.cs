@@ -88,6 +88,48 @@ public sealed class IngestionJobRecord
     public ShopRecord? Shop { get; set; }
 }
 
+public enum AutomationWorkType
+{
+    CatalogueDiscovery,
+    ProductRefresh,
+    LinkRefresh
+}
+
+public enum AutomationWorkStatus
+{
+    Pending,
+    Leased,
+    Succeeded,
+    DeadLetter,
+    Cancelled
+}
+
+public sealed class AutomationWorkItemRecord
+{
+    public Guid Id { get; set; }
+    public Guid? ShopId { get; set; }
+    public AutomationWorkType Type { get; set; }
+    public AutomationWorkStatus Status { get; set; } = AutomationWorkStatus.Pending;
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public string? PayloadJson { get; set; }
+    public string? Checkpoint { get; set; }
+    public int Priority { get; set; }
+    public DateTimeOffset QueuedUtc { get; set; }
+    public DateTimeOffset AvailableUtc { get; set; }
+    public string? LeaseOwner { get; set; }
+    public DateTimeOffset? LeaseExpiresUtc { get; set; }
+    public int AttemptCount { get; set; }
+    public int MaximumAttempts { get; set; } = 5;
+    public DateTimeOffset? StartedUtc { get; set; }
+    public DateTimeOffset? CompletedUtc { get; set; }
+    public string? LastError { get; set; }
+    public string? CorrelationId { get; set; }
+    public Guid? ResultJobId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+
+    public ShopRecord? Shop { get; set; }
+}
+
 public sealed class AffiliateOrderRecord
 {
     public string SubOrderId { get; set; } = string.Empty;

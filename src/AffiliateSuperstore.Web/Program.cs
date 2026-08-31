@@ -163,8 +163,10 @@ builder.Services.AddTransient<OrderArchiveExportService>();
 builder.Services.AddTransient<AffiliatePerformanceService>();
 builder.Services.AddSingleton<AnonymousBasketCodec>();
 builder.Services.AddSingleton<AnonymousBasketStore>();
+builder.Services.AddSingleton<CatalogueAutomationWakeSignal>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
+    builder.Services.AddSingleton<AutomationWorkQueueService>();
     builder.Services.AddHostedService<CatalogueAutomationWorker>();
     builder.Services.AddHostedService<OrderReconciliationWorker>();
 }
