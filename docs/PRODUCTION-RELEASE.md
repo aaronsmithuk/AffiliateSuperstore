@@ -315,6 +315,45 @@ through the authoritative DNS provider. The sitemap was accepted with 13 URLs
 discovered. The verification TXT record remains in DNS and is intentionally
 excluded from source control.
 
+## Eighth production release and analytics funnel record
+
+Commit `21a64f5` was deployed on 1 September 2026 from the clean detached
+`20260901-135019-21a64f5` bundle. All 134 tests passed, and both the project
+and published `web.config` validated as OutOfProcess. This release contains no
+database migration and made no intentional production-data change.
+
+The verified target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. The archive
+excluded `App_Data`; the directory and persistent Data Protection key ring
+remained present. Provider decompression completed successfully, after which
+the maintenance marker and this release's uploaded archive were removed. No
+application-pool or account-wide restart was performed.
+
+The release adds consent-gated GA4 storefront funnel events for catalogue list
+views and selections, product views, saved-list changes, catalogue searches
+and filters, and outbound affiliate handoffs. Event payloads use catalogue
+identifiers, categories, prices, currency, shop and placement metadata without
+product titles, seller names, click identifiers or typed search phrases.
+`page_location` is reduced to the canonical query-free URL. Advertising
+consent and Google Signals remain disabled.
+
+A live rejected-consent visit loaded zero Google scripts. Accepting analytics
+loaded one Google tag script, and withdrawing consent removed it again. Google
+Analytics had not yet populated its Recent events table immediately after the
+release and stated that first events can take up to 24 hours to appear;
+`affiliate_handoff` therefore remains to be starred as a key event once it is
+available, rather than creating a duplicate event configuration.
+
+Both health endpoints, the home page, `/plushies`, a representative product,
+`/basket/plushies`, `/robots.txt`, `/sitemap.xml` and the updated privacy notice
+returned HTTP 200. `/admin/api-test` redirected anonymous visitors to
+`/admin/login`. The live catalogue, product and JavaScript assets contain the
+expected funnel instrumentation. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after following canonical
+redirects.
+
 ## Build a release bundle
 
 From the repository root:
