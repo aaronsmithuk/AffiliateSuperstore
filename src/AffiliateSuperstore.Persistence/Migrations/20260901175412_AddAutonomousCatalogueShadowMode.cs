@@ -50,8 +50,7 @@ namespace AffiliateSuperstore.Persistence.Migrations
                         name: "FK_AutonomousCatalogueDecisions_Products_ProductId",
                         column: x => x.ProductId,
                         principalTable: "Products",
-                        principalColumn: "AliExpressProductId",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "AliExpressProductId");
                     table.ForeignKey(
                         name: "FK_AutonomousCatalogueDecisions_Shops_ShopId",
                         column: x => x.ShopId,

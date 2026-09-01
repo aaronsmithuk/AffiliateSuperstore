@@ -92,6 +92,18 @@ public sealed class AutonomousCatalogueDecisionEngineTests
         Assert.Contains("global safety switch", update.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void DecisionAudit_ProductRelationship_DoesNotCreateSqlServerCascadePath()
+    {
+        using var context = new InMemoryFactory(Guid.NewGuid().ToString("N")).CreateDbContext();
+        var decisionEntity = Assert.NotNull(context.Model.FindEntityType(typeof(AutonomousCatalogueDecisionRecord)));
+        var productForeignKey = Assert.Single(
+            decisionEntity.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ProductRecord));
+
+        Assert.Equal(DeleteBehavior.NoAction, productForeignKey.DeleteBehavior);
+    }
+
     private static AutonomousCataloguePolicy Policy() => new(
         Guid.CreateVersion7(),
         "plushies",

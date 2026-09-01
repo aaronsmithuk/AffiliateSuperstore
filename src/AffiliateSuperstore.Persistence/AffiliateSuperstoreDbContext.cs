@@ -479,7 +479,9 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.EvidenceJson).HasMaxLength(4000).IsRequired();
         entity.Property(item => item.PolicySnapshotJson).HasMaxLength(2000).IsRequired();
         entity.HasOne(item => item.Shop).WithMany().HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Cascade);
-        entity.HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        // Keep the audit trail and avoid SQL Server's multiple-cascade-path restriction:
+        // Product -> EditorialVersion -> Decision already has a referential action.
+        entity.HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.NoAction);
         entity.HasOne(item => item.WorkItem).WithMany().HasForeignKey(item => item.WorkItemId).OnDelete(DeleteBehavior.SetNull);
         entity.HasOne(item => item.EditorialVersion).WithMany().HasForeignKey(item => item.EditorialVersionId).OnDelete(DeleteBehavior.SetNull);
         entity.HasIndex(item => new { item.ShopId, item.EvaluatedUtc });

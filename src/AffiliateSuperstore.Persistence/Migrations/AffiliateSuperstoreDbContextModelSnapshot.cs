@@ -2053,7 +2053,7 @@ namespace AffiliateSuperstore.Persistence.Migrations
                     b.HasOne("AffiliateSuperstore.Persistence.Entities.ProductRecord", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("AffiliateSuperstore.Persistence.Entities.ShopRecord", "Shop")
