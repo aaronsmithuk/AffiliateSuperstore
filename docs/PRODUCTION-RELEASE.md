@@ -139,6 +139,34 @@ Administrator cookies intentionally remain Secure in Production. Managed TLS
 now allows the production admin session to be retained without weakening the
 cookie policy.
 
+## Third production release record
+
+Release `fb68023` was deployed on 1 September 2026 from the validated
+`20260901-085504-fb68023` bundle. All 119 tests passed, and both the project and
+published `web.config` were verified as OutOfProcess. Before any schema or site
+change, SmarterASP completed backup
+`\db\db_a34d03_wonderaisle_9_1_2026_2.bak` successfully.
+
+Migration `20260901084943_AddProductIdentityGoldLabels` was applied as a
+provider-safe static batch. Production now reports 14 EF migrations and 27
+tables. `ProductIdentityGoldLabels` and its three review indexes are present,
+and the table started with zero rows as intended.
+
+The site-root archive was extracted into `\wonderaisle` while
+`app_offline.htm` held the application offline. `App_Data` and its persistent
+Data Protection key ring were excluded from the archive and remained present.
+The maintenance marker and uploaded archive were removed after the provider
+reported successful decompression; no application-pool recycle was needed.
+
+Both health endpoints, the home page, `/plushies`, a representative product
+detail, `/robots.txt` and `/sitemap.xml` return HTTP 200. The catalogue still
+contains eight public products, its representative outbound route returns an
+AliExpress redirect, and protected identity/database admin routes redirect to
+the login page. All active neighbouring sites checked healthy. The legacy
+`ilovefitness.co.uk` hostname now redirects to an external expired-domain page
+and returns HTTP 404 after redirects; it is not hosted in the Wonder Aisle pool
+and was unaffected by this release.
+
 ## Canonical HTTPS verification
 
 On 1 September 2026, `https://wonderaisle.co.uk/`, `/plushies`, both health
@@ -148,11 +176,10 @@ is `wonderaisle.co.uk`, the issuer is Let's Encrypt, TLS 1.3 negotiated, and the
 certificate is valid through 30 November 2026. HSTS is present with a 30-day
 maximum age. The public shop still shows the intended eight reviewed products.
 
-The final release-validator pass returned HTTP 200 for all seven neighbouring
-domains as well as Wonder Aisle. An earlier raw redirect inspection briefly
-surfaced an external expired-domain response for `ilovefitness.co.uk`, so that
-legacy domain remains worth monitoring even though its final standardized check
-was healthy.
+The release-validator pass returned HTTP 200 for the active neighbouring
+domains as well as Wonder Aisle. The legacy `ilovefitness.co.uk` hostname now
+redirects to an external expired-domain service and is excluded from the set of
+hosted application health checks.
 
 ## Build a release bundle
 
