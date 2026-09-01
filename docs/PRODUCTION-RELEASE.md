@@ -286,6 +286,35 @@ domains as well as Wonder Aisle. The legacy `ilovefitness.co.uk` hostname now
 redirects to an external expired-domain service and is excluded from the set of
 hosted application health checks.
 
+## Seventh production release and webmaster record
+
+Release `499fb5a` was deployed on 1 September 2026 from the clean detached
+`20260901-130423-499fb5a` bundle. All 134 tests passed, and both the project
+and published `web.config` validated as OutOfProcess. This release contains no
+database migration and did not change production data.
+
+The verified target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. `App_Data` and
+its persistent Data Protection key ring remained present. The maintenance
+marker and uploaded archive were removed after successful extraction. No
+application-pool or account-wide restart was performed.
+
+The release adds optional GA4 analytics using basic consent mode. A fresh live
+visit displays equal Accept and Reject choices while loading zero Google
+scripts. Rejecting analytics leaves the site functional, loads no Google
+script, and the footer retains a Cookie settings control. The privacy and
+cookie notice documents the optional processing and six-month limits.
+
+Both health endpoints, the home page, `/plushies`, a representative product,
+`/robots.txt` and `/sitemap.xml` return HTTP 200. `/admin/api-test` redirects
+anonymous visitors to the admin login. All active neighbouring sites returned
+HTTP 200 after following their canonical redirects.
+
+Google Search Console domain ownership for `wonderaisle.co.uk` was verified
+through the authoritative DNS provider. The sitemap was accepted with 13 URLs
+discovered. The verification TXT record remains in DNS and is intentionally
+excluded from source control.
+
 ## Build a release bundle
 
 From the repository root:

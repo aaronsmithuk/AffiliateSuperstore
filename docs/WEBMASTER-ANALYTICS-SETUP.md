@@ -79,4 +79,4 @@ credential and integration.
 - [x] Sitemap submitted to Search Console (13 discovered URLs on submission).
 - [ ] Search Console linked to GA4.
 - [ ] Site imported into Bing Webmaster Tools.
-- [ ] Consent release deployed and checked over canonical HTTPS.
+- [x] Consent release deployed and checked over canonical HTTPS.
