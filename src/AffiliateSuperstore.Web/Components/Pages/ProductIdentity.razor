@@ -77,7 +77,7 @@
                     @foreach (var threshold in Calibration.Thresholds)
                     {
                         <tr>
-                            <td>≥ @(threshold.Threshold * 100m).ToString("0.0")%</td>
+                            <td>≥ @((threshold.Threshold * 100m).ToString("0.0"))%</td>
                             <td>@threshold.EvaluatedPairs</td>
                             <td>@Percent(threshold.QueuePrecision)</td>
                             <td>@Percent(threshold.RelationshipAccuracy)</td>
@@ -140,7 +140,7 @@
                         <div>
                             <span class="result-badge @StatusClass(row.Status)">@row.Status</span>
                             <span class="identity-relationship">@row.Relationship</span>
-                            <strong>@(row.Confidence * 100m).ToString("0.0")%</strong>
+                            <strong>@((row.Confidence * 100m).ToString("0.0"))%</strong>
                         </div>
                         <small>Generated @LocalTime(row.GeneratedUtc) · matcher @row.MatcherVersion</small>
                     </div>
