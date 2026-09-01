@@ -22,8 +22,8 @@ shape:
 | Application pool | Provisioned as dedicated 1024 MB .NET Core pool `hydraadmin-001E96`; verified to contain only the `wonderaisle` site |
 | Secrets | Pool-scoped Environment Variables on `hydraadmin-001E96`; the production connection string is configured there and never in source control or a shared pool |
 | Database | Provisioned as the isolated 1000 MB MSSQL 2022 database `db_a34d03_wonderaisle` |
-| Scheduled URL | Three slots are available and unused; add `/health/wake` only after the first release is stable |
-| Deployment | Release `c46789e` was deployed through the target-scoped File Manager because the downloaded publish profile omitted its password and resetting the account-wide Web Deploy password could disrupt other sites |
+| Scheduled URL | One of three slots calls the protected `/health/wake` endpoint every 15 minutes; two slots remain unused |
+| Deployment | Current release `0ad6ba8` was deployed through the target-scoped File Manager because the downloaded publish profile omitted its password and resetting the account-wide Web Deploy password could disrupt other sites |
 | Domain | `wonderaisle.co.uk` is registered, attached and resolving through `ns1.site4now.net`, `ns2.site4now.net` and `ns3.site4now.net`; apex and `www` resolve to the hosting service |
 | TLS | Managed Let's Encrypt TLS is active for `wonderaisle.co.uk`; TLS 1.3, HTTP-to-HTTPS redirection and a 30-day HSTS header were verified on 1 September 2026 |
 
@@ -204,6 +204,37 @@ routes and the authenticated admin were rechecked after the pool configuration
 reload. All active neighbouring domains returned HTTP 200. No account-wide or
 shared-pool recycle was performed; `ilovefitness.co.uk` remains excluded for
 the previously documented external expired-domain behaviour.
+
+## Fifth production release and automation record
+
+Release `0ad6ba8` was deployed on 1 September 2026 from the validated
+`20260901-102101-0ad6ba8` bundle after rebasing the automation hardening onto
+the Wonder Aisle homepage and favicon work. All 122 tests passed, the project
+and published hosting configuration validated as OutOfProcess, and the release
+contains no schema change. A fresh isolated production database backup
+completed successfully before the target files changed.
+
+The corrected target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. `App_Data` and
+the persistent Data Protection key ring remained present. The live application
+binary and health behaviour were verified after extraction; no application-
+pool recycle was used. The homepage, shop, representative product, SEO files,
+both health endpoints and every active neighbouring domain returned HTTP 200.
+
+Production catalogue automation is enabled on the dedicated pool. A unique
+256-bit wake secret is stored only in SmarterASP environment configuration,
+and one provider scheduled task calls the protected wake endpoint every 15
+minutes. Requests without the key return HTTP 401. Order reconciliation, S2S
+callbacks and automatic publication remain disabled.
+
+The first supervised cycle ran all 12 configured discovery searches and grew
+the manual review queue from 188 to 190 candidates without publishing any of
+them. A product-detail refresh then checked all 12 published products, wrote 12
+fresh observations and 74 media records, with no missing, suspected-unavailable
+or unavailable products. The automation dashboard reported 12 fresh published
+products, zero failed runs, retries, active or recoverable leases and dead
+letters, and no operational alerts. The public catalogue remained at exactly
+12 human-approved products.
 
 ## Canonical HTTPS verification
 

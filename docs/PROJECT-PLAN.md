@@ -99,12 +99,12 @@ The MVP is complete when:
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, ordered product media, links, clicks, jobs and order state | Complete; additive freshness/lifecycle evidence and change history are included |
-| 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Functionally complete for MVP; multi-query discovery, batched 24-hour detail/media enrichment, retry, quality assessment, guarded editorial approval and audited link renewal are working |
+| 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Operational in production; a protected 15-minute wake schedule, durable due-state, lease renewal, retry/dead-letter recovery, freshness alerts and guarded manual publication are working |
 | 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 12 distinct products have original reviewed copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Filtered pages and the thin umbrella home remain `noindex,follow`; broader visual/content work can continue without blocking the plushies launch. |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP; release `b48f3b8`, a fresh isolated backup, all 14 migrations, the protected production configuration, owner account, 12-product reviewed catalogue and search indexing are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all applicable neighbouring-site checks pass; production S2S enablement remains a later conversion-operations task. |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP; release `0ad6ba8`, a fresh isolated backup, all 14 migrations, protected recurring catalogue automation, the owner account, 12-product reviewed catalogue and search indexing are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all applicable neighbouring-site checks pass; production S2S enablement remains a later conversion-operations task. |
 
 ## AI-assisted catalogue and content integration
 
@@ -138,7 +138,7 @@ place in the main delivery sequence.
 |---|---|---|---|
 | AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Planned; blocks production enablement, not offline development |
 | AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Complete locally; migration, admin visibility and lifecycle regression coverage added 31 August 2026 |
-| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Production-hardening complete locally 1 September 2026: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
+| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Live in production from release `0ad6ba8`: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, SmarterASP signals it every 15 minutes, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
 | AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
@@ -339,12 +339,12 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 Managed custom-domain TLS, HTTP-to-HTTPS redirection and HSTS are now verified.
 AI-1 freshness, AI-2 durable work leasing, AI-3 deterministic identity/review
-and AI-4 versioned editorial quality are deployed through releases `fb68023`
-and `b48f3b8`. A controlled production automation cycle imported 188 review
-candidates, and manual curation has published 12 distinct, editorially complete
-starter products. Search indexing is enabled for the quality-gated shop and
-product URLs; recurring production automation remains disabled after
-verification. The identity gold set now has 12 owner-authorized first-review
+and AI-4 versioned editorial quality are deployed through release `0ad6ba8`.
+Protected recurring production automation now wakes every 15 minutes. Its first
+supervised cycle expanded the manual review queue to 190 candidates and
+refreshed all 12 published products without failures or automatic publication.
+Search indexing is enabled for the quality-gated shop and product URLs. The
+identity gold set now has 12 owner-authorized first-review
 tuning labels, but still needs an independent second reviewer, adjudication and
 progress toward the 500-label target before any automatic canonical linking can
 be considered. Lifecycle/copy evaluation sets, production S2S setup and later
