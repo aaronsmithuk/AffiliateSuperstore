@@ -66,6 +66,36 @@ public sealed class CatalogueAiSuggestionServiceTests
     }
 
     [Fact]
+    public async Task SuggestAsync_BlocksTheEarlierHighlandCowPilotDraft()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, "1005011692664194", "Adorable Highland Cattle Plush Toy 45cm - Huggable Running Cow Stuffed Animal Made with Premium Soft Fabric, Soothing Companion");
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "45cm Highland Cattle Plush Toy",
+            "A 45cm Highland cattle plush toy described as huggable and made with premium soft fabric. The source title also describes it as a running cow stuffed animal and soothing companion.",
+            ["45cm", "Highland cattle", "huggable", "premium soft fabric", "running cow", "soothing companion"],
+            ["delivery reference", "seller and SKU"],
+            ["Supplier claims have not been independently verified."],
+            "en-GB",
+            "fake",
+            "test-model",
+            Hash("highland-pilot")));
+        var service = CreateService(factory, provider);
+
+        var result = await service.SuggestAsync("plushies", "1005011692664194");
+
+        Assert.False(result.Succeeded);
+        Assert.True(result.IsBlocked);
+        Assert.Contains(result.Findings!, finding => finding.Code == "copy.promotional-language");
+        Assert.Contains(result.Findings!, finding => finding.Code == "copy.source-narration");
+        await using var context = factory.CreateDbContext();
+        var product = await context.ShopProducts.SingleAsync();
+        Assert.Null(product.EditorialTitle);
+        Assert.Null(product.EditorialDescription);
+        Assert.Empty(await context.EditorialVersions.ToListAsync());
+    }
+
+    [Fact]
     public async Task SuggestAsync_DoesNotCallAnUnavailableProvider()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
@@ -117,6 +147,45 @@ public sealed class CatalogueAiSuggestionServiceTests
         Assert.Contains("ai.incomplete-copy", invocation.ValidationFindingsJson, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RunShadowAsync_ClampsTheSampleToTenAndNeverChangesTheCatalogue()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedManyAsync(factory, 12);
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Highland Cow Plush",
+            "A Highland cow plush with a shaggy character-inspired look and rounded styling for a cheerful collectable display.",
+            ["Highland cow plush"],
+            ["merchant keyword repetition"],
+            [],
+            "en-GB",
+            "fake",
+            "test-model",
+            Hash("shadow-response"),
+            100,
+            30));
+        var service = CreateService(factory, provider);
+
+        var result = await service.RunShadowAsync("plushies", 99);
+
+        Assert.Equal(CatalogueAiSuggestionService.MaximumShadowSampleSize, result.RequestedCount);
+        Assert.Equal(10, result.SelectedCount);
+        Assert.Equal(10, result.CompletedCount);
+        Assert.Equal(10, result.SucceededCount);
+        Assert.Equal(10, provider.Requests.Count);
+        Assert.Equal(1_000, result.InputTokens);
+        Assert.Equal(300, result.OutputTokens);
+        Assert.Contains("No catalogue copy was saved", result.Message, StringComparison.Ordinal);
+        await using var context = factory.CreateDbContext();
+        Assert.All(await context.ShopProducts.ToListAsync(), product =>
+        {
+            Assert.Null(product.EditorialTitle);
+            Assert.Null(product.EditorialDescription);
+            Assert.Null(product.CurrentEditorialVersionNumber);
+        });
+        Assert.Empty(await context.EditorialVersions.ToListAsync());
+    }
+
     private static async Task SeedAsync(InMemoryFactory factory, string productId, string sourceTitle)
     {
         await using var context = factory.CreateDbContext();
@@ -158,6 +227,51 @@ public sealed class CatalogueAiSuggestionServiceTests
         await context.SaveChangesAsync();
     }
 
+    private static async Task SeedManyAsync(InMemoryFactory factory, int count)
+    {
+        await using var context = factory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var shopId = Guid.CreateVersion7();
+        context.Shops.Add(new ShopRecord
+        {
+            Id = shopId,
+            Slug = "plushies",
+            DisplayName = "The Plushy Shop",
+            PathPrefix = "/plushies",
+            TrackingId = "theplushyshop",
+            DefaultSearchQuery = "plush toy",
+            SeoTitle = "Plush toys",
+            SeoDescription = "Curated plush toys",
+            PrimaryColour = "#000000",
+            AccentColour = "#ffffff",
+            CreatedUtc = now,
+            UpdatedUtc = now
+        });
+        for (var index = 1; index <= count; index++)
+        {
+            var productId = $"shadow-{index:D2}";
+            context.Products.Add(new ProductRecord
+            {
+                AliExpressProductId = productId,
+                Title = $"Highland cow plush toy variant {index}",
+                FirstLevelCategoryName = "Toys & hobbies",
+                SecondLevelCategoryName = "Stuffed animals",
+                IsEligible = true,
+                FirstSeenUtc = now,
+                LastSeenUtc = now,
+                LastRefreshedUtc = now.AddMinutes(-index)
+            });
+            context.ShopProducts.Add(new ShopProductRecord
+            {
+                ShopId = shopId,
+                ProductId = productId,
+                FirstIncludedUtc = now,
+                LastIncludedUtc = now
+            });
+        }
+        await context.SaveChangesAsync();
+    }
+
     private static string Hash(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
@@ -170,20 +284,22 @@ public sealed class CatalogueAiSuggestionServiceTests
             factory,
             provider,
             new EditorialContentValidator(),
-            new AiInvocationAuditService(factory, options, TimeProvider.System));
+            new AiInvocationAuditService(factory, options, TimeProvider.System),
+            options);
     }
 
     private sealed class FakeProvider(ProductEditorialSuggestionOutput output) : IStructuredSuggestionProvider
     {
         public bool IsAvailable => true;
         public string AvailabilityMessage => "Available";
-        public ProductEditorialSuggestionRequest? LastRequest { get; private set; }
+        public List<ProductEditorialSuggestionRequest> Requests { get; } = [];
+        public ProductEditorialSuggestionRequest? LastRequest => Requests.LastOrDefault();
 
         public Task<ProductEditorialSuggestionOutput> SuggestProductCopyAsync(
             ProductEditorialSuggestionRequest request,
             CancellationToken cancellationToken = default)
         {
-            LastRequest = request;
+            Requests.Add(request);
             return Task.FromResult(output);
         }
     }

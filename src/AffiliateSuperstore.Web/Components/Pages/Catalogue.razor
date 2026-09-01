@@ -9,6 +9,7 @@
 @inject ProductQualityAssessmentService QualityAssessmentService
 @inject CatalogueEditorialService EditorialService
 @inject CatalogueAiSuggestionService AiSuggestionService
+@inject CatalogueAiQueuePreparationService AiQueuePreparationService
 @inject IStructuredSuggestionProvider AiSuggestionProvider
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject IOptions<CatalogueAutomationOptions> AutomationOptions
@@ -23,7 +24,14 @@
         <h1>Product ingestion</h1>
         <p class="lede">Discover, snapshot and link products for the configured plushies shop.</p>
     </div>
-    <div class="topbar-actions"><button class="button" type="button" @onclick="RunDiscoveryPlanAsync" disabled="@IsBusy">@(IsRunningPlan ? "Expanding…" : $"Run full discovery plan ({ConfiguredRequestCount})")</button><button class="button refresh-button" type="button" @onclick="RefreshDetailsAsync" disabled="@IsBusy">@(IsEnriching ? "Refreshing details…" : "Refresh product details")</button><button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsBusy">@(IsAssessing ? "Checking…" : "Run quality checks")</button><a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a></div>
+    <div class="topbar-actions">
+        <button class="button" type="button" @onclick="RunDiscoveryPlanAsync" disabled="@IsBusy">@(IsRunningPlan ? "Expanding…" : $"Run full discovery plan ({ConfiguredRequestCount})")</button>
+        <button class="button refresh-button" type="button" @onclick="RefreshDetailsAsync" disabled="@IsBusy">@(IsEnriching ? "Refreshing details…" : "Refresh product details")</button>
+        <button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsBusy">@(IsAssessing ? "Checking…" : "Run quality checks")</button>
+        <button class="button refresh-button" type="button" title="@AiSuggestionProvider.AvailabilityMessage" @onclick="RunAiShadowAsync" disabled="@(!AiSuggestionProvider.IsAvailable || IsBusy)">@(IsRunningAiShadow ? "Running AI sample…" : $"AI shadow sample ({CatalogueAiSuggestionService.MaximumShadowSampleSize})")</button>
+        <button class="button button-primary" type="button" title="Prepare validated copy as review drafts; never approves or publishes" @onclick="PrepareAiQueueAsync" disabled="@(!AiSuggestionProvider.IsAvailable || IsBusy)">@(IsPreparingAiQueue ? "Preparing AI drafts…" : $"Prepare AI review drafts ({CatalogueAiQueuePreparationService.MaximumBatchSize})")</button>
+        <a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a>
+    </div>
 </header>
 
 @if (PlanResult is not null)
@@ -47,6 +55,63 @@
             <ul class="validation-findings">@foreach (var finding in CommandResult.Findings) { <li><strong>@finding.Field:</strong> @finding.Message @if (!string.IsNullOrWhiteSpace(finding.Evidence)) { <code>@finding.Evidence</code> }</li> }</ul>
         }
     </div>
+}
+
+@if (AiShadowRun is not null)
+{
+    <section class="panel catalogue-table-panel" aria-labelledby="ai-shadow-title">
+        <div class="panel-heading catalogue-table-heading">
+            <div><p class="eyebrow">Review only</p><h2 id="ai-shadow-title">AI shadow sample</h2></div>
+            <span class="method-badge">NO AUTO-SAVE</span>
+        </div>
+        <div class="alert-card warning-card quality-result" role="status">
+            <strong>@AiShadowRun.CompletedCount of @AiShadowRun.SelectedCount suggestions checked</strong>
+            <span>@AiShadowRun.SucceededCount reviewable · @AiShadowRun.BlockedCount blocked · @AiShadowRun.FailedCount failed · @AiShadowRun.CacheHitCount cached · @AiShadowRun.InputTokens input tokens · @AiShadowRun.OutputTokens output tokens · estimated USD @AiShadowRun.EstimatedCostUsd.ToString("F6"). @AiShadowRun.Message</span>
+        </div>
+        @if (AiShadowRun.Items.Count > 0)
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Source product</th><th>Result</th><th>Suggested copy</th><th>Evidence</th><th>Cost</th></tr></thead><tbody>
+            @foreach (var item in AiShadowRun.Items)
+            {
+                <tr>
+                    <td><strong>@item.SourceTitle</strong><small>@item.ProductId · @item.ReviewStatus</small></td>
+                    <td><span class="validation-state @(item.Result.Succeeded ? "warning" : "blocked")">@(item.Result.Succeeded ? "Review" : item.Result.IsBlocked ? "Blocked" : "Failed")</span><small>@item.Result.Message</small></td>
+                    <td>@if (item.Result.Suggestion is not null) { <strong>@item.Result.Suggestion.SuggestedTitle</strong><p>@item.Result.Suggestion.SuggestedDescription</p> } else { <span>—</span> }</td>
+                    <td>@if (item.Result.Findings?.Count > 0) { <ul class="validation-findings">@foreach (var finding in item.Result.Findings) { <li>@finding.Message</li> }</ul> } else { <span>Clear</span> }</td>
+                    <td>USD @item.EstimatedCostUsd.ToString("F6")@if (item.Result.Suggestion?.WasCached == true) { <small>Cached</small> }</td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+}
+
+@if (AiQueueResult is not null)
+{
+    <section class="panel catalogue-table-panel" aria-labelledby="ai-queue-title">
+        <div class="panel-heading catalogue-table-heading">
+            <div><p class="eyebrow">Approval queue</p><h2 id="ai-queue-title">AI-prepared review drafts</h2></div>
+            <span class="method-badge">HUMAN APPROVAL REQUIRED</span>
+        </div>
+        <div class="alert-card @(AiQueueResult.DraftsSaved > 0 ? "success-card" : "warning-card") quality-result" role="status">
+            <strong>@AiQueueResult.DraftsSaved of @AiQueueResult.SelectedCount drafts saved</strong>
+            <span>@AiQueueResult.WarningCount warning · @AiQueueResult.BlockedCount blocked · @AiQueueResult.FailedCount failed · @AiQueueResult.CacheHitCount cached · @AiQueueResult.InputTokens input tokens · @AiQueueResult.OutputTokens output tokens · estimated USD @AiQueueResult.EstimatedCostUsd.ToString("F6"). @AiQueueResult.Message</span>
+        </div>
+        @if (AiQueueResult.Items.Count > 0)
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>AI draft</th><th>Outcome</th><th>Cost</th></tr></thead><tbody>
+            @foreach (var item in AiQueueResult.Items)
+            {
+                <tr>
+                    <td><strong>@item.SourceTitle</strong><small>@item.ProductId · @item.ReviewStatus</small></td>
+                    <td>@if (item.SuggestionResult.Suggestion is not null) { <strong>@item.SuggestionResult.Suggestion.SuggestedTitle</strong><p>@item.SuggestionResult.Suggestion.SuggestedDescription</p> } else { <span>—</span> }</td>
+                    <td><span class="validation-state @(item.DraftSaved ? "warning" : item.SuggestionResult.IsBlocked ? "blocked" : "note")">@(item.DraftSaved ? "Review" : item.SuggestionResult.IsBlocked ? "Blocked" : "Skipped")</span><small>@item.Outcome</small></td>
+                    <td>USD @item.EstimatedCostUsd.ToString("F6")@if (item.SuggestionResult.Suggestion?.WasCached == true) { <small>Cached</small> }</td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
 }
 
 @if (Readiness is not null)
@@ -226,6 +291,8 @@
     private bool IsEnriching;
     private bool IsSaving;
     private bool IsSuggesting;
+    private bool IsRunningAiShadow;
+    private bool IsPreparingAiQueue;
     private string ReviewFilter = "All";
     private string AvailabilityFilter = "All";
     private bool FlaggedOnly;
@@ -233,8 +300,10 @@
     private EditorialForm? Editor;
     private CatalogueCommandResult? CommandResult;
 
-    private bool IsBusy => IsRunning || IsRunningPlan || IsEnriching || IsAssessing || IsSaving || IsSuggesting;
+    private bool IsBusy => IsRunning || IsRunningPlan || IsEnriching || IsAssessing || IsSaving || IsSuggesting || IsRunningAiShadow || IsPreparingAiQueue;
     private CatalogueAiSuggestionResult? AiSuggestion;
+    private CatalogueAiShadowRunResult? AiShadowRun;
+    private CatalogueAiQueuePreparationResult? AiQueueResult;
     private CatalogueAutomationOptions Options => AutomationOptions.Value;
     private ShopDefinition ConfiguredShop => SuperstoreOptions.Shops.Single(shop => string.Equals(shop.Slug, "plushies", StringComparison.OrdinalIgnoreCase));
     private int ConfiguredRequestCount => CatalogueDiscoveryPlanner.Build(ConfiguredShop, Options.PageSize).Count;
@@ -391,6 +460,32 @@
             }
         }
         finally { IsSuggesting = false; }
+    }
+
+    private async Task RunAiShadowAsync()
+    {
+        IsRunningAiShadow = true;
+        try
+        {
+            AiShadowRun = await AiSuggestionService.RunShadowAsync(
+                "plushies",
+                CatalogueAiSuggestionService.MaximumShadowSampleSize);
+        }
+        finally { IsRunningAiShadow = false; }
+    }
+
+    private async Task PrepareAiQueueAsync()
+    {
+        IsPreparingAiQueue = true;
+        try
+        {
+            AiQueueResult = await AiQueuePreparationService.RunAsync(
+                "plushies",
+                CatalogueAiQueuePreparationService.MaximumBatchSize,
+                await CurrentActorAsync());
+            await LoadProductsAsync();
+        }
+        finally { IsPreparingAiQueue = false; }
     }
 
     private async Task SaveEditorialAsync()

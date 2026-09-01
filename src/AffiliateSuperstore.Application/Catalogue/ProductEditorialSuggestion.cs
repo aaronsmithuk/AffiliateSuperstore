@@ -65,13 +65,36 @@ public sealed record CatalogueAiSuggestionResult(
     public bool IsBlocked => Findings?.Any(item => item.Severity == EditorialFindingSeverity.Blocker) == true;
 }
 
+public sealed record CatalogueAiShadowItem(
+    string ProductId,
+    string SourceTitle,
+    Persistence.Entities.ProductReviewStatus ReviewStatus,
+    CatalogueAiSuggestionResult Result,
+    decimal EstimatedCostUsd);
+
+public sealed record CatalogueAiShadowRunResult(
+    int RequestedCount,
+    int SelectedCount,
+    int CompletedCount,
+    int SucceededCount,
+    int BlockedCount,
+    int FailedCount,
+    int CacheHitCount,
+    int InputTokens,
+    int OutputTokens,
+    decimal EstimatedCostUsd,
+    IReadOnlyList<CatalogueAiShadowItem> Items,
+    string Message);
+
 public sealed class CatalogueAiSuggestionService(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
     IStructuredSuggestionProvider provider,
     EditorialContentValidator editorialValidator,
-    AiInvocationAuditService invocationAudit)
+    AiInvocationAuditService invocationAudit,
+    AiAutomationOptions options)
 {
-    public const string PromptVersion = "product-editorial-v1";
+    public const string PromptVersion = "product-editorial-v2";
+    public const int MaximumShadowSampleSize = 10;
 
     public async Task<CatalogueAiSuggestionResult> SuggestAsync(
         string shopSlug,
@@ -171,6 +194,68 @@ public sealed class CatalogueAiSuggestionService(
             validation.Findings);
     }
 
+    public async Task<CatalogueAiShadowRunResult> RunShadowAsync(
+        string shopSlug,
+        int requestedCount = MaximumShadowSampleSize,
+        CancellationToken cancellationToken = default)
+    {
+        var sampleSize = Math.Clamp(requestedCount, 1, MaximumShadowSampleSize);
+        if (!provider.IsAvailable)
+        {
+            return EmptyShadowResult(sampleSize, provider.AvailabilityMessage);
+        }
+
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var candidates = await context.ShopProducts
+            .AsNoTracking()
+            .Where(item => item.Shop.Slug == shopSlug &&
+                item.IsActive &&
+                item.Product.IsEligible &&
+                item.Product.AvailabilityState == Persistence.Entities.ProductAvailabilityState.Available &&
+                item.ReviewStatus != Persistence.Entities.ProductReviewStatus.Rejected)
+            .OrderBy(item => item.ReviewStatus == Persistence.Entities.ProductReviewStatus.NeedsReview ? 0 :
+                item.ReviewStatus == Persistence.Entities.ProductReviewStatus.Pending ? 1 : 2)
+            .ThenByDescending(item => item.Product.LastRefreshedUtc)
+            .ThenBy(item => item.ProductId)
+            .Take(sampleSize)
+            .Select(item => new ShadowCandidate(item.ProductId, item.Product.Title, item.ReviewStatus))
+            .ToListAsync(cancellationToken);
+
+        if (candidates.Count == 0)
+        {
+            return EmptyShadowResult(sampleSize, "No eligible active products were available for the AI shadow sample.");
+        }
+
+        var items = new List<CatalogueAiShadowItem>(candidates.Count);
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = await SuggestAsync(shopSlug, candidate.ProductId, cancellationToken);
+            var suggestion = result.Suggestion;
+            var estimatedCost = options.EstimateCostUsd(suggestion?.InputTokens ?? 0, suggestion?.OutputTokens ?? 0);
+            items.Add(new CatalogueAiShadowItem(
+                candidate.ProductId,
+                candidate.SourceTitle,
+                candidate.ReviewStatus,
+                result,
+                estimatedCost));
+        }
+
+        return new CatalogueAiShadowRunResult(
+            sampleSize,
+            candidates.Count,
+            items.Count,
+            items.Count(item => item.Result.Succeeded),
+            items.Count(item => item.Result.IsBlocked),
+            items.Count(item => !item.Result.Succeeded && !item.Result.IsBlocked),
+            items.Count(item => item.Result.Suggestion?.WasCached == true),
+            items.Sum(item => item.Result.Suggestion?.InputTokens ?? 0),
+            items.Sum(item => item.Result.Suggestion?.OutputTokens ?? 0),
+            items.Sum(item => item.EstimatedCostUsd),
+            items,
+            "Shadow run complete. No catalogue copy was saved, approved or published.");
+    }
+
     private static IReadOnlyList<ProductSuggestionFact> BuildFacts(Persistence.Entities.ProductRecord product)
     {
         var facts = new List<ProductSuggestionFact>
@@ -241,4 +326,12 @@ public sealed class CatalogueAiSuggestionService(
     }
 
     private static CatalogueAiSuggestionResult Failure(string message) => new(false, message);
+
+    private static CatalogueAiShadowRunResult EmptyShadowResult(int requestedCount, string message) =>
+        new(requestedCount, 0, 0, 0, 0, 0, 0, 0, 0, 0m, [], message);
+
+    private sealed record ShadowCandidate(
+        string ProductId,
+        string SourceTitle,
+        Persistence.Entities.ProductReviewStatus ReviewStatus);
 }

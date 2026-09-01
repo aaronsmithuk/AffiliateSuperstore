@@ -44,4 +44,17 @@ public sealed class EditorialContentValidatorTests
         Assert.Equal(EditorialValidationState.Warning, result.State);
         Assert.Contains(result.Findings, finding => finding.Code == "copy.description-thin");
     }
+
+    [Fact]
+    public void Validate_BlocksPromotionalSourceNarrationFromHighlandCowPilot()
+    {
+        var result = _validator.Validate(new EditorialValidationInput(
+            "Adorable Highland Cattle Plush Toy 45cm - Huggable Running Cow Stuffed Animal Made with Premium Soft Fabric, Soothing Companion",
+            "45cm Highland Cattle Plush Toy",
+            "A 45cm Highland cattle plush toy described as huggable and made with premium soft fabric. The source title also describes it as a running cow stuffed animal and soothing companion."));
+
+        Assert.Equal(EditorialValidationState.Blocked, result.State);
+        Assert.Contains(result.Findings, finding => finding.Code == "copy.promotional-language");
+        Assert.Contains(result.Findings, finding => finding.Code == "copy.source-narration");
+    }
 }

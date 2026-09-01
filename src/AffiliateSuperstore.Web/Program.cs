@@ -191,6 +191,7 @@ builder.Services.AddTransient<IStructuredSuggestionProvider>(serviceProvider =>
         ? serviceProvider.GetRequiredService<OpenAiStructuredSuggestionProvider>()
         : serviceProvider.GetRequiredService<UnavailableStructuredSuggestionProvider>());
 builder.Services.AddTransient<CatalogueAiSuggestionService>();
+builder.Services.AddTransient<CatalogueAiQueuePreparationService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<CatalogueCollectionService>();
 builder.Services.AddTransient<CatalogueCollectionDiscoveryService>();

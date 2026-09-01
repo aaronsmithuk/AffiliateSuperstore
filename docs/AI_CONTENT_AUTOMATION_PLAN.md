@@ -44,9 +44,33 @@ before the $1 monthly application cap can be exceeded and reuses successful
 unchanged responses at zero cost. The OpenAI Responses adapter requests strict
 JSON Schema output with `store: false`; global configuration remains disabled,
 development enables only the feature switches, and no API key is stored in the
-repository. Consequently no live call can occur until the owner adds a local
-User Secrets key. Previewed drafts still do not save, approve or publish
-themselves.
+repository. The owner has added a local User Secrets key and funded the API
+account. A first review-only Luna request against a real Highland Cow product
+completed locally on 1 September 2026 using 411 input and 281 output tokens at
+an estimated USD 0.0004194; it made no catalogue changes. That result exposed
+promotional merchant wording and source-title narration, so prompt
+`product-editorial-v2` and validator `1.1` now block those patterns and preserve
+the exact result as an offline regression case. The protected admin workflow can
+now run a sequential sample capped at ten eligible products, showing per-item
+validation, cache and estimated-cost evidence. The first ten-product live sample
+completed locally on 1 September 2026: eight drafts reached review, two were
+blocked, none failed, and none were cache hits. It used 4,692 input and 3,763
+output tokens at an estimated total cost of USD 0.005454. No catalogue copy was
+saved, approved or published. The sample identified two follow-up eval cases:
+equivalent compound dimensions such as `50x50cm` and `50 × 50 cm` must normalise
+without a false unsupported-number block, and indirect phrases such as "listed
+in" or "the supplied information" should be removed from consumer-facing copy.
+The first approval-queue action is now implemented locally as a separate,
+administrator-triggered batch capped at ten items. It considers only active,
+available, collection-assigned products with an active affiliate link, no
+existing editorial copy, a pending/review status and a clear deterministic
+quality assessment. Strictly validated suggestions are saved as immutable
+editorial drafts with the provider, model, prompt version and invocation in the
+audit note; warnings, blocked output and provider failures are left unsaved.
+The action never changes approval status or publishes content, rejects a
+concurrent run and reports item-level outcomes, token usage, cache use and
+estimated cost. Deployment and the first production draft run remain gated on
+owner confirmation and production API-key configuration.
 
 ## Executive decision
 

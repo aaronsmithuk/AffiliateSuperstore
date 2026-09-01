@@ -33,7 +33,7 @@ public sealed record EditorialValidationResult(
 
 public sealed partial class EditorialContentValidator
 {
-    public const string Version = "1.0";
+    public const string Version = "1.1";
     private static readonly string[] Materials = ["cotton", "polyester", "wool", "velvet", "silk", "linen", "acrylic", "nylon"];
 
     public EditorialValidationResult Validate(EditorialValidationInput input)
@@ -63,6 +63,8 @@ public sealed partial class EditorialContentValidator
         AddPatternFinding(findings, SafetyClaimPattern(), copy, "claim.safety", "copy", "Safety, age-suitability, medical or care claims require verified product evidence.");
         AddPatternFinding(findings, PerformanceClaimPattern(), copy, "claim.performance", "copy", "Sales, review, rating and popularity claims are time-sensitive and unsupported in editorial copy.");
         AddPatternFinding(findings, SuperlativePattern(), copy, "claim.superlative", "copy", "Absolute quality or ranking claims need objective evidence.");
+        AddPatternFinding(findings, PromotionalLanguagePattern(), copy, "copy.promotional-language", "copy", "Promotional or subjective merchant wording must be removed from editorial copy.");
+        AddPatternFinding(findings, SourceNarrationPattern(), copy, "copy.source-narration", "copy", "Write consumer-facing copy directly instead of narrating the merchant source.");
 
         var sourceNumbers = NumericClaimPattern().Matches(input.SourceTitle)
             .Select(match => NormaliseClaim(match.Value))
@@ -141,6 +143,12 @@ public sealed partial class EditorialContentValidator
 
     [GeneratedRegex(@"\b(best|finest|perfect|guaranteed|ultimate|premium\s+quality|number\s+one|#1)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SuperlativePattern();
+
+    [GeneratedRegex(@"\b(adorable|amazing|premium|luxurious|must[- ]have|soothing\s+companion)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PromotionalLanguagePattern();
+
+    [GeneratedRegex(@"\b(?:(?:the\s+)?(?:source\s+)?(?:title|listing|seller)\s+(?:says?|describes?|calls?)|described\s+as)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SourceNarrationPattern();
 
     [GeneratedRegex(@"\s+", RegexOptions.CultureInvariant)]
     private static partial Regex WhitespacePattern();
