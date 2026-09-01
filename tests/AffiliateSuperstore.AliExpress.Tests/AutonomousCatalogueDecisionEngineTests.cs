@@ -96,9 +96,10 @@ public sealed class AutonomousCatalogueDecisionEngineTests
     public void DecisionAudit_ProductRelationship_DoesNotCreateSqlServerCascadePath()
     {
         using var context = new InMemoryFactory(Guid.NewGuid().ToString("N")).CreateDbContext();
-        var decisionEntity = Assert.NotNull(context.Model.FindEntityType(typeof(AutonomousCatalogueDecisionRecord)));
+        var decisionEntity = context.Model.FindEntityType(typeof(AutonomousCatalogueDecisionRecord));
+        Assert.NotNull(decisionEntity);
         var productForeignKey = Assert.Single(
-            decisionEntity.GetForeignKeys(),
+            decisionEntity!.GetForeignKeys(),
             foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ProductRecord));
 
         Assert.Equal(DeleteBehavior.NoAction, productForeignKey.DeleteBehavior);
