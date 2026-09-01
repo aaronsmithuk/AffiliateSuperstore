@@ -92,6 +92,7 @@ public sealed class PersistenceModelTests
         var workItem = context.Model.FindEntityType(typeof(AutomationWorkItemRecord))!;
         var identity = context.Model.FindEntityType(typeof(ProductIdentityProfileRecord))!;
         var candidate = context.Model.FindEntityType(typeof(ProductMatchCandidateRecord))!;
+        var goldLabel = context.Model.FindEntityType(typeof(ProductIdentityGoldLabelRecord))!;
         var member = context.Model.FindEntityType(typeof(CanonicalProductMemberRecord))!;
         var editorialVersion = context.Model.FindEntityType(typeof(EditorialVersionRecord))!;
         var imageFingerprint = context.Model.FindEntityType(typeof(ProductImageFingerprintRecord))!;
@@ -105,6 +106,7 @@ public sealed class PersistenceModelTests
         Assert.True(workItem.FindProperty(nameof(AutomationWorkItemRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Contains(identity.GetIndexes(), index => index.Properties.Single().Name == nameof(ProductIdentityProfileRecord.NormalizedGtin));
         Assert.Contains(candidate.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductMatchCandidateRecord.LeftProductId), nameof(ProductMatchCandidateRecord.RightProductId), nameof(ProductMatchCandidateRecord.MatcherVersion)]));
+        Assert.Contains(goldLabel.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductIdentityGoldLabelRecord.CandidateId), nameof(ProductIdentityGoldLabelRecord.CreatedUtc)]));
         Assert.Contains(member.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(CanonicalProductMemberRecord.ProductId));
         Assert.Contains(editorialVersion.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(EditorialVersionRecord.ShopId), nameof(EditorialVersionRecord.ProductId), nameof(EditorialVersionRecord.VersionNumber)]));
         Assert.Contains(imageFingerprint.GetIndexes(), index => index.Properties.Single().Name == nameof(ProductImageFingerprintRecord.ContentSha256));

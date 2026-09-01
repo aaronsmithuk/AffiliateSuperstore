@@ -162,6 +162,7 @@ builder.Services.AddHttpClient<ProductImageFingerprintService>(client => client.
         AutomaticDecompression = DecompressionMethods.None
     });
 builder.Services.AddTransient<ProductIdentityService>();
+builder.Services.AddTransient<ProductIdentityCalibrationService>();
 builder.Services.AddTransient<EditorialContentValidator>();
 builder.Services.AddTransient<CatalogueEditorialService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();

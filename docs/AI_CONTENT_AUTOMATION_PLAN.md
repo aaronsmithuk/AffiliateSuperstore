@@ -6,7 +6,7 @@ Prepared: 30 August 2026
 
 Scope: catalogue freshness, product identity, editorial repair and reviewed content creation
 
-Implementation status (31 August 2026): the MVP observation/lifecycle foundation
+Implementation status (1 September 2026): the MVP observation/lifecycle foundation
 is complete locally. Product observations now carry raw/content hashes and source
 correlation, unchanged content creates no duplicate snapshot/change event,
 direct-detail misses require repeated evidence spanning at least 24 hours before
@@ -24,8 +24,12 @@ reduced an over-broad first pass from 1,753 variant suggestions to four after
 title-evidence and multi-size safeguards; all older matcher evidence remained
 auditable but was superseded. Production automation remains disabled. Exact
 main-image byte hashing is now implemented as bounded, CDN-allow-listed,
-versioned review evidence. A larger reviewer-labelled calibration set remains
-the AI-3 follow-on before any automatic canonical linking is considered. The AI-4 editorial
+versioned review evidence. The AI-3 calibration workflow now stores immutable
+reviewer labels and rationale in protected tuning, threshold-selection and
+final-test slices, preserves disagreements for adjudication, and reports queue
+precision, relationship accuracy, false merges and Wilson lower confidence
+bounds at fixed thresholds. Populating the 500-pair set remains human review
+work before any automatic canonical linking is considered. The AI-4 editorial
 quality core is now complete locally: edits are immutable named revisions,
 unsupported authenticity/delivery/price/safety/rating/superlative, numerical
 and material claims are blocked mechanically, warnings prevent approval, and

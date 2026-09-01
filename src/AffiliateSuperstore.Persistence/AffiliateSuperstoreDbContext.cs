@@ -18,6 +18,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ProductIdentityProfileRecord> ProductIdentityProfiles => Set<ProductIdentityProfileRecord>();
     public DbSet<ProductImageFingerprintRecord> ProductImageFingerprints => Set<ProductImageFingerprintRecord>();
     public DbSet<ProductMatchCandidateRecord> ProductMatchCandidates => Set<ProductMatchCandidateRecord>();
+    public DbSet<ProductIdentityGoldLabelRecord> ProductIdentityGoldLabels => Set<ProductIdentityGoldLabelRecord>();
     public DbSet<CanonicalProductRecord> CanonicalProducts => Set<CanonicalProductRecord>();
     public DbSet<CanonicalProductMemberRecord> CanonicalProductMembers => Set<CanonicalProductMemberRecord>();
     public DbSet<AffiliateLinkRecord> AffiliateLinks => Set<AffiliateLinkRecord>();
@@ -235,6 +236,19 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         candidate.HasOne(item => item.RightProduct).WithMany().HasForeignKey(item => item.RightProductId).OnDelete(DeleteBehavior.Restrict);
         candidate.HasIndex(item => new { item.LeftProductId, item.RightProductId, item.MatcherVersion }).IsUnique();
         candidate.HasIndex(item => new { item.ReviewStatus, item.IsCurrent, item.Confidence, item.GeneratedUtc });
+
+        var goldLabel = modelBuilder.Entity<ProductIdentityGoldLabelRecord>();
+        goldLabel.ToTable("ProductIdentityGoldLabels");
+        goldLabel.HasKey(item => item.Id);
+        goldLabel.Property(item => item.Label).HasConversion<string>().HasMaxLength(30);
+        goldLabel.Property(item => item.Slice).HasConversion<string>().HasMaxLength(30);
+        goldLabel.Property(item => item.Reviewer).HasMaxLength(256).IsRequired();
+        goldLabel.Property(item => item.Rationale).HasMaxLength(1000);
+        goldLabel.HasOne(item => item.Candidate).WithMany(item => item.GoldLabels)
+            .HasForeignKey(item => item.CandidateId).OnDelete(DeleteBehavior.Cascade);
+        goldLabel.HasIndex(item => new { item.CandidateId, item.CreatedUtc });
+        goldLabel.HasIndex(item => new { item.Slice, item.CreatedUtc });
+        goldLabel.HasIndex(item => new { item.Reviewer, item.CreatedUtc });
 
         var canonical = modelBuilder.Entity<CanonicalProductRecord>();
         canonical.ToTable("CanonicalProducts");

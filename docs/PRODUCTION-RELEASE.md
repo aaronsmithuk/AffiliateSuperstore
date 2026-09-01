@@ -25,7 +25,7 @@ shape:
 | Scheduled URL | Three slots are available and unused; add `/health/wake` only after the first release is stable |
 | Deployment | Release `c46789e` was deployed through the target-scoped File Manager because the downloaded publish profile omitted its password and resetting the account-wide Web Deploy password could disrupt other sites |
 | Domain | `wonderaisle.co.uk` is registered, attached and resolving through `ns1.site4now.net`, `ns2.site4now.net` and `ns3.site4now.net`; apex and `www` resolve to the hosting service |
-| TLS | The temporary hostname certificate is installed; the current SSL screen does not expose SmarterASP's documented `Request Free SSL` action for `wonderaisle.co.uk`, so custom-domain TLS remains the public-launch blocker |
+| TLS | Managed Let's Encrypt TLS is active for `wonderaisle.co.uk`; TLS 1.3, HTTP-to-HTTPS redirection and a 30-day HSTS header were verified on 1 September 2026 |
 
 The plan currently has four existing websites split across two pools. The new
 pool removes all application siblings from Wonder Aisle's runtime failure and
@@ -36,7 +36,6 @@ sites `circlesofstone.co.uk`, `iloveplushies.co.uk`, `ilovefnaf.co.uk`,
 
 ## Information required before public launch
 
-- managed HTTPS certificate installation for the canonical domain;
 - an AliExpress production App Secret supplied through the dedicated pool;
 - bootstrap administrator credentials supplied through the dedicated pool and
   removed after the first successful owner login; and
@@ -136,10 +135,23 @@ route returns an AliExpress redirect. All neighbouring production sites also
 returned HTTP 200 after the release. The temporary maintenance marker and
 uploaded release ZIP were removed after verification.
 
-Administrator cookies intentionally remain Secure in Production. Until the
-custom-domain certificate is installed, the public HTTP catalogue works but a
-browser cannot retain an administrator session over HTTP. Do not weaken the
-cookie policy; complete managed TLS before using the production admin UI.
+Administrator cookies intentionally remain Secure in Production. Managed TLS
+now allows the production admin session to be retained without weakening the
+cookie policy.
+
+## Canonical HTTPS verification
+
+On 1 September 2026, `https://wonderaisle.co.uk/`, `/plushies`, both health
+endpoints, `/robots.txt`, `/sitemap.xml` and `/admin/login` returned HTTP 200.
+Plain HTTP returns a 307 redirect to the HTTPS origin. The certificate subject
+is `wonderaisle.co.uk`, the issuer is Let's Encrypt, TLS 1.3 negotiated, and the
+certificate is valid through 30 November 2026. HSTS is present with a 30-day
+maximum age. The public shop still shows the intended eight reviewed products.
+
+The same read-only pass returned HTTP 200 for every applicable neighbouring
+site. `ilovefitness.co.uk` is now an unrelated expired-domain redirect returning
+404 and is recorded as a pre-existing external-domain issue, not a Wonder Aisle
+runtime regression.
 
 ## Build a release bundle
 

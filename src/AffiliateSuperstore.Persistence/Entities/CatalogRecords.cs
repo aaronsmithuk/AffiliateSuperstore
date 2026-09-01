@@ -162,6 +162,13 @@ public enum ProductMatchReviewStatus
     Rejected
 }
 
+public enum ProductIdentityGoldSetSlice
+{
+    Tuning,
+    ThresholdSelection,
+    FinalTest
+}
+
 public sealed class ProductMatchCandidateRecord
 {
     public Guid Id { get; set; }
@@ -182,6 +189,21 @@ public sealed class ProductMatchCandidateRecord
 
     public ProductRecord LeftProduct { get; set; } = null!;
     public ProductRecord RightProduct { get; set; } = null!;
+    public ICollection<ProductIdentityGoldLabelRecord> GoldLabels { get; set; } = [];
+}
+
+public sealed class ProductIdentityGoldLabelRecord
+{
+    public Guid Id { get; set; }
+    public Guid CandidateId { get; set; }
+    public ProductRelationship Label { get; set; }
+    public ProductIdentityGoldSetSlice Slice { get; set; }
+    public string Reviewer { get; set; } = string.Empty;
+    public string? Rationale { get; set; }
+    public bool IsAdjudication { get; set; }
+    public DateTimeOffset CreatedUtc { get; set; }
+
+    public ProductMatchCandidateRecord Candidate { get; set; } = null!;
 }
 
 public sealed class CanonicalProductRecord

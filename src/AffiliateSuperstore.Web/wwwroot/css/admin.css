@@ -1308,6 +1308,177 @@ h2 {
     border-top: 1px solid var(--line);
 }
 
+.calibration-panel {
+    margin: 16px 0;
+}
+
+.calibration-panel .panel-heading p:last-child {
+    max-width: 760px;
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: .74rem;
+    line-height: 1.55;
+}
+
+.calibration-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.calibration-summary div {
+    padding: 14px 16px;
+}
+
+.calibration-summary div + div {
+    border-left: 1px solid var(--line);
+}
+
+.calibration-summary strong,
+.calibration-summary span {
+    display: block;
+}
+
+.calibration-summary strong {
+    color: var(--green);
+    font-size: 1.05rem;
+}
+
+.calibration-summary span,
+.calibration-note {
+    color: var(--muted);
+    font-size: .66rem;
+}
+
+.calibration-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .68rem;
+}
+
+.calibration-table th,
+.calibration-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.calibration-table th {
+    color: var(--muted);
+    background: #f6f8f6;
+    font-size: .6rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.calibration-note {
+    margin: 0;
+    padding: 12px 16px;
+    line-height: 1.5;
+}
+
+.identity-gold-label {
+    padding: 14px;
+    border-top: 1px solid var(--line);
+    background: #f9fbf9;
+}
+
+.identity-label-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+
+.identity-label-heading span,
+.identity-label-heading strong {
+    display: block;
+}
+
+.identity-label-heading span {
+    color: var(--green);
+    font-size: .61rem;
+    font-weight: 850;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.identity-label-heading strong {
+    margin-top: 3px;
+    font-size: .72rem;
+}
+
+.identity-label-heading small {
+    color: var(--muted);
+    font-size: .64rem;
+}
+
+.identity-label-history {
+    margin: 0 0 10px;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+    color: var(--muted);
+    font-size: .66rem;
+}
+
+.identity-label-history summary {
+    color: var(--green);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.identity-label-history div {
+    display: grid;
+    gap: 2px;
+    margin-top: 8px;
+}
+
+.identity-label-history strong {
+    color: var(--ink);
+}
+
+.identity-label-fields {
+    display: grid;
+    grid-template-columns: minmax(145px, .7fr) minmax(145px, .8fr) minmax(260px, 2fr) auto auto;
+    align-items: end;
+    gap: 10px;
+}
+
+.identity-label-fields label:not(.identity-adjudication) {
+    display: grid;
+    gap: 4px;
+    color: var(--muted);
+    font-size: .62rem;
+    font-weight: 750;
+}
+
+.identity-label-fields select,
+.identity-label-fields input[type="text"],
+.identity-label-fields .identity-rationale input {
+    min-width: 0;
+    padding: 8px 9px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: white;
+    color: var(--ink);
+    font: inherit;
+}
+
+.identity-adjudication {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 34px;
+    color: var(--muted);
+    font-size: .64rem;
+    font-weight: 750;
+}
+
 .identity-review-actions .button,
 .identity-pager .button {
     padding: 8px 12px;
@@ -1325,6 +1496,22 @@ h2 {
 }
 
 @media (max-width: 760px) {
+    .calibration-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .calibration-summary div + div {
+        border-left: 0;
+    }
+
+    .identity-label-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .identity-label-heading {
+        flex-direction: column;
+    }
+
     .identity-offer-grid {
         grid-template-columns: 1fr;
     }

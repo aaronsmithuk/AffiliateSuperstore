@@ -4,6 +4,7 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject ProductIdentityService IdentityService
+@inject ProductIdentityCalibrationService CalibrationService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Product identity review</PageTitle>
@@ -50,6 +51,50 @@
     <article class="metric-card"><strong>@Metrics.CanonicalProducts</strong><span>Canonical products</span></article>
 </section>
 
+@if (Calibration is not null)
+{
+    <section class="panel calibration-panel" aria-labelledby="calibration-heading">
+        <div class="panel-heading">
+            <div>
+                <p class="eyebrow">Reviewer-labelled evaluation</p>
+                <h2 id="calibration-heading">Identity gold set</h2>
+                <p>Labels evaluate matcher @Calibration.MatcherVersion without grouping offers. Thresholds use effective labels only; disagreements remain excluded until adjudicated.</p>
+            </div>
+            <span class="count-badge">@Calibration.EffectivePairs / @ProductIdentityCalibrationService.IdentityGoldSetTarget target</span>
+        </div>
+        <div class="calibration-summary">
+            <div><strong>@Calibration.IndividualLabels</strong><span>Immutable labels</span></div>
+            <div><strong>@Calibration.DoubleReviewedPairs</strong><span>Two-reviewer pairs</span></div>
+            <div><strong>@Calibration.AgreementPairs</strong><span>Reviewer agreements</span></div>
+            <div><strong>@Calibration.DisagreementPairs</strong><span>Disagreements</span></div>
+            <div><strong>@Calibration.AdjudicatedPairs</strong><span>Adjudicated</span></div>
+            <div><strong>@Percent(Calibration.RelationshipAccuracy)</strong><span>Relationship accuracy</span></div>
+        </div>
+        <div class="table-wrap">
+            <table class="calibration-table">
+                <thead><tr><th>Threshold</th><th>Evaluated</th><th>Queue precision</th><th>Relationship accuracy</th><th>Auto-link set</th><th>Auto-link precision</th><th>95% lower bound</th><th>False merges</th><th>Gate</th></tr></thead>
+                <tbody>
+                    @foreach (var threshold in Calibration.Thresholds)
+                    {
+                        <tr>
+                            <td>≥ @(threshold.Threshold * 100m).ToString("0.0")%</td>
+                            <td>@threshold.EvaluatedPairs</td>
+                            <td>@Percent(threshold.QueuePrecision)</td>
+                            <td>@Percent(threshold.RelationshipAccuracy)</td>
+                            <td>@threshold.AutoLinkEvaluatedPairs</td>
+                            <td>@Percent(threshold.AutoLinkPrecision)</td>
+                            <td>@Percent(threshold.AutoLinkWilsonLowerBound)</td>
+                            <td>@threshold.FalseMergePairs</td>
+                            <td><span class="result-badge @(ThresholdPasses(threshold) ? "success" : string.Empty)">@(ThresholdPasses(threshold) ? "Pass" : "Not ready")</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="calibration-note">An automatic-link gate needs ≥99.5% precision, a ≥99% Wilson lower bound, zero false merges and a sufficiently large held-out final-test set. An empty or tiny row never passes.</p>
+    </section>
+}
+
 <section class="panel catalogue-table-panel">
     <div class="panel-heading catalogue-table-heading">
         <div><p class="eyebrow">Evidence queue</p><h2>Candidate relationships</h2></div>
@@ -89,6 +134,7 @@
         <div class="identity-list">
             @foreach (var row in Rows)
             {
+                var revealedLabels = VisibleGoldLabels(row.Id);
                 <article class="identity-candidate">
                     <div class="identity-candidate-heading">
                         <div>
@@ -109,6 +155,48 @@
                             <div class="identity-conflict"><span>Hard conflict</span><strong>@FriendlyConflicts(row.Conflicts)</strong></div>
                         }
                         <details><summary>Complete scored evidence</summary><pre>@PrettyJson(row.Evidence)</pre></details>
+                    </div>
+                    <div class="identity-gold-label">
+                        <div class="identity-label-heading">
+                            <div><span>Gold-set label</span><strong>Measure the suggestion; do not change catalogue state</strong></div>
+                            @if (row.LabelCount > 0)
+                            {
+                                <small>@row.LabelCount immutable label@(row.LabelCount == 1 ? string.Empty : "s") recorded. The first review stays hidden from another reviewer.</small>
+                            }
+                        </div>
+                        @if (revealedLabels.Count > 0)
+                        {
+                            <details class="identity-label-history">
+                                <summary>Reviewer labels and rationale</summary>
+                                @foreach (var label in revealedLabels)
+                                {
+                                    <div><strong>@(label.IsAdjudication ? "Adjudication" : label.Reviewer): @label.Label</strong><span>@label.Rationale · @LocalTime(label.CreatedUtc)</span></div>
+                                }
+                            </details>
+                        }
+                        <div class="identity-label-fields">
+                            <label>Correct relationship
+                                <select value="@DraftLabel(row.Id)" @onchange="args => ChangeDraftLabel(row.Id, args)">
+                                    @foreach (var label in GoldLabels)
+                                    {
+                                        <option value="@label">@label</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>Evaluation slice
+                                <select value="@DraftSlice(row.Id)" @onchange="args => ChangeDraftSlice(row.Id, args)">
+                                    @foreach (var slice in Enum.GetValues<ProductIdentityGoldSetSlice>())
+                                    {
+                                        <option value="@slice">@slice</option>
+                                    }
+                                </select>
+                            </label>
+                            <label class="identity-rationale">Evidence-based rationale
+                                <input value="@DraftRationale(row.Id)" @oninput="args => ChangeDraftRationale(row.Id, args)" maxlength="1000" placeholder="For example: same image, but pack count differs." />
+                            </label>
+                            <label class="identity-adjudication"><input type="checkbox" checked="@DraftAdjudications.Contains(row.Id)" @onchange="args => ChangeDraftAdjudication(row.Id, args)" /> Adjudication</label>
+                            <button class="button button-primary" type="button" @onclick="() => SaveGoldLabelAsync(row.Id)" disabled="@IsBusy">Record label</button>
+                        </div>
                     </div>
                     <div class="identity-review-actions">
                         @if (row.Status == ProductMatchReviewStatus.Pending)
@@ -137,9 +225,18 @@
 
 @code {
     private const int PageSize = 25;
+    private static readonly ProductRelationship[] GoldLabels = Enum.GetValues<ProductRelationship>()
+        .Where(item => item != ProductRelationship.Primary)
+        .ToArray();
     private List<ShopChoice> Shops = [];
     private List<CandidateRow> Rows = [];
+    private Dictionary<Guid, List<GoldLabelRow>> PageGoldLabels = [];
     private IdentityMetrics Metrics = new(0, 0, 0, 0, 0);
+    private ProductIdentityCalibrationReport? Calibration;
+    private readonly Dictionary<Guid, ProductRelationship> DraftLabels = [];
+    private readonly Dictionary<Guid, ProductIdentityGoldSetSlice> DraftSlices = [];
+    private readonly Dictionary<Guid, string> DraftRationales = [];
+    private readonly HashSet<Guid> DraftAdjudications = [];
     private string SelectedShop = "plushies";
     private string StatusFilter = nameof(ProductMatchReviewStatus.Pending);
     private string RelationshipFilter = "All";
@@ -151,9 +248,11 @@
     private bool IsBusy => IsLoading || IsRebuilding;
     private string? Message;
     private bool MessageIsError;
+    private string CurrentReviewerName = "administrator";
 
     protected override async Task OnInitializedAsync()
     {
+        CurrentReviewerName = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name ?? "administrator";
         await using var context = await ContextFactory.CreateDbContextAsync();
         Shops = await context.Shops.AsNoTracking().Where(item => item.IsEnabled)
             .OrderBy(item => item.DisplayName)
@@ -183,6 +282,7 @@
                 await candidates.CountAsync(item => item.ReviewStatus == ProductMatchReviewStatus.Accepted),
                 await candidates.CountAsync(item => item.ReviewStatus == ProductMatchReviewStatus.Rejected),
                 await context.CanonicalProducts.AsNoTracking().CountAsync(item => item.Members.Any(member => shopProductIds.Contains(member.ProductId))));
+            Calibration = await CalibrationService.BuildReportAsync(SelectedShop);
 
             if (Enum.TryParse<ProductMatchReviewStatus>(StatusFilter, out var status))
                 candidates = candidates.Where(item => item.ReviewStatus == status);
@@ -209,9 +309,28 @@
                     item.GeneratedUtc,
                     item.ReviewedUtc,
                     item.ReviewedBy,
+                    item.GoldLabels.Count,
                     new OfferRow(item.LeftProductId, item.LeftProduct.Title, item.LeftProduct.MainImageUrl, item.LeftProduct.IdentityProfile!.NormalizedGtin, item.LeftProduct.IdentityProfile.NormalizedModel, item.LeftProduct.IdentityProfile.PackCount, item.LeftProduct.IdentityProfile.SizeCentimetres, item.LeftProduct.IdentityProfile.Colour, item.LeftProduct.IdentityProfile.Material),
                     new OfferRow(item.RightProductId, item.RightProduct.Title, item.RightProduct.MainImageUrl, item.RightProduct.IdentityProfile!.NormalizedGtin, item.RightProduct.IdentityProfile.NormalizedModel, item.RightProduct.IdentityProfile.PackCount, item.RightProduct.IdentityProfile.SizeCentimetres, item.RightProduct.IdentityProfile.Colour, item.RightProduct.IdentityProfile.Material)))
                 .ToListAsync();
+            var rowIds = Rows.Select(item => item.Id).ToArray();
+            PageGoldLabels = (await context.ProductIdentityGoldLabels.AsNoTracking()
+                    .Where(item => rowIds.Contains(item.CandidateId))
+                    .OrderBy(item => item.CreatedUtc)
+                    .Select(item => new GoldLabelRow(item.CandidateId, item.Label, item.Reviewer, item.Rationale, item.IsAdjudication, item.CreatedUtc))
+                    .ToListAsync())
+                .GroupBy(item => item.CandidateId)
+                .ToDictionary(group => group.Key, group => group.ToList());
+            foreach (var row in Rows)
+            {
+                var currentReviewerLabel = PageGoldLabels.GetValueOrDefault(row.Id, [])
+                    .Where(item => !item.IsAdjudication && string.Equals(item.Reviewer, CurrentReviewerName, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(item => item.CreatedUtc)
+                    .FirstOrDefault();
+                DraftLabels.TryAdd(row.Id, currentReviewerLabel?.Label ?? row.Relationship);
+                DraftSlices.TryAdd(row.Id, ProductIdentityGoldSetSlice.ThresholdSelection);
+                DraftRationales.TryAdd(row.Id, string.Empty);
+            }
         }
         catch (Exception exception)
         {
@@ -252,10 +371,64 @@
         await LoadAsync();
     }
 
+    private async Task SaveGoldLabelAsync(Guid id)
+    {
+        IsLoading = true;
+        Message = null;
+        try
+        {
+            var identity = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name ?? "administrator";
+            var result = await CalibrationService.AddLabelAsync(
+                id,
+                DraftLabel(id),
+                DraftSlice(id),
+                DraftRationale(id),
+                identity,
+                DraftAdjudications.Contains(id));
+            Message = result.Message;
+            MessageIsError = !result.Succeeded;
+            if (result.Succeeded)
+            {
+                DraftRationales[id] = string.Empty;
+                DraftAdjudications.Remove(id);
+            }
+        }
+        catch (Exception exception)
+        {
+            Message = exception.Message;
+            MessageIsError = true;
+        }
+        finally { IsLoading = false; }
+        await LoadAsync();
+    }
+
     private async Task ChangeStatusAsync(ChangeEventArgs args) { StatusFilter = args.Value?.ToString() ?? "All"; PageNumber = 1; await LoadAsync(); }
     private async Task ChangeRelationshipAsync(ChangeEventArgs args) { RelationshipFilter = args.Value?.ToString() ?? "All"; PageNumber = 1; await LoadAsync(); }
     private async Task PreviousPageAsync() { if (PageNumber > 1) PageNumber--; await LoadAsync(); }
     private async Task NextPageAsync() { if (PageNumber < TotalPages) PageNumber++; await LoadAsync(); }
+
+    private ProductRelationship DraftLabel(Guid id) => DraftLabels.GetValueOrDefault(id, ProductRelationship.NotRelated);
+    private ProductIdentityGoldSetSlice DraftSlice(Guid id) => DraftSlices.GetValueOrDefault(id, ProductIdentityGoldSetSlice.ThresholdSelection);
+    private string DraftRationale(Guid id) => DraftRationales.GetValueOrDefault(id, string.Empty);
+    private void ChangeDraftLabel(Guid id, ChangeEventArgs args) { if (Enum.TryParse<ProductRelationship>(args.Value?.ToString(), out var value)) DraftLabels[id] = value; }
+    private void ChangeDraftSlice(Guid id, ChangeEventArgs args) { if (Enum.TryParse<ProductIdentityGoldSetSlice>(args.Value?.ToString(), out var value)) DraftSlices[id] = value; }
+    private void ChangeDraftRationale(Guid id, ChangeEventArgs args) => DraftRationales[id] = args.Value?.ToString() ?? string.Empty;
+    private void ChangeDraftAdjudication(Guid id, ChangeEventArgs args)
+    {
+        if (bool.TryParse(args.Value?.ToString(), out var value) && value) DraftAdjudications.Add(id);
+        else DraftAdjudications.Remove(id);
+    }
+    private IReadOnlyList<GoldLabelRow> VisibleGoldLabels(Guid id)
+    {
+        var labels = PageGoldLabels.GetValueOrDefault(id, []);
+        var reviewerLabels = labels.Where(item => !item.IsAdjudication)
+            .GroupBy(item => item.Reviewer, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderByDescending(item => item.CreatedUtc).First())
+            .ToArray();
+        if (reviewerLabels.Length < 2) return [];
+        var adjudication = labels.Where(item => item.IsAdjudication).OrderByDescending(item => item.CreatedUtc).FirstOrDefault();
+        return adjudication is null ? reviewerLabels : [.. reviewerLabels, adjudication];
+    }
 
     private RenderFragment Offer(OfferRow offer, string label) => @<article class="identity-offer">
         @if (!string.IsNullOrWhiteSpace(offer.ImageUrl)) { <img src="@offer.ImageUrl" alt="" referrerpolicy="no-referrer" /> }
@@ -278,9 +451,13 @@
     private static string PrettyJson(string value) { try { using var document = System.Text.Json.JsonDocument.Parse(value); return System.Text.Json.JsonSerializer.Serialize(document.RootElement, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }); } catch { return value; } }
     private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
     private static string StatusClass(ProductMatchReviewStatus status) => status == ProductMatchReviewStatus.Accepted ? "success" : status == ProductMatchReviewStatus.Rejected ? "failure" : string.Empty;
+    private static string Percent(decimal? value) => value is null ? "—" : (value.Value * 100m).ToString("0.0") + "%";
+    private static bool ThresholdPasses(ProductIdentityThresholdCalibration row) =>
+        row.AutoLinkEvaluatedPairs >= 100 && row.AutoLinkPrecision >= .995m && row.AutoLinkWilsonLowerBound >= .99m && row.FalseMergePairs == 0;
 
     private sealed record ShopChoice(string Slug, string DisplayName);
     private sealed record IdentityMetrics(int Profiles, int Pending, int Accepted, int Rejected, int CanonicalProducts);
     private sealed record OfferRow(string ProductId, string Title, string? ImageUrl, string? Gtin, string? Model, int? PackCount, decimal? SizeCentimetres, string? Colour, string? Material);
-    private sealed record CandidateRow(Guid Id, ProductRelationship Relationship, ProductMatchReviewStatus Status, decimal Confidence, string BlockingReason, string Evidence, string? Conflicts, string MatcherVersion, DateTimeOffset GeneratedUtc, DateTimeOffset? ReviewedUtc, string? ReviewedBy, OfferRow Left, OfferRow Right);
+    private sealed record GoldLabelRow(Guid CandidateId, ProductRelationship Label, string Reviewer, string? Rationale, bool IsAdjudication, DateTimeOffset CreatedUtc);
+    private sealed record CandidateRow(Guid Id, ProductRelationship Relationship, ProductMatchReviewStatus Status, decimal Confidence, string BlockingReason, string Evidence, string? Conflicts, string MatcherVersion, DateTimeOffset GeneratedUtc, DateTimeOffset? ReviewedUtc, string? ReviewedBy, int LabelCount, OfferRow Left, OfferRow Right);
 }

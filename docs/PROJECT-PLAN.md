@@ -1,6 +1,6 @@
 # Affiliate Superstore project plan
 
-Last updated: 31 August 2026
+Last updated: 1 September 2026
 
 ## Product objective
 
@@ -44,7 +44,7 @@ be reusable for additional shops without another application runtime.
 | Basket | Anonymous local shopping list with one-by-one affiliate hand-off |
 | Identity | No customer account for MVP; anonymous cookie/browser identifier only where necessary |
 | Multi-shop routing | One neutral primary domain with shops under paths such as `/plushies` |
-| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; the domain is registered, mapped and resolving, the application is deployed, and managed custom-domain TLS is the remaining public-launch blocker |
+| Umbrella identity | Wonder Aisle at canonical origin `https://wonderaisle.co.uk`; the domain, managed TLS, HTTP-to-HTTPS redirect, HSTS and deployed application are working |
 | AliExpress credentials | .NET configuration with local User Secrets in development and protected hosting configuration in production |
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
@@ -104,7 +104,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; release `49e6304`, an isolated backup, all 13 migrations, the production AliExpress secret, owner account and an eight-product reviewed starter catalogue are live; all health and neighbouring-site checks pass, while custom-domain TLS, indexing and S2S enablement remain |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; release `49e6304`, an isolated backup, all 13 migrations, the production AliExpress secret, owner account and an eight-product reviewed starter catalogue are live; managed TLS, redirects, HSTS, health and applicable neighbouring-site checks pass, while indexing and S2S enablement remain |
 
 ## AI-assisted catalogue and content integration
 
@@ -139,7 +139,7 @@ place in the main delivery sequence.
 | AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Planned; blocks production enablement, not offline development |
 | AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Complete locally; migration, admin visibility and lifecycle regression coverage added 31 August 2026 |
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Complete locally; independent queues, recovery tests, admin health and bounded `/health/wake` signal added 31 August 2026 |
-| AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core plus exact-image evidence complete locally; versioned normalizers/matcher, bounded CDN byte hashes, durable identity work, reversible canonical links, superseded evidence and paged admin review added 31 August 2026; expanded labelled calibration remains |
+| AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow complete locally; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting were added 1 September 2026; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
 | AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
@@ -336,17 +336,18 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Keep custom-domain TLS as the next production gate. AI-1 freshness, AI-2
-durable work leasing, AI-3 deterministic identity/review and AI-4 versioned
-editorial quality are deployed. A controlled production automation cycle
+Managed custom-domain TLS, HTTP-to-HTTPS redirection and HSTS are now verified.
+AI-1 freshness, AI-2 durable work leasing, AI-3 deterministic identity/review
+and AI-4 versioned editorial quality are deployed. A controlled production automation cycle
 successfully imported 188 review candidates and published eight reviewed
 starter products; recurring production automation was returned to disabled
-after verification. Development next returns to the bounded AI-3 reviewer-
-labelled threshold calibration work, then assembles the joint
-identity/lifecycle/copy gold-set report. Hosted/local model trials and blog
-generation remain later, gated work.
+after verification. The bounded AI-3 calibration workflow is complete locally;
+next populate its reviewer-labelled identity set, add lifecycle and copy
+evaluation sets to the same reporting surface, and finish the visual/content
+review needed to expand the public range from eight to at least 12 products.
+Hosted/local model trials and blog generation remain later, gated work.
 
 Impression tracking can be added when a real CTR is operationally useful. The
 local catalogue-depth gate has been met. Indexing remains blocked on final
 visual/content review and protected production configuration; the provider-hosted
-production release is live while canonical-domain TLS remains deferred.
+production release is live over the canonical HTTPS origin.
