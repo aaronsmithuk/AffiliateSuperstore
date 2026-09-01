@@ -22,6 +22,7 @@ public sealed class CatalogueIngestionServiceTests
 
         Assert.Equal(IngestionJobStatus.Succeeded, result.Status);
         Assert.Equal(1, result.ProductsWritten);
+        Assert.Equal(["1001"], result.ProductIds);
         Assert.Equal(1, result.LinksCreatedOrRefreshed);
         await using var context = factory.CreateDbContext();
         Assert.Equal("Green plush dragon", (await context.Products.SingleAsync()).Title);

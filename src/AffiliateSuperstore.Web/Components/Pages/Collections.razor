@@ -1,0 +1,309 @@
+@page "/admin/collections"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
+@rendermode InteractiveServer
+@inject CatalogueCollectionService CollectionService
+@inject CatalogueCollectionDiscoveryService CollectionDiscoveryService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IOptions<CatalogueAutomationOptions> AutomationOptions
+
+<PageTitle>Plush collections</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Merchandising</p>
+        <h1>Plush collections</h1>
+        <p class="lede">Build Wonder Aisle’s customer-facing taxonomy without changing AliExpress source categories.</p>
+    </div>
+    <div class="topbar-actions">
+        <button class="button" type="button" disabled="@IsBusy" @onclick="SeedAsync">Seed recommended drafts</button>
+        <button class="button refresh-button" type="button" disabled="@IsBusy" @onclick="NewCollection">New collection</button>
+        <a class="public-site-link" href="/plushies">View shop <span aria-hidden="true">↗</span></a>
+    </div>
+</header>
+
+@if (Result is not null)
+{
+    <div class="alert-card @(Result.Succeeded ? "success-card" : "error-card") quality-result" role="status">
+        <strong>@(Result.Succeeded ? "Collections updated" : "Update blocked")</strong><span>@Result.Message</span>
+        @if (Result.Errors?.Count > 0)
+        {
+            <ul class="validation-findings">@foreach (var error in Result.Errors) { <li>@error</li> }</ul>
+        }
+    </div>
+}
+
+@if (DiscoveryResult is not null)
+{
+    <div class="alert-card @(DiscoveryResult.Succeeded ? "success-card" : "warning-card") quality-result" role="status">
+        <strong>Collection discovery</strong><span>@DiscoveryResult.Message</span>
+        @if (DiscoveryResult.Runs.Count > 0)
+        {
+            <small>@DiscoveryResult.ProductsRead products read · @DiscoveryResult.ProductsWritten saved · @DiscoveryResult.ProductsAssigned newly assigned</small>
+        }
+    </div>
+}
+
+<section class="metric-grid" aria-label="Collection totals">
+    <article class="metric-card"><strong>@CollectionRows.Count</strong><span>Collections</span></article>
+    <article class="metric-card"><strong>@CollectionRows.Count(item => item.IsPublished)</strong><span>Published</span></article>
+    <article class="metric-card"><strong>@CollectionRows.Sum(item => item.AssignedProducts)</strong><span>Assignments</span></article>
+    <article class="metric-card"><strong>@CollectionRows.Count(item => item.CanPublish && !item.IsPublished)</strong><span>Ready to publish</span></article>
+</section>
+
+<div class="catalogue-grid collection-admin-grid">
+    <section class="panel collection-list-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Structure</p><h2>Collection drafts</h2></div><span class="count-badge">@CollectionRows.Count</span></div>
+        @if (CollectionRows.Count == 0)
+        {
+            <div class="empty-response compact"><h3>No editorial collections yet</h3><p>Seed the recommended set to create eight unpublished, brand-safe collection drafts.</p></div>
+        }
+        else
+        {
+            <ol class="collection-admin-list">
+                @foreach (var collection in CollectionRows)
+                {
+                    <li>
+                        <button class="collection-admin-card @(SelectedCollectionId == collection.Id ? "is-selected" : null)" type="button" @onclick="() => SelectAsync(collection)">
+                            <span><strong>@collection.DisplayName</strong><small>/plushies/@collection.Slug</small></span>
+                            <span class="collection-admin-counts"><strong>@collection.IndexableProducts / @collection.MinimumProductsForIndexing</strong><small>indexable</small></span>
+                            <span class="validation-state @(collection.IsPublished ? "passed" : collection.CanPublish ? "warning" : "note")">@(collection.IsPublished ? "Published" : collection.CanPublish ? "Ready" : "Draft")</span>
+                        </button>
+                    </li>
+                }
+            </ol>
+        }
+    </section>
+
+    <section class="panel collection-editor-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Editorial details</p><h2>@(Editor.CollectionId is null ? "New collection" : Editor.DisplayName)</h2></div>@if (SelectedSummary is not null) { <span class="method-badge">@(SelectedSummary.IsPublished ? "LIVE" : "DRAFT")</span> }</div>
+        <EditForm Model="Editor" OnValidSubmit="SaveAsync" FormName="collection-editor">
+            <DataAnnotationsValidator />
+            <div class="form-row">
+                <div class="form-field"><label for="collection-name">Display name</label><InputText id="collection-name" @bind-Value="Editor.DisplayName" /></div>
+                <div class="form-field"><label for="collection-slug">URL slug</label><InputText id="collection-slug" @bind-Value="Editor.Slug" /></div>
+            </div>
+            <div class="form-field"><label for="collection-short">Short description</label><InputTextArea id="collection-short" @bind-Value="Editor.ShortDescription" rows="2" /></div>
+            <div class="form-field"><label for="collection-intro">Collection introduction</label><InputTextArea id="collection-intro" @bind-Value="Editor.IntroductoryCopy" rows="5" /></div>
+            <div class="form-field"><label for="collection-seo-title">SEO title</label><InputText id="collection-seo-title" @bind-Value="Editor.SeoTitle" /></div>
+            <div class="form-field"><label for="collection-seo-description">SEO description</label><InputTextArea id="collection-seo-description" @bind-Value="Editor.SeoDescription" rows="3" /></div>
+            <div class="form-field"><label for="collection-queries">Generic discovery queries</label><InputTextArea id="collection-queries" @bind-Value="Editor.DiscoveryQueriesText" rows="5" /><small>One query per line. Brand and named-character terms are blocked.</small></div>
+            <div class="form-row">
+                <div class="form-field"><label for="collection-order">Display order</label><InputNumber id="collection-order" @bind-Value="Editor.DisplayOrder" /></div>
+                <div class="form-field"><label for="collection-target">Indexing target</label><InputNumber id="collection-target" @bind-Value="Editor.MinimumProductsForIndexing" /><small>Publication is blocked until this many products pass the product SEO gate.</small></div>
+            </div>
+            <label class="check-field"><InputCheckbox @bind-Value="Editor.IsFeatured" /> Feature this collection in prominent navigation</label>
+            <div class="editor-actions">
+                @if (SelectedSummary?.IsPublished == true)
+                {
+                    <button class="button" type="button" disabled="@IsBusy" @onclick="() => SetPublicationAsync(false)">Return to draft</button>
+                }
+                else if (SelectedSummary is not null)
+                {
+                    <button class="button" type="button" title="Requires the configured number of indexable products" disabled="@(!SelectedSummary.CanPublish || IsBusy)" @onclick="() => SetPublicationAsync(true)">Publish collection</button>
+                }
+                <button class="button button-primary" type="submit" disabled="@IsBusy">@(IsBusy ? "Saving…" : "Save draft")</button>
+            </div>
+        </EditForm>
+    </section>
+</div>
+
+@if (SelectedSummary is not null)
+{
+    <section class="panel catalogue-table-panel collection-products-panel">
+        <div class="panel-heading catalogue-table-heading">
+            <div><p class="eyebrow">Membership</p><h2>@SelectedSummary.DisplayName products</h2><p>Products may be organised while still awaiting editorial approval; only approved, eligible and actively linked products appear publicly.</p></div>
+            <div class="catalogue-filters"><label>Find product <input @bind="ProductSearch" @bind:event="oninput" placeholder="Title or product ID" /></label><button class="button" type="button" disabled="@IsBusy" @onclick="LoadCandidatesAsync">Search</button><button class="button button-primary" type="button" disabled="@(IsBusy || SelectedSummary.DiscoveryQueries.Count == 0)" @onclick="DiscoverAsync">@(IsDiscovering ? "Discovering…" : $"Discover products ({SelectedSummary.DiscoveryQueries.Count} searches)")</button><span class="count-badge">@Candidates.Count</span></div>
+        </div>
+        @if (Candidates.Count == 0)
+        {
+            <p class="database-empty">No active catalogue products matched this search.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table collection-products-table"><thead><tr><th>Product</th><th>Source category</th><th>Price</th><th>Review</th><th>Membership</th></tr></thead><tbody>
+            @foreach (var product in Candidates)
+            {
+                <tr>
+                    <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong>@product.Title</strong><small>@product.ProductId</small></div></div></td>
+                    <td>@(product.SourceCategory ?? "Uncategorised")</td>
+                    <td>@Money(product.Price, product.Currency)</td>
+                    <td><span class="validation-state @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
+                    <td><button class="button @(product.IsAssigned ? null : "button-primary")" type="button" disabled="@IsBusy" @onclick="() => ToggleMembershipAsync(product)">@(product.IsAssigned ? "Remove" : "Add")</button></td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+}
+
+@code {
+    private const string ShopSlug = "plushies";
+    private IReadOnlyList<CollectionAdminSummary> CollectionRows { get; set; } = [];
+    private IReadOnlyList<CollectionProductCandidate> Candidates { get; set; } = [];
+    private Guid? SelectedCollectionId { get; set; }
+    private CollectionAdminSummary? SelectedSummary => CollectionRows.FirstOrDefault(item => item.Id == SelectedCollectionId);
+    private CollectionForm Editor { get; set; } = new();
+    private CollectionCommandResult? Result { get; set; }
+    private CollectionDiscoveryResult? DiscoveryResult { get; set; }
+    private string ProductSearch { get; set; } = string.Empty;
+    private bool IsBusy { get; set; }
+    private bool IsDiscovering { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync(Guid? preferredCollectionId = null)
+    {
+        CollectionRows = await CollectionService.GetCollectionsAsync(ShopSlug);
+        var selection = preferredCollectionId ?? SelectedCollectionId;
+        var selected = selection is null ? null : CollectionRows.FirstOrDefault(item => item.Id == selection);
+        if (selected is null && CollectionRows.Count > 0) selected = CollectionRows[0];
+        if (selected is not null) await SelectAsync(selected);
+        else NewCollection();
+    }
+
+    private async Task SeedAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            Result = await CollectionService.SeedRecommendedAsync(ShopSlug, await CurrentActorAsync());
+            await LoadAsync();
+        }
+        finally { IsBusy = false; }
+    }
+
+    private void NewCollection()
+    {
+        SelectedCollectionId = null;
+        Candidates = [];
+        Editor = new CollectionForm();
+        Result = null;
+        DiscoveryResult = null;
+    }
+
+    private async Task SelectAsync(CollectionAdminSummary collection)
+    {
+        SelectedCollectionId = collection.Id;
+        Editor = new CollectionForm
+        {
+            CollectionId = collection.Id,
+            Slug = collection.Slug,
+            DisplayName = collection.DisplayName,
+            ShortDescription = collection.ShortDescription,
+            IntroductoryCopy = collection.IntroductoryCopy,
+            SeoTitle = collection.SeoTitle,
+            SeoDescription = collection.SeoDescription,
+            DiscoveryQueriesText = string.Join(Environment.NewLine, collection.DiscoveryQueries),
+            DisplayOrder = collection.DisplayOrder,
+            MinimumProductsForIndexing = collection.MinimumProductsForIndexing,
+            IsFeatured = collection.IsFeatured
+        };
+        await LoadCandidatesAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            Result = await CollectionService.SaveAsync(new CollectionUpdate(
+                Editor.CollectionId,
+                ShopSlug,
+                Editor.Slug,
+                Editor.DisplayName,
+                Editor.ShortDescription,
+                Editor.IntroductoryCopy,
+                Editor.SeoTitle,
+                Editor.SeoDescription,
+                Editor.DiscoveryQueries,
+                Editor.DisplayOrder,
+                Editor.MinimumProductsForIndexing,
+                Editor.IsFeatured));
+            if (Result.Succeeded) await LoadAsync(Result.CollectionId);
+        }
+        finally { IsBusy = false; }
+    }
+
+    private async Task SetPublicationAsync(bool publish)
+    {
+        if (SelectedCollectionId is null) return;
+        IsBusy = true;
+        try
+        {
+            Result = await CollectionService.SetPublicationAsync(ShopSlug, SelectedCollectionId.Value, publish);
+            await LoadAsync(SelectedCollectionId);
+        }
+        finally { IsBusy = false; }
+    }
+
+    private async Task LoadCandidatesAsync()
+    {
+        Candidates = SelectedCollectionId is null
+            ? []
+            : await CollectionService.GetProductCandidatesAsync(ShopSlug, SelectedCollectionId.Value, ProductSearch);
+    }
+
+    private async Task ToggleMembershipAsync(CollectionProductCandidate product)
+    {
+        if (SelectedCollectionId is null) return;
+        IsBusy = true;
+        try
+        {
+            Result = await CollectionService.SetMembershipAsync(
+                ShopSlug,
+                SelectedCollectionId.Value,
+                product.ProductId,
+                !product.IsAssigned,
+                product.IsFeatured,
+                product.DisplayOrder,
+                await CurrentActorAsync());
+            await LoadAsync(SelectedCollectionId);
+        }
+        finally { IsBusy = false; }
+    }
+
+    private async Task DiscoverAsync()
+    {
+        if (SelectedCollectionId is null) return;
+        IsBusy = true;
+        IsDiscovering = true;
+        DiscoveryResult = null;
+        try
+        {
+            DiscoveryResult = await CollectionDiscoveryService.RunAsync(
+                ShopSlug,
+                SelectedCollectionId.Value,
+                AutomationOptions.Value.PageSize,
+                await CurrentActorAsync());
+            await LoadAsync(SelectedCollectionId);
+        }
+        finally
+        {
+            IsDiscovering = false;
+            IsBusy = false;
+        }
+    }
+
+    private async Task<string> CurrentActorAsync() =>
+        (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name ?? "administrator";
+
+    private static string Money(decimal? value, string? currency) => value is null ? "—" : $"{currency ?? "GBP"} {value:N2}";
+
+    private sealed class CollectionForm
+    {
+        public Guid? CollectionId { get; set; }
+        [Required, StringLength(80)] public string Slug { get; set; } = string.Empty;
+        [Required, StringLength(160)] public string DisplayName { get; set; } = string.Empty;
+        [Required, StringLength(500)] public string ShortDescription { get; set; } = string.Empty;
+        [Required, StringLength(4000)] public string IntroductoryCopy { get; set; } = string.Empty;
+        [Required, StringLength(200)] public string SeoTitle { get; set; } = string.Empty;
+        [Required, StringLength(500)] public string SeoDescription { get; set; } = string.Empty;
+        public string DiscoveryQueriesText { get; set; } = string.Empty;
+        public IReadOnlyList<string> DiscoveryQueries => DiscoveryQueriesText
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        [Range(0, 10000)] public int DisplayOrder { get; set; }
+        [Range(CatalogueCollectionService.MinimumIndexingTarget, CatalogueCollectionService.MaximumIndexingTarget)] public int MinimumProductsForIndexing { get; set; } = 12;
+        public bool IsFeatured { get; set; }
+    }
+}

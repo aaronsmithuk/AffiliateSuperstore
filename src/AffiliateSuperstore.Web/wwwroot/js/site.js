@@ -116,14 +116,16 @@ document.querySelectorAll("[data-product-gallery]").forEach((gallery) => {
 
         const shop = page.dataset.analyticsShop;
         const pageType = page.dataset.analyticsPage;
-        if (pageType === "catalogue") {
+        if (pageType === "catalogue" || pageType === "collection") {
             const items = itemsWithin(page);
+            const collection = page.dataset.analyticsCollection;
             return {
                 name: "view_item_list",
                 parameters: addValue({
-                    item_list_id: shop,
-                    item_list_name: "shop_catalogue",
+                    item_list_id: collection ? `${shop}:${collection}` : shop,
+                    item_list_name: collection || "shop_catalogue",
                     shop,
+                    collection,
                     result_count: numberValue(page.dataset.analyticsResultCount),
                     search_used: page.dataset.analyticsSearchUsed === "true",
                     category_filter_used: page.dataset.analyticsCategoryUsed === "true",

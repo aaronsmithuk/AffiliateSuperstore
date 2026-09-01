@@ -19,7 +19,10 @@ public sealed record CatalogueIngestionResult(
     int ProductsWritten,
     int ProductsRejected,
     int LinksCreatedOrRefreshed,
-    string? Error);
+    string? Error)
+{
+    public IReadOnlyList<string> ProductIds { get; init; } = [];
+}
 
 public sealed class CatalogueIngestionService(
     IAffiliateCatalogueSource source,
@@ -101,7 +104,10 @@ public sealed class CatalogueIngestionService(
                 eligible.Length,
                 page.Items.Count - eligible.Length,
                 linksWritten,
-                null);
+                null)
+            {
+                ProductIds = eligible.Select(item => item.ProductId).Distinct(StringComparer.Ordinal).ToArray()
+            };
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

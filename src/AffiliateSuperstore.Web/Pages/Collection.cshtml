@@ -1,0 +1,87 @@
+@page "/{shopSlug}/{collectionSlug}"
+@model AffiliateSuperstore.Web.Pages.CollectionModel
+@{
+    ViewData["Title"] = Model.Collection.SeoTitle;
+    ViewData["Description"] = Model.Collection.SeoDescription;
+    ViewData["Robots"] = Model.IsIndexable ? "index,follow" : "noindex,follow";
+    ViewData["Canonical"] = Model.CanonicalUrl;
+    ViewData["StructuredData"] = Model.StructuredDataJson;
+}
+
+<div class="shop-shell collection-shell" data-theme="@Model.Shop.Theme.Profile" data-analytics-page="collection" data-analytics-shop="@Model.Shop.Slug" data-analytics-collection="@Model.Collection.Slug" data-analytics-currency="GBP" data-analytics-result-count="@Model.Products.Count" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
+    <header class="collection-hero">
+        <nav class="shop-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><a href="@Model.Shop.PathPrefix">@Model.Shop.DisplayName</a><span aria-hidden="true">/</span><span>@Model.Collection.DisplayName</span></nav>
+        <p class="shop-kicker">Curated plush collection</p>
+        <h1>@Model.Collection.DisplayName</h1>
+        <p class="collection-lede">@Model.Collection.ShortDescription</p>
+        <p>@Model.Collection.IntroductoryCopy</p>
+        <a class="saved-list-link" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♡</span> Saved <strong>@Model.SavedCount</strong></a>
+    </header>
+
+    @if (Model.Collections.Count > 1)
+    {
+        <nav class="shop-categories" aria-label="Browse plush collections">
+            <a class="shop-category-link" href="@Model.Shop.PathPrefix">All plushies</a>
+            @foreach (var collection in Model.Collections)
+            {
+                <a class="shop-category-link @(collection.Slug == Model.Collection.Slug ? "is-active" : null)" href="/@Model.Shop.Slug/@collection.Slug" aria-current="@(collection.Slug == Model.Collection.Slug ? "page" : null)">@collection.DisplayName</a>
+            }
+        </nav>
+    }
+
+    <aside class="partner-notice" aria-label="Buying through a partner">
+        <span class="partner-notice-icon" aria-hidden="true">◇</span>
+        <div><strong>A curated shortlist, not an endorsement</strong><p>Wonder Aisle does not manufacture or physically test these products. AliExpress confirms the seller, selected option, delivery and final total.</p></div>
+    </aside>
+
+    <section class="catalogue-results collection-results" aria-labelledby="collection-products-heading">
+        <header class="catalogue-results-header">
+            <div><p class="shop-kicker">Explore the collection</p><h2 id="collection-products-heading">@Model.Collection.DisplayName picks</h2></div>
+            <p><strong>@Model.Products.Count</strong> @(Model.Products.Count == 1 ? "product" : "products")</p>
+        </header>
+
+        @if (Model.Products.Count == 0)
+        {
+            <section class="catalogue-empty"><span aria-hidden="true">♡</span><h2>Collection being prepared</h2><p>This collection has not yet reached the publication quality threshold.</p><a href="@Model.Shop.PathPrefix">Browse all plushies</a></section>
+        }
+        else
+        {
+            <section class="product-grid" aria-label="@Model.Collection.DisplayName products">
+                @foreach (var product in Model.Products)
+                {
+                    <article class="product-card @(product.IsSaved ? "is-saved" : null)" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@product.ProductId" data-impression-placement="collection-card" data-analytics-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="@Model.Collection.Slug">
+                        <div class="product-card-media">
+                            @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                            {
+                                <a class="product-image-link" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="@Model.Collection.Slug"><img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /></a>
+                            }
+                            else
+                            {
+                                <a class="product-image-link product-image-placeholder" href="/@Model.Shop.Slug/product/@product.ProductId"><span>Image unavailable</span></a>
+                            }
+                            @if (product.IsSaved)
+                            {
+                                <a class="product-save-control is-saved" href="/basket/@Model.Shop.Slug" aria-label="@product.Title is saved"><span aria-hidden="true">♥</span><span class="visually-hidden">Saved</span></a>
+                            }
+                            else
+                            {
+                                <form class="product-save-form" method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId" data-analytics-save-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="@Model.Collection.Slug"><button class="product-save-control" type="submit" aria-label="Save @product.Title to your list"><span aria-hidden="true">♡</span></button></form>
+                            }
+                        </div>
+                        <div class="product-card-copy">
+                            <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="@Model.Collection.Slug">@product.Title</a></h3>
+                            <p class="product-card-price">@Model.FormatPrice(product.Price, product.Currency)</p>
+                            @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
+                            {
+                                <p class="product-card-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>
+                            }
+                            <a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=collection-@Model.Collection.Slug" rel="sponsored nofollow noopener" data-analytics-affiliate-click data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="@Model.Collection.Slug">Ad · Check at AliExpress <span aria-hidden="true">↗</span></a>
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    </section>
+
+    <aside class="affiliate-disclosure"><strong>Affiliate advertising disclosure</strong><p>@SuperstoreOptions.BrandName earns a commission from qualifying purchases at no extra cost to you. We are not the seller, importer or AliExpress.</p></aside>
+</div>

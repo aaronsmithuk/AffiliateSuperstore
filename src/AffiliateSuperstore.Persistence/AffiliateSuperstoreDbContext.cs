@@ -11,6 +11,8 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ShopRecord> Shops => Set<ShopRecord>();
     public DbSet<ProductRecord> Products => Set<ProductRecord>();
     public DbSet<ShopProductRecord> ShopProducts => Set<ShopProductRecord>();
+    public DbSet<CollectionRecord> Collections => Set<CollectionRecord>();
+    public DbSet<CollectionProductRecord> CollectionProducts => Set<CollectionProductRecord>();
     public DbSet<EditorialVersionRecord> EditorialVersions => Set<EditorialVersionRecord>();
     public DbSet<ProductSnapshotRecord> ProductSnapshots => Set<ProductSnapshotRecord>();
     public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
@@ -36,6 +38,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureShop(modelBuilder);
         ConfigureProduct(modelBuilder);
         ConfigureShopProduct(modelBuilder);
+        ConfigureCollection(modelBuilder);
         ConfigureEditorialVersion(modelBuilder);
         ConfigureProductSnapshot(modelBuilder);
         ConfigureProductMedia(modelBuilder);
@@ -173,6 +176,37 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
             .HasForeignKey(item => item.RolledBackFromVersionId).OnDelete(DeleteBehavior.Restrict);
         entity.HasIndex(item => new { item.ShopId, item.ProductId, item.VersionNumber }).IsUnique();
         entity.HasIndex(item => new { item.ShopId, item.CreatedUtc });
+    }
+
+    private static void ConfigureCollection(ModelBuilder modelBuilder)
+    {
+        var collection = modelBuilder.Entity<CollectionRecord>();
+        collection.ToTable("Collections");
+        collection.HasKey(item => item.Id);
+        collection.Property(item => item.Slug).HasMaxLength(80).IsRequired();
+        collection.Property(item => item.DisplayName).HasMaxLength(160).IsRequired();
+        collection.Property(item => item.ShortDescription).HasMaxLength(500).IsRequired();
+        collection.Property(item => item.IntroductoryCopy).HasMaxLength(4000).IsRequired();
+        collection.Property(item => item.SeoTitle).HasMaxLength(200).IsRequired();
+        collection.Property(item => item.SeoDescription).HasMaxLength(500).IsRequired();
+        collection.Property(item => item.DiscoveryQueriesJson).HasMaxLength(4000).IsRequired();
+        collection.Property(item => item.RowVersion).IsRowVersion();
+        collection.HasOne(item => item.Shop).WithMany(shop => shop.Collections)
+            .HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Cascade);
+        collection.HasIndex(item => new { item.ShopId, item.Slug }).IsUnique();
+        collection.HasIndex(item => new { item.ShopId, item.IsPublished, item.DisplayOrder });
+
+        var membership = modelBuilder.Entity<CollectionProductRecord>();
+        membership.ToTable("CollectionProducts");
+        membership.HasKey(item => new { item.CollectionId, item.ProductId });
+        membership.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
+        membership.Property(item => item.AssignedBy).HasMaxLength(256).IsRequired();
+        membership.HasOne(item => item.Collection).WithMany(item => item.Products)
+            .HasForeignKey(item => item.CollectionId).OnDelete(DeleteBehavior.Cascade);
+        membership.HasOne(item => item.Product).WithMany(item => item.Collections)
+            .HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        membership.HasIndex(item => new { item.CollectionId, item.IsFeatured, item.DisplayOrder });
+        membership.HasIndex(item => item.ProductId);
     }
 
     private static void ConfigureProductSnapshot(ModelBuilder modelBuilder)

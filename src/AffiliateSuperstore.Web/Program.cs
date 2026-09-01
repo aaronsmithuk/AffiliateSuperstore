@@ -192,6 +192,8 @@ builder.Services.AddTransient<IStructuredSuggestionProvider>(serviceProvider =>
         : serviceProvider.GetRequiredService<UnavailableStructuredSuggestionProvider>());
 builder.Services.AddTransient<CatalogueAiSuggestionService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
+builder.Services.AddTransient<CatalogueCollectionService>();
+builder.Services.AddTransient<CatalogueCollectionDiscoveryService>();
 builder.Services.AddTransient<OutboundRedirectService>();
 builder.Services.AddTransient<AffiliateOrderReconciliationService>();
 builder.Services.AddTransient<AffiliateS2sIngestionService>();

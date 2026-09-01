@@ -26,6 +26,7 @@ public sealed class ShopModel(
     public string Sort { get; private set; } = "popular";
     public string? Category { get; private set; }
     public IReadOnlyList<string> Categories { get; private set; } = [];
+    public IReadOnlyList<ShopCollectionLink> Collections { get; private set; } = [];
     public int SavedCount { get; private set; }
     public int ResultCount { get; private set; }
     public bool IsIndexable { get; private set; }
@@ -60,6 +61,29 @@ public sealed class ShopModel(
         var savedProductIds = basketStore.Get(HttpContext, shop.Slug);
         SavedCount = savedProductIds.Count;
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        Collections = await context.Collections.AsNoTracking()
+            .Where(item => item.Shop.Slug == shop.Slug && item.IsPublished)
+            .Where(item => item.Products.Any(membership => membership.Product.Shops.Any(shopProduct =>
+                shopProduct.ShopId == item.ShopId &&
+                shopProduct.IsActive &&
+                shopProduct.ReviewStatus == ProductReviewStatus.Approved &&
+                shopProduct.Product.IsEligible &&
+                shopProduct.Product.AffiliateLinks.Any(link =>
+                    link.ShopId == shopProduct.ShopId && link.Status == AffiliateLinkStatus.Active))))
+            .OrderBy(item => item.DisplayOrder)
+            .ThenBy(item => item.DisplayName)
+            .Select(item => new ShopCollectionLink(
+                item.Slug,
+                item.DisplayName,
+                item.ShortDescription,
+                item.Products.Count(membership => membership.Product.Shops.Any(shopProduct =>
+                    shopProduct.ShopId == item.ShopId &&
+                    shopProduct.IsActive &&
+                    shopProduct.ReviewStatus == ProductReviewStatus.Approved &&
+                    shopProduct.Product.IsEligible &&
+                    shopProduct.Product.AffiliateLinks.Any(link =>
+                        link.ShopId == shopProduct.ShopId && link.Status == AffiliateLinkStatus.Active)))))
+            .ToListAsync(cancellationToken);
         var query = context.ShopProducts.AsNoTracking()
             .Where(item =>
                 item.Shop.Slug == shop.Slug &&
@@ -211,4 +235,10 @@ public sealed class ShopModel(
         string? SellerName,
         DateTimeOffset LastCheckedUtc,
         bool IsSaved);
+
+    public sealed record ShopCollectionLink(
+        string Slug,
+        string DisplayName,
+        string ShortDescription,
+        int ProductCount);
 }

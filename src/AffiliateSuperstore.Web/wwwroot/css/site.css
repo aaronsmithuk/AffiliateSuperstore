@@ -5,6 +5,58 @@
   place-items: center;
 }
 
+/* Editorial collection pages */
+.collection-shell {
+  padding-top: clamp(1rem, 3vw, 2rem);
+}
+
+.collection-hero {
+  position: relative;
+  max-width: 74rem;
+  margin: 0 auto 1.5rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  border: 1px solid color-mix(in srgb, var(--theme-brand) 18%, transparent);
+  border-radius: 1.5rem;
+  background: linear-gradient(135deg, var(--theme-surface), color-mix(in srgb, var(--theme-accent) 16%, var(--theme-canvas)));
+}
+
+.collection-hero h1 {
+  max-width: 16ch;
+  margin: .25rem 0 .75rem;
+  color: var(--theme-text);
+  font-size: clamp(2.25rem, 7vw, 5rem);
+  line-height: .98;
+}
+
+.collection-hero > p {
+  max-width: 70ch;
+}
+
+.collection-lede {
+  color: var(--theme-brand);
+  font-size: clamp(1.1rem, 2.4vw, 1.45rem);
+  font-weight: 700;
+}
+
+.collection-hero .saved-list-link {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+}
+
+.collection-results {
+  max-width: 88rem;
+  margin: 2rem auto;
+}
+
+@media (max-width: 720px) {
+  .collection-hero .saved-list-link {
+    position: static;
+    display: inline-flex;
+    margin-top: 1rem;
+  }
+}
+
 .auth-card {
   width: min(100%, 540px);
   padding: clamp(1.5rem, 5vw, 3rem);

@@ -59,6 +59,59 @@ public sealed class SitemapModel(
                 candidate.LastRefreshedUtc)));
         }
 
+        if (seoOptions.IndexingEnabled)
+        {
+            var collections = await context.Collections.AsNoTracking()
+                .Where(item => item.IsPublished && item.Shop.IsEnabled)
+                .Select(item => new SitemapCollection(
+                    item.Id,
+                    item.Shop.Slug,
+                    item.Slug,
+                    item.MinimumProductsForIndexing,
+                    item.UpdatedUtc))
+                .ToListAsync(cancellationToken);
+            if (collections.Count > 0)
+            {
+                var collectionIds = collections.Select(item => item.Id).ToArray();
+                var collectionProducts = await (
+                    from membership in context.CollectionProducts.AsNoTracking()
+                    join collection in context.Collections.AsNoTracking() on membership.CollectionId equals collection.Id
+                    join shopProduct in context.ShopProducts.AsNoTracking()
+                        on new { collection.ShopId, membership.ProductId }
+                        equals new { shopProduct.ShopId, shopProduct.ProductId }
+                    where collectionIds.Contains(collection.Id) &&
+                        shopProduct.IsActive &&
+                        shopProduct.ReviewStatus == ProductReviewStatus.Approved &&
+                        shopProduct.Product.IsEligible &&
+                        shopProduct.Product.AffiliateLinks.Any(link =>
+                            link.ShopId == shopProduct.ShopId && link.Status == AffiliateLinkStatus.Active)
+                    select new SitemapCollectionProduct(
+                        collection.Id,
+                        shopProduct.EditorialTitle,
+                        shopProduct.EditorialDescription,
+                        shopProduct.Product.MainImageUrl,
+                        shopProduct.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
+                            .Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
+                        shopProduct.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
+                            .Select(snapshot => snapshot.FetchedUtc).FirstOrDefault()))
+                    .ToListAsync(cancellationToken);
+
+                urls.AddRange(collections
+                    .Where(collection => collectionProducts.Count(product =>
+                        product.CollectionId == collection.Id &&
+                        seoPolicy.IsProductIndexable(
+                            product.EditorialTitle,
+                            product.EditorialDescription,
+                            product.ImageUrl,
+                            product.Price,
+                            product.LastCheckedUtc)) >= collection.MinimumProductsForIndexing)
+                    .Select(collection => CreateUrlElement(
+                        ns,
+                        superstoreOptions.BuildPublicUrl($"/{collection.ShopSlug}/{collection.Slug}"),
+                        collection.UpdatedUtc)));
+            }
+        }
+
         var document = new XDocument(new XElement(ns + "urlset", urls));
         return Content(document.ToString(SaveOptions.DisableFormatting), "application/xml; charset=utf-8");
     }
@@ -77,4 +130,19 @@ public sealed class SitemapModel(
         decimal? Price,
         DateTimeOffset LastCheckedUtc,
         DateTimeOffset LastRefreshedUtc);
+
+    private sealed record SitemapCollection(
+        Guid Id,
+        string ShopSlug,
+        string Slug,
+        int MinimumProductsForIndexing,
+        DateTimeOffset UpdatedUtc);
+
+    private sealed record SitemapCollectionProduct(
+        Guid CollectionId,
+        string? EditorialTitle,
+        string? EditorialDescription,
+        string? ImageUrl,
+        decimal? Price,
+        DateTimeOffset LastCheckedUtc);
 }

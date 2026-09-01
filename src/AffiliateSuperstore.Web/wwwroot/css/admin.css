@@ -11,6 +11,75 @@
     --navy: #172d3f;
 }
 
+/* Editorial collections */
+.collection-admin-grid {
+  align-items: start;
+}
+
+.collection-admin-list {
+  display: grid;
+  gap: .65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.collection-admin-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--admin-border, #dfe4ea);
+  border-radius: .8rem;
+  background: var(--admin-surface, #fff);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collection-admin-card:hover,
+.collection-admin-card.is-selected {
+  border-color: #6d2e5b;
+  box-shadow: 0 0 0 2px rgba(109, 46, 91, .09);
+}
+
+.collection-admin-card span,
+.collection-admin-counts {
+  display: grid;
+  gap: .2rem;
+}
+
+.collection-admin-card small,
+.collection-editor-panel small {
+  color: #667085;
+}
+
+.collection-admin-counts {
+  min-width: 5rem;
+  text-align: right;
+}
+
+.collection-products-panel {
+  margin-top: 1.5rem;
+}
+
+.collection-products-table .catalogue-product-cell strong {
+  max-width: 42rem;
+}
+
+@media (max-width: 760px) {
+  .collection-admin-card {
+    grid-template-columns: 1fr auto;
+  }
+
+  .collection-admin-card .validation-state {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
 * {
     box-sizing: border-box;
 }

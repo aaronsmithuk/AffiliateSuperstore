@@ -32,7 +32,17 @@
         <a class="saved-list-link" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♡</span> Saved <strong>@Model.SavedCount</strong></a>
     </header>
 
-    @if (Model.Categories.Count > 1)
+    @if (Model.Collections.Count > 0)
+    {
+        <nav class="shop-categories" aria-label="Browse plush collections">
+            <a class="shop-category-link is-active" href="@Model.Shop.PathPrefix" aria-current="page"><span aria-hidden="true">✦</span> All plushies</a>
+            @foreach (var collection in Model.Collections)
+            {
+                <a class="shop-category-link" href="/@Model.Shop.Slug/@collection.Slug" title="@collection.ShortDescription">@collection.DisplayName <span>@collection.ProductCount</span></a>
+            }
+        </nav>
+    }
+    else if (Model.Categories.Count > 1)
     {
         <nav class="shop-categories" aria-label="Browse plush categories">
             <a class="shop-category-link @(Model.Category is null ? "is-active" : null)" href="@Model.Shop.PathPrefix" aria-current="@(Model.Category is null ? "page" : null)"><span aria-hidden="true">✦</span> All plushies</a>

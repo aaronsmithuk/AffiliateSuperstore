@@ -20,6 +20,7 @@ public sealed class ShopRecord
     public byte[] RowVersion { get; set; } = [];
 
     public ICollection<ShopProductRecord> Products { get; set; } = [];
+    public ICollection<CollectionRecord> Collections { get; set; } = [];
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
     public ICollection<ProductImpressionDailyRecord> ProductImpressions { get; set; } = [];
@@ -69,6 +70,43 @@ public sealed class ProductRecord
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
     public ICollection<ProductImpressionDailyRecord> Impressions { get; set; } = [];
+    public ICollection<CollectionProductRecord> Collections { get; set; } = [];
+}
+
+public sealed class CollectionRecord
+{
+    public Guid Id { get; set; }
+    public Guid ShopId { get; set; }
+    public string Slug { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string ShortDescription { get; set; } = string.Empty;
+    public string IntroductoryCopy { get; set; } = string.Empty;
+    public string SeoTitle { get; set; } = string.Empty;
+    public string SeoDescription { get; set; } = string.Empty;
+    public string DiscoveryQueriesJson { get; set; } = "[]";
+    public int DisplayOrder { get; set; }
+    public int MinimumProductsForIndexing { get; set; } = 12;
+    public bool IsFeatured { get; set; }
+    public bool IsPublished { get; set; }
+    public DateTimeOffset CreatedUtc { get; set; }
+    public DateTimeOffset UpdatedUtc { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+
+    public ShopRecord Shop { get; set; } = null!;
+    public ICollection<CollectionProductRecord> Products { get; set; } = [];
+}
+
+public sealed class CollectionProductRecord
+{
+    public Guid CollectionId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public bool IsFeatured { get; set; }
+    public DateTimeOffset AssignedUtc { get; set; }
+    public string AssignedBy { get; set; } = string.Empty;
+
+    public CollectionRecord Collection { get; set; } = null!;
+    public ProductRecord Product { get; set; } = null!;
 }
 
 public enum ProductAvailabilityState

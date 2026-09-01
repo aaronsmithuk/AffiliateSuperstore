@@ -1,0 +1,49 @@
+# Editorial collections
+
+Wonder Aisle uses first-party editorial collections instead of exposing AliExpress's source taxonomy as the primary customer navigation. A collection is scoped to one shop, has its own copy and SEO metadata, and can contain products at any editorial-review stage. Only approved, eligible products with an active affiliate link are shown publicly.
+
+## Initial plush taxonomy
+
+The admin can create these eight unpublished drafts with **Seed recommended drafts**:
+
+1. Animal Friends
+2. Ocean & River Friends
+3. Weird & Wonderful
+4. Fantasy & Prehistoric
+5. Gamer Favourites
+6. Cute Food & Novelty
+7. Plush Cushions
+8. Minis & Bag Charms
+
+The names and discovery phrases deliberately avoid marketplace, entertainment-franchise and named-character terms. Product-level intellectual-property review still applies: a generic collection name does not make an unlicensed product suitable for publication.
+
+## Admin workflow
+
+1. Open `/admin/collections` and seed the recommended drafts.
+2. Review and edit the collection name, introduction, SEO title, SEO description and generic discovery queries.
+3. Select **Discover products** to run one first-page AliExpress search per configured phrase. Imported products are assigned to the collection as catalogue candidates, not approved or published.
+4. Review product imagery, seller information, variants, intellectual-property flags and editorial copy in the catalogue admin.
+5. Add or remove products manually where the search results need correction.
+6. Publish the collection only when its indexable-product target is met. The default target is 12.
+
+Discovery stops on an API failure and reports the completed work. Successful results found before the failure remain non-public candidates so they are not lost. Running discovery again is safe: existing product and collection memberships are reused rather than duplicated.
+
+## Publication and SEO safeguards
+
+A collection cannot be published until enough products pass the existing product SEO policy. A qualifying product needs approved editorial copy, an image, a current positive price, a recent snapshot, eligibility, and an active shop-specific affiliate link.
+
+Published collection pages use `/{shop-slug}/{collection-slug}` and provide:
+
+- canonical metadata and collection-specific title and description;
+- `CollectionPage` and `ItemList` structured data;
+- collection-aware analytics metadata;
+- affiliate disclosure and marketplace checkout wording;
+- `noindex` until the collection still meets its configured product threshold.
+
+The sitemap independently applies the same threshold. Empty published collections do not appear in the shop navigation, and thin collections do not enter the sitemap.
+
+## Release procedure
+
+The `AddEditorialCollections` migration creates `Collections` and `CollectionProducts`. Apply the migration through the normal release process before using the admin page. Seeding is an explicit post-release admin action; the migration does not create or publish editorial content.
+
+For the first live content pass, seed all eight drafts, run discovery on two or three high-intent collections, and curate at least 12 genuinely useful products in each before publication. Animal Friends, Ocean & River Friends, and Weird & Wonderful are the strongest starting set because they align with the existing broad plush catalogue without relying on protected franchises.

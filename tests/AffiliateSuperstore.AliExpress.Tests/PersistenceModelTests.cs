@@ -96,6 +96,8 @@ public sealed class PersistenceModelTests
         var member = context.Model.FindEntityType(typeof(CanonicalProductMemberRecord))!;
         var editorialVersion = context.Model.FindEntityType(typeof(EditorialVersionRecord))!;
         var imageFingerprint = context.Model.FindEntityType(typeof(ProductImageFingerprintRecord))!;
+        var collection = context.Model.FindEntityType(typeof(CollectionRecord))!;
+        var collectionProduct = context.Model.FindEntityType(typeof(CollectionProductRecord))!;
 
         Assert.Contains(shop.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(ShopRecord.Slug));
         Assert.Contains(snapshots.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductSnapshotRecord.ProductId), nameof(ProductSnapshotRecord.FetchedUtc)]));
@@ -111,6 +113,11 @@ public sealed class PersistenceModelTests
         Assert.Contains(editorialVersion.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(EditorialVersionRecord.ShopId), nameof(EditorialVersionRecord.ProductId), nameof(EditorialVersionRecord.VersionNumber)]));
         Assert.Contains(imageFingerprint.GetIndexes(), index => index.Properties.Single().Name == nameof(ProductImageFingerprintRecord.ContentSha256));
         Assert.True(imageFingerprint.FindProperty(nameof(ProductImageFingerprintRecord.RowVersion))!.IsConcurrencyToken);
+        Assert.Contains(collection.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(CollectionRecord.ShopId), nameof(CollectionRecord.Slug)]));
+        Assert.True(collection.FindProperty(nameof(CollectionRecord.RowVersion))!.IsConcurrencyToken);
+        Assert.Equal(
+            [nameof(CollectionProductRecord.CollectionId), nameof(CollectionProductRecord.ProductId)],
+            collectionProduct.FindPrimaryKey()!.Properties.Select(property => property.Name));
         Assert.True(product.FindProperty(nameof(ProductRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, product.FindProperty(nameof(ProductRecord.RowVersion))!.ValueGenerated);
     }
