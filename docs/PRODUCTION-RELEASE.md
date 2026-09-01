@@ -167,6 +167,43 @@ the login page. All active neighbouring sites checked healthy. The legacy
 and returns HTTP 404 after redirects; it is not hosted in the Wonder Aisle pool
 and was unaffected by this release.
 
+## Fourth production release and indexing record
+
+Release `b48f3b8` was deployed on 1 September 2026 from the clean detached
+`20260901-094016-b48f3b8` bundle. All 119 tests passed, and the project plus
+published `web.config` again validated as OutOfProcess. The release has no new
+database migration. SmarterASP backup queue item `3744188` completed
+successfully before the application files changed.
+
+Twelve clear, owner-authorized first-review duplicate examples were recorded in
+the identity gold set as immutable tuning labels. They did not accept canonical
+membership or change the public catalogue; the required second-reviewer and
+adjudication work and 500-label target remain open. Four distinct,
+quality-clear products were then given original editorial titles and
+descriptions and approved, taking the
+production readiness gate from 8/12 to 12/12.
+
+The target-root archive was extracted into `\wonderaisle` while
+`app_offline.htm` held only Wonder Aisle offline. `App_Data`, the persistent
+Data Protection key ring and every neighbouring site remained untouched. The
+maintenance marker and uploaded ZIP were removed after successful extraction.
+The release corrected the admin percentage and editorial-version rendering
+without changing the schema.
+
+After post-release health, content, canonical, structured-data and affiliate-
+redirect checks passed, `Seo__IndexingEnabled` was changed to `true` on the
+dedicated `hydraadmin-001E96` pool. `/plushies` and all 12 product pages now
+emit `index,follow`; filtered catalogue URLs and the intentionally thin
+umbrella home emit `noindex,follow`. The sitemap contains exactly the shop plus
+12 unique product URLs. `robots.txt` allows the public catalogue while blocking
+admin, basket, outbound redirect, health and error routes.
+
+The home page, shop, both health endpoints, all four new outbound affiliate
+routes and the authenticated admin were rechecked after the pool configuration
+reload. All active neighbouring domains returned HTTP 200. No account-wide or
+shared-pool recycle was performed; `ilovefitness.co.uk` remains excluded for
+the previously documented external expired-domain behaviour.
+
 ## Canonical HTTPS verification
 
 On 1 September 2026, `https://wonderaisle.co.uk/`, `/plushies`, both health
@@ -174,7 +211,7 @@ endpoints, `/robots.txt`, `/sitemap.xml` and `/admin/login` returned HTTP 200.
 Plain HTTP returns a 307 redirect to the HTTPS origin. The certificate subject
 is `wonderaisle.co.uk`, the issuer is Let's Encrypt, TLS 1.3 negotiated, and the
 certificate is valid through 30 November 2026. HSTS is present with a 30-day
-maximum age. The public shop still shows the intended eight reviewed products.
+maximum age. The public shop now shows the intended 12 reviewed products.
 
 The release-validator pass returned HTTP 200 for the active neighbouring
 domains as well as Wonder Aisle. The legacy `ilovefitness.co.uk` hostname now

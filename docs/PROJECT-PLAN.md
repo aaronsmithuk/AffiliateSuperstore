@@ -103,8 +103,8 @@ The MVP is complete when:
 | 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
-| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | In progress; the 12-product indexable depth target, readiness reporting, token/theme foundation, canonical URLs, quality-gated sitemap, robots controls and Product/ItemList JSON-LD are working; final visual identity remains in parallel design review |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | In progress; release `fb68023`, a fresh isolated backup, all 14 migrations, the production AliExpress secret, owner account, identity calibration workflow and an eight-product reviewed starter catalogue are live; managed TLS, redirects, HSTS, health and applicable neighbouring-site checks pass, while indexing and S2S enablement remain |
+| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 12 distinct products have original reviewed copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Filtered pages and the thin umbrella home remain `noindex,follow`; broader visual/content work can continue without blocking the plushies launch. |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP; release `b48f3b8`, a fresh isolated backup, all 14 migrations, the protected production configuration, owner account, 12-product reviewed catalogue and search indexing are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all applicable neighbouring-site checks pass; production S2S enablement remains a later conversion-operations task. |
 
 ## AI-assisted catalogue and content integration
 
@@ -338,17 +338,17 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 
 Managed custom-domain TLS, HTTP-to-HTTPS redirection and HSTS are now verified.
 AI-1 freshness, AI-2 durable work leasing, AI-3 deterministic identity/review
-and AI-4 versioned editorial quality are deployed through release `fb68023`.
-A controlled production automation cycle
-successfully imported 188 review candidates and published eight reviewed
-starter products; recurring production automation was returned to disabled
-after verification. The bounded AI-3 calibration workflow is complete locally;
-next populate its reviewer-labelled identity set, add lifecycle and copy
-evaluation sets to the same reporting surface, and finish the visual/content
-review needed to expand the public range from eight to at least 12 products.
-Hosted/local model trials and blog generation remain later, gated work.
+and AI-4 versioned editorial quality are deployed through releases `fb68023`
+and `b48f3b8`. A controlled production automation cycle imported 188 review
+candidates, and manual curation has published 12 distinct, editorially complete
+starter products. Search indexing is enabled for the quality-gated shop and
+product URLs; recurring production automation remains disabled after
+verification. The identity gold set now has 12 owner-authorized first-review
+tuning labels, but still needs an independent second reviewer, adjudication and
+progress toward the 500-label target before any automatic canonical linking can
+be considered. Lifecycle/copy evaluation sets, production S2S setup and later
+hosted/local model trials remain gated follow-on work.
 
 Impression tracking can be added when a real CTR is operationally useful. The
-local catalogue-depth gate has been met. Indexing remains blocked on final
-visual/content review and protected production configuration; the provider-hosted
-production release is live over the canonical HTTPS origin.
+catalogue-depth and SEO launch gates have been met. The provider-hosted
+production release is live and indexable over the canonical HTTPS origin.
