@@ -1,6 +1,6 @@
 # AI-assisted catalogue and content automation plan
 
-Status: implementation in progress; production automation remains disabled
+Status: production review assistance active; automatic approval and publication disabled
 
 Prepared: 30 August 2026
 
@@ -60,7 +60,7 @@ saved, approved or published. The sample identified two follow-up eval cases:
 equivalent compound dimensions such as `50x50cm` and `50 × 50 cm` must normalise
 without a false unsupported-number block, and indirect phrases such as "listed
 in" or "the supplied information" should be removed from consumer-facing copy.
-The first approval-queue action is now implemented locally as a separate,
+The first approval-queue action is now deployed as a separate,
 administrator-triggered batch capped at ten items. It considers only active,
 available, collection-assigned products with an active affiliate link, no
 existing editorial copy, a pending/review status and a clear deterministic
@@ -69,8 +69,14 @@ editorial drafts with the provider, model, prompt version and invocation in the
 audit note; warnings, blocked output and provider failures are left unsaved.
 The action never changes approval status or publishes content, rejects a
 concurrent run and reports item-level outcomes, token usage, cache use and
-estimated cost. Deployment and the first production draft run remain gated on
-owner confirmation and production API-key configuration.
+estimated cost. The first production run completed on 1 September 2026 after a
+verified database backup and additive audit-ledger migration. Five of ten
+suggestions were saved as drafts awaiting human review, four were held on
+warnings, one was blocked, and none failed. The run used 4,650 input and 3,160
+output tokens at an estimated USD 0.004722. Database verification found five AI
+editorial versions, all five still awaiting human review and zero approved.
+Automatic approval, publication and unattended AI queue execution remain
+disabled.
 
 ## Executive decision
 

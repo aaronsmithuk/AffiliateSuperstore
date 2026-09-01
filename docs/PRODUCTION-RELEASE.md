@@ -383,6 +383,48 @@ redirected anonymous visitors to `/admin/login`. `circlesofstone.co.uk`,
 `propertiesandhomes.co.uk` all returned HTTP 200 after following canonical
 redirects.
 
+## Tenth production release and AI approval queue record
+
+Commit `db20345` was deployed on 1 September 2026 from the clean detached
+`20260901-154745-db20345` bundle. All 146 tests in that committed revision
+passed, and both the project and published `web.config` validated as
+OutOfProcess. The AI provider feature switches and API key were configured as
+masked environment variables on Wonder Aisle's dedicated
+`hydraadmin-001E96` application pool; no secret was added to the repository or
+release archive. The application-enforced monthly AI budget remains USD 1.
+
+The verified target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. The archive
+excluded `App_Data`, preserving the persistent Data Protection key ring. The
+maintenance marker was renamed to the inactive
+`app_offline.db20345.complete` rollback record after extraction. No
+application-pool or account-wide restart was performed.
+
+The first attempted ten-item run failed closed before any provider call because
+the new audit table had not yet been applied. It created no draft, token usage
+or cost. After explicit confirmation, a successful production SQL backup was
+recorded as provider queue item `3745267`. The additive
+`20260901120505_AddAiInvocationAudit` migration then created `AiInvocations`
+and its four supporting indexes and advanced `__EFMigrationsHistory` to 17
+entries. The admin database page subsequently reported 17 applied and zero
+pending migrations.
+
+The confirmed production AI batch then completed all ten provider calls. Five
+strictly validated suggestions were saved as immutable editorial drafts, four
+were held unsaved on validation warnings, one was blocked and none failed. It
+used 4,650 input and 3,160 output tokens at an estimated cost of USD 0.004722.
+A direct SQL verification found ten successful invocation records and exactly
+five AI editorial versions: all five remain awaiting human review and zero are
+approved. The action did not publish content.
+
+After the migration and paid run, both health endpoints, the home page,
+`/plushies` and `/admin/catalogue` returned HTTP 200. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` also returned HTTP 200. The uploaded release archive
+and inactive maintenance-marker record remain available for explicit,
+separately confirmed cleanup.
+
 ## Build a release bundle
 
 From the repository root:
