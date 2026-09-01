@@ -25,7 +25,8 @@ public sealed record AutomationQueueHealth(
 
 public sealed class AutomationWorkQueueService(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    AutonomousCatalogueOptions autonomousOptions)
 {
     private static readonly SemaphoreSlim MutationGate = new(1, 1);
 
@@ -41,6 +42,12 @@ public sealed class AutomationWorkQueueService(
             .Where(shop => shop.IsEnabled)
             .Select(shop => new { shop.Id, shop.Slug })
             .ToArrayAsync(cancellationToken);
+        var autonomousPolicies = autonomousOptions.Enabled
+            ? await context.AutonomousCataloguePolicies.AsNoTracking()
+                .Where(policy => policy.Mode != AutonomousCatalogueMode.Off)
+                .Select(policy => new { policy.ShopId, policy.ReviewEveryHours })
+                .ToDictionaryAsync(policy => policy.ShopId, cancellationToken)
+            : [];
 
         foreach (var shop in shops)
         {
@@ -56,6 +63,13 @@ public sealed class AutomationWorkQueueService(
             planned += await EnqueueIfDueAsync(
                 shop.Id, shop.Slug, AutomationWorkType.LinkRefresh,
                 TimeSpan.FromHours(options.LinkRefreshHours), 60, options.MaximumAttempts, now, cancellationToken);
+            if (autonomousPolicies.TryGetValue(shop.Id, out var policy))
+            {
+                planned += await EnqueueIfDueAsync(
+                    shop.Id, shop.Slug, AutomationWorkType.AutonomousReview,
+                    TimeSpan.FromHours(Math.Clamp(policy.ReviewEveryHours, 1, 720)), 50,
+                    options.MaximumAttempts, now, cancellationToken);
+            }
         }
 
         return planned;

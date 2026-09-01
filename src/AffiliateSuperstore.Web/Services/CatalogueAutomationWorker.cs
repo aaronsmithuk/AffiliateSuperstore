@@ -211,6 +211,21 @@ public sealed class CatalogueAutomationWorker(
                     result.Replaced);
                 return result.JobId;
             }
+            case AutomationWorkType.AutonomousReview:
+            {
+                var service = scope.ServiceProvider.GetRequiredService<AutonomousCatalogueEvaluationService>();
+                var result = await service.RunAsync(lease.ShopSlug, lease.Id, cancellationToken);
+                logger.LogInformation(
+                    "Durable autonomous {Mode} review for {ShopSlug} prepared {DraftsPrepared} drafts, evaluated {Evaluated}, would publish {WouldPublish}, held {Held} and published {Published}.",
+                    result.Mode,
+                    lease.ShopSlug,
+                    result.DraftsPrepared,
+                    result.ProductsEvaluated,
+                    result.WouldPublish,
+                    result.Held,
+                    result.Published);
+                return null;
+            }
             default:
                 throw new ArgumentOutOfRangeException(nameof(lease), lease.Type, "Unsupported automation work type.");
         }

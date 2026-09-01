@@ -28,6 +28,8 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ProductImpressionDailyRecord> ProductImpressions => Set<ProductImpressionDailyRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
     public DbSet<AutomationWorkItemRecord> AutomationWorkItems => Set<AutomationWorkItemRecord>();
+    public DbSet<AutonomousCataloguePolicyRecord> AutonomousCataloguePolicies => Set<AutonomousCataloguePolicyRecord>();
+    public DbSet<AutonomousCatalogueDecisionRecord> AutonomousCatalogueDecisions => Set<AutonomousCatalogueDecisionRecord>();
     public DbSet<AiInvocationRecord> AiInvocations => Set<AiInvocationRecord>();
     public DbSet<AffiliateOrderRecord> AffiliateOrders => Set<AffiliateOrderRecord>();
     public DbSet<AffiliateS2sEventRecord> AffiliateS2sEvents => Set<AffiliateS2sEventRecord>();
@@ -50,6 +52,8 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureProductImpression(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
         ConfigureAutomationWorkItem(modelBuilder);
+        ConfigureAutonomousCataloguePolicy(modelBuilder);
+        ConfigureAutonomousCatalogueDecision(modelBuilder);
         ConfigureAiInvocation(modelBuilder);
         ConfigureAffiliateOrder(modelBuilder);
         ConfigureAffiliateS2sEvent(modelBuilder);
@@ -441,6 +445,46 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasIndex(item => new { item.Status, item.AvailableUtc, item.Priority });
         entity.HasIndex(item => new { item.ShopId, item.Type, item.QueuedUtc });
         entity.HasIndex(item => item.LeaseExpiresUtc);
+    }
+
+    private static void ConfigureAutonomousCataloguePolicy(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<AutonomousCataloguePolicyRecord>();
+        entity.ToTable("AutonomousCataloguePolicies");
+        entity.HasKey(item => item.ShopId);
+        entity.Property(item => item.Mode).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.MinimumReadinessScore).HasPrecision(5, 4);
+        entity.Property(item => item.DuplicateHoldConfidence).HasPrecision(5, 4);
+        entity.Property(item => item.DailyAiBudgetUsd).HasPrecision(18, 8);
+        entity.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
+        entity.Property(item => item.RowVersion).IsRowVersion();
+        entity.HasOne(item => item.Shop).WithOne()
+            .HasForeignKey<AutonomousCataloguePolicyRecord>(item => item.ShopId)
+            .OnDelete(DeleteBehavior.Cascade);
+        entity.HasIndex(item => new { item.Mode, item.UpdatedUtc });
+    }
+
+    private static void ConfigureAutonomousCatalogueDecision(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<AutonomousCatalogueDecisionRecord>();
+        entity.ToTable("AutonomousCatalogueDecisions");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.Mode).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.Decision).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.Action).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.ReadinessScore).HasPrecision(5, 4);
+        entity.Property(item => item.ReasonCodesJson).HasMaxLength(2000).IsRequired();
+        entity.Property(item => item.Summary).HasMaxLength(1000).IsRequired();
+        entity.Property(item => item.EvidenceJson).HasMaxLength(4000).IsRequired();
+        entity.Property(item => item.PolicySnapshotJson).HasMaxLength(2000).IsRequired();
+        entity.HasOne(item => item.Shop).WithMany().HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne(item => item.WorkItem).WithMany().HasForeignKey(item => item.WorkItemId).OnDelete(DeleteBehavior.SetNull);
+        entity.HasOne(item => item.EditorialVersion).WithMany().HasForeignKey(item => item.EditorialVersionId).OnDelete(DeleteBehavior.SetNull);
+        entity.HasIndex(item => new { item.ShopId, item.EvaluatedUtc });
+        entity.HasIndex(item => new { item.ShopId, item.ProductId, item.EditorialVersionNumber, item.EvaluatedUtc });
+        entity.HasIndex(item => new { item.ShopId, item.Action, item.EvaluatedUtc });
     }
 
     private static void ConfigureAffiliateOrder(ModelBuilder modelBuilder)

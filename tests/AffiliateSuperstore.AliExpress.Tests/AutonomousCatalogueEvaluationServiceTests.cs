@@ -1,0 +1,232 @@
+using AffiliateSuperstore.Application.Catalogue;
+using AffiliateSuperstore.Persistence;
+using AffiliateSuperstore.Persistence.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace AffiliateSuperstore.AliExpress.Tests;
+
+public sealed class AutonomousCatalogueEvaluationServiceTests
+{
+    [Fact]
+    public async Task RunAsync_ShadowModeRecordsWouldPublishWithoutApprovingProduct()
+    {
+        var now = new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, now);
+        var aiOptions = new AiAutomationOptions
+        {
+            Enabled = true,
+            ProductCopyEnabled = true,
+            ApiKey = "test-key",
+            MaximumReservedCostPerCallUsd = .01m
+        };
+        var autonomousOptions = new AutonomousCatalogueOptions
+        {
+            Enabled = true,
+            AutomaticPublishingEnabled = false
+        };
+        var clock = new FixedTimeProvider(now);
+        var validator = new EditorialContentValidator();
+        var quality = new ProductQualityAssessmentService(factory, clock);
+        var editorial = new CatalogueEditorialService(factory, quality, validator, clock);
+        var suggestions = new CatalogueAiSuggestionService(
+            factory,
+            new FailingProvider(),
+            validator,
+            new AiInvocationAuditService(factory, aiOptions, clock),
+            aiOptions);
+        var queue = new CatalogueAiQueuePreparationService(factory, suggestions, editorial, quality, aiOptions);
+        var policy = new AutonomousCataloguePolicyService(factory, autonomousOptions, clock);
+        var service = new AutonomousCatalogueEvaluationService(
+            factory,
+            policy,
+            queue,
+            new CatalogueAiReviewService(factory),
+            editorial,
+            autonomousOptions,
+            new CatalogueAutomationOptions { ProductStaleAfterHours = 30 },
+            aiOptions,
+            clock);
+
+        var result = await service.RunAsync("plushies");
+
+        Assert.Equal(1, result.ProductsEvaluated);
+        Assert.Equal(1, result.WouldPublish);
+        Assert.Equal(0, result.Held);
+        Assert.Equal(0, result.Published);
+        Assert.Contains("Nothing was published", result.Message, StringComparison.Ordinal);
+        await using var context = factory.CreateDbContext();
+        Assert.Equal(ProductReviewStatus.Pending, (await context.ShopProducts.SingleAsync()).ReviewStatus);
+        var decision = await context.AutonomousCatalogueDecisions.SingleAsync();
+        Assert.Equal(AutonomousCatalogueDecision.WouldPublish, decision.Decision);
+        Assert.Equal(AutonomousCatalogueAction.ShadowRecorded, decision.Action);
+        Assert.Equal(1m, decision.ReadinessScore);
+    }
+
+    private static async Task SeedAsync(InMemoryFactory factory, DateTimeOffset now)
+    {
+        await using var context = factory.CreateDbContext();
+        var shopId = Guid.CreateVersion7();
+        var collectionId = Guid.CreateVersion7();
+        var versionId = Guid.CreateVersion7();
+        var invocationId = Guid.CreateVersion7();
+        context.Shops.Add(new ShopRecord
+        {
+            Id = shopId,
+            Slug = "plushies",
+            DisplayName = "The Plushy Shop",
+            PathPrefix = "/plushies",
+            TrackingId = "theplushyshop",
+            DefaultSearchQuery = "plush toy",
+            SeoTitle = "Plush toys",
+            SeoDescription = "Curated plush toys",
+            PrimaryColour = "#000000",
+            AccentColour = "#ffffff",
+            CreatedUtc = now,
+            UpdatedUtc = now
+        });
+        context.AutonomousCataloguePolicies.Add(new AutonomousCataloguePolicyRecord
+        {
+            ShopId = shopId,
+            Mode = AutonomousCatalogueMode.Shadow,
+            ReviewEveryHours = 24,
+            MaximumCandidatesPerRun = 5,
+            MaximumAutoPublishesPerDay = 5,
+            MinimumReadinessScore = .98m,
+            DuplicateHoldConfidence = .85m,
+            DailyAiBudgetUsd = .10m,
+            CreatedUtc = now,
+            UpdatedUtc = now,
+            UpdatedBy = "test"
+        });
+        context.Products.Add(new ProductRecord
+        {
+            AliExpressProductId = "shadow-product",
+            Title = "Highland cow plush toy",
+            ProductDetailUrl = "https://www.aliexpress.com/item/shadow-product.html",
+            MainImageUrl = "https://example.test/product.jpg",
+            FirstLevelCategoryName = "Toys & hobbies",
+            SecondLevelCategoryName = "Stuffed animals",
+            SellerName = "Example seller",
+            IsEligible = true,
+            FirstSeenUtc = now.AddDays(-1),
+            LastSeenUtc = now,
+            LastRefreshedUtc = now,
+            LastCheckedUtc = now.AddHours(-1),
+            AvailabilityState = ProductAvailabilityState.Available
+        });
+        context.ShopProducts.Add(new ShopProductRecord
+        {
+            ShopId = shopId,
+            ProductId = "shadow-product",
+            EditorialTitle = "Highland Cow Plush",
+            EditorialDescription = "A Highland cow plush with a softly rounded design.",
+            CurrentEditorialVersionNumber = 1,
+            EditorialValidationState = EditorialValidationState.Passed,
+            AutomatedReviewFlags = "[]",
+            ReviewStatus = ProductReviewStatus.Pending,
+            FirstIncludedUtc = now,
+            LastIncludedUtc = now
+        });
+        context.ProductSnapshots.Add(new ProductSnapshotRecord
+        {
+            ProductId = "shadow-product",
+            FetchedUtc = now,
+            SalePrice = 9.99m,
+            OriginalPrice = 12.99m,
+            Currency = "GBP"
+        });
+        context.AffiliateLinks.Add(new AffiliateLinkRecord
+        {
+            Id = Guid.CreateVersion7(),
+            ShopId = shopId,
+            ProductId = "shadow-product",
+            SourceUrl = "https://www.aliexpress.com/item/shadow-product.html",
+            PromotionUrl = "https://s.click.aliexpress.com/e/shadow-product",
+            TrackingId = "theplushyshop",
+            Status = AffiliateLinkStatus.Active,
+            GeneratedUtc = now
+        });
+        context.Collections.Add(new CollectionRecord
+        {
+            Id = collectionId,
+            ShopId = shopId,
+            Slug = "animal-friends",
+            DisplayName = "Animal Friends",
+            ShortDescription = "Animal plush companions.",
+            IntroductoryCopy = "A reviewed animal plush collection.",
+            SeoTitle = "Animal plush toys",
+            SeoDescription = "Reviewed animal plush toys.",
+            IsPublished = true,
+            CreatedUtc = now,
+            UpdatedUtc = now
+        });
+        context.CollectionProducts.Add(new CollectionProductRecord
+        {
+            CollectionId = collectionId,
+            ProductId = "shadow-product",
+            AssignedUtc = now,
+            AssignedBy = "test"
+        });
+        context.EditorialVersions.Add(new EditorialVersionRecord
+        {
+            Id = versionId,
+            ShopId = shopId,
+            ProductId = "shadow-product",
+            VersionNumber = 1,
+            EditorialTitle = "Highland Cow Plush",
+            EditorialDescription = "A Highland cow plush with a softly rounded design.",
+            ChangeKind = EditorialVersionChangeKind.Edit,
+            ChangeReason = $"AI-assisted review draft (openai/test, product-editorial-v2, invocation {invocationId}); requires administrator approval.",
+            CreatedBy = "autonomous shadow via AI queue",
+            CreatedUtc = now,
+            ValidationState = EditorialValidationState.Passed,
+            ValidationFindingsJson = "[]",
+            ValidatorVersion = EditorialContentValidator.Version,
+            ContentHash = "shadow-content-hash"
+        });
+        context.AiInvocations.Add(new AiInvocationRecord
+        {
+            Id = invocationId,
+            Purpose = AiInvocationAuditService.ProductCopyPurpose,
+            ProductId = "shadow-product",
+            Provider = "OpenAI",
+            Model = "test-model",
+            PromptVersion = CatalogueAiSuggestionService.PromptVersion,
+            InputHash = "input-hash",
+            CacheKey = "cache-key",
+            Status = AiInvocationStatus.Succeeded,
+            RequestedUtc = now.AddMinutes(-1),
+            CompletedUtc = now,
+            InputTokens = 100,
+            OutputTokens = 30,
+            EstimatedCostUsd = .001m,
+            EditorialValidationState = EditorialValidationState.Passed,
+            ValidationFindingsJson = "[]"
+        });
+        await context.SaveChangesAsync();
+    }
+
+    private sealed class FailingProvider : IStructuredSuggestionProvider
+    {
+        public bool IsAvailable => true;
+        public string AvailabilityMessage => "Available";
+        public Task<ProductEditorialSuggestionOutput> SuggestProductCopyAsync(
+            ProductEditorialSuggestionRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The seeded product already has editorial copy and must not invoke the provider.");
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private sealed class InMemoryFactory(string databaseName) : IDbContextFactory<AffiliateSuperstoreDbContext>
+    {
+        public AffiliateSuperstoreDbContext CreateDbContext() => new(
+            new DbContextOptionsBuilder<AffiliateSuperstoreDbContext>()
+                .UseInMemoryDatabase(databaseName)
+                .Options);
+    }
+}

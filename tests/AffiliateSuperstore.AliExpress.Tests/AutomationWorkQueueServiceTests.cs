@@ -11,7 +11,7 @@ public sealed class AutomationWorkQueueServiceTests
     public async Task PlanDueAsync_IsIdempotentAndCreatesIndependentWorkTypes()
     {
         var (factory, clock, _) = await CreateDatabaseAsync();
-        var service = new AutomationWorkQueueService(factory, clock);
+        var service = Service(factory, clock);
         var options = Options();
 
         var first = await service.PlanDueAsync(options);
@@ -26,11 +26,37 @@ public sealed class AutomationWorkQueueServiceTests
     }
 
     [Fact]
+    public async Task PlanDueAsync_AddsAutonomousReviewOnlyForActivePolicy()
+    {
+        var (factory, clock, shopId) = await CreateDatabaseAsync();
+        await using (var context = factory.CreateDbContext())
+        {
+            context.AutonomousCataloguePolicies.Add(new AutonomousCataloguePolicyRecord
+            {
+                ShopId = shopId,
+                Mode = AutonomousCatalogueMode.Shadow,
+                ReviewEveryHours = 12,
+                CreatedUtc = clock.UtcNow,
+                UpdatedUtc = clock.UtcNow,
+                UpdatedBy = "test"
+            });
+            await context.SaveChangesAsync();
+        }
+        var service = Service(factory, clock);
+
+        Assert.Equal(5, await service.PlanDueAsync(Options()));
+        await using var verification = factory.CreateDbContext();
+        Assert.Single(await verification.AutomationWorkItems
+            .Where(item => item.Type == AutomationWorkType.AutonomousReview)
+            .ToListAsync());
+    }
+
+    [Fact]
     public async Task ClaimNextAsync_ConcurrentClaimersLeaseOneItemOnce()
     {
         var (factory, clock, shopId) = await CreateDatabaseAsync();
         await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 3);
-        var service = new AutomationWorkQueueService(factory, clock);
+        var service = Service(factory, clock);
 
         var claims = await Task.WhenAll(Enumerable.Range(0, 4)
             .Select(index => service.ClaimNextAsync($"worker-{index}", TimeSpan.FromMinutes(15))));
@@ -48,7 +74,7 @@ public sealed class AutomationWorkQueueServiceTests
     {
         var (factory, clock, shopId) = await CreateDatabaseAsync();
         await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 2);
-        var service = new AutomationWorkQueueService(factory, clock);
+        var service = Service(factory, clock);
         var options = Options();
 
         var first = await service.ClaimNextAsync("worker-a", TimeSpan.FromMinutes(10));
@@ -70,7 +96,7 @@ public sealed class AutomationWorkQueueServiceTests
     {
         var (factory, clock, shopId) = await CreateDatabaseAsync();
         await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 3);
-        var service = new AutomationWorkQueueService(factory, clock);
+        var service = Service(factory, clock);
         var options = Options();
         var lease = await service.ClaimNextAsync("worker-a", TimeSpan.FromMinutes(10));
 
@@ -90,7 +116,7 @@ public sealed class AutomationWorkQueueServiceTests
     {
         var (factory, clock, shopId) = await CreateDatabaseAsync();
         await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 3);
-        var service = new AutomationWorkQueueService(factory, clock);
+        var service = Service(factory, clock);
         var lease = await service.ClaimNextAsync("worker-a", TimeSpan.FromMinutes(10));
         clock.UtcNow = clock.UtcNow.AddMinutes(5);
 
@@ -108,7 +134,7 @@ public sealed class AutomationWorkQueueServiceTests
     {
         var (factory, clock, shopId) = await CreateDatabaseAsync();
         await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 1);
-        var service = new AutomationWorkQueueService(factory, clock);
+        var service = Service(factory, clock);
         var lease = await service.ClaimNextAsync("worker-a", TimeSpan.FromMinutes(10));
         Assert.Equal(AutomationWorkStatus.DeadLetter,
             await service.FailAsync(lease!.Id, "worker-a", "test failure", Options()));
@@ -134,6 +160,9 @@ public sealed class AutomationWorkQueueServiceTests
         RetryBaseMinutes = 15,
         RetryMaximumMinutes = 60
     };
+
+    private static AutomationWorkQueueService Service(InMemoryFactory factory, MutableTimeProvider clock) =>
+        new(factory, clock, new AutonomousCatalogueOptions());
 
     private static async Task<(InMemoryFactory Factory, MutableTimeProvider Clock, Guid ShopId)> CreateDatabaseAsync()
     {

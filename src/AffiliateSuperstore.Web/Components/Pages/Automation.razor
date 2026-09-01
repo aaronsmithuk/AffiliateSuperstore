@@ -9,6 +9,9 @@
 @inject AutomationWorkQueueService WorkQueue
 @inject CatalogueAutomationMonitorService MonitorService
 @inject AffiliateSuperstore.Web.Services.CatalogueAutomationWakeSignal WakeSignal
+@inject AutonomousCataloguePolicyService PolicyService
+@inject AutonomousCatalogueOptions AutonomousOptions
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Catalogue automation</PageTitle>
 
@@ -36,6 +39,129 @@
         <p>The worker checks every @Options.PollEveryMinutes minutes and refreshes successful catalogues every @Options.RefreshEveryHours hours. The external wake URL @(string.IsNullOrWhiteSpace(Options.WakeToken) ? "is not configured" : "requires its configured secret").</p>
     </div>
     <span class="database-health">@(Options.Enabled ? "Running" : "Off")</span>
+</section>
+
+<section class="panel autonomous-policy-panel">
+    <div class="panel-heading">
+        <div>
+            <p class="eyebrow">Controlled autonomy</p>
+            <h2>Autonomous catalogue policy</h2>
+            <p class="panel-copy">Shadow mode prepares AI drafts and records publish-or-hold decisions without changing the public catalogue.</p>
+        </div>
+        @if (PolicyEditor is not null)
+        {
+            <span class="result-badge @ModeClass(PolicyEditor.Mode)">@PolicyEditor.Mode</span>
+        }
+    </div>
+    @if (Policies.Count == 0 || PolicyEditor is null)
+    {
+        <p class="database-empty">No enabled shop has an autonomous policy.</p>
+    }
+    else
+    {
+        <div class="autonomous-policy-grid">
+            <div class="autonomous-policy-form">
+                <div class="form-field">
+                    <label for="autonomous-shop">Shop</label>
+                    <select id="autonomous-shop" value="@SelectedPolicySlug" @onchange="PolicySelectionChanged" disabled="@IsBusy">
+                        @foreach (var policy in Policies)
+                        {
+                            <option value="@policy.ShopSlug">@policy.ShopName</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="autonomous-mode">Mode</label>
+                    <select id="autonomous-mode" @bind="PolicyEditor.Mode" disabled="@IsBusy">
+                        <option value="@AutonomousCatalogueMode.Off">Off</option>
+                        <option value="@AutonomousCatalogueMode.Shadow">Shadow</option>
+                        <option value="@AutonomousCatalogueMode.Automatic" disabled="@(!AutonomousOptions.AutomaticPublishingEnabled)">Automatic</option>
+                    </select>
+                    @if (!AutonomousOptions.AutomaticPublishingEnabled)
+                    {
+                        <small>Automatic publication is globally locked while shadow decisions are calibrated.</small>
+                    }
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="review-cadence">Review every (hours)</label>
+                        <input id="review-cadence" type="number" min="1" max="720" @bind="PolicyEditor.ReviewEveryHours" disabled="@IsBusy" />
+                    </div>
+                    <div class="form-field">
+                        <label for="candidate-limit">Candidates per run</label>
+                        <input id="candidate-limit" type="number" min="1" max="10" @bind="PolicyEditor.MaximumCandidatesPerRun" disabled="@IsBusy" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="readiness-score">Minimum readiness</label>
+                        <input id="readiness-score" type="number" min="0.5" max="1" step="0.01" @bind="PolicyEditor.MinimumReadinessScore" disabled="@IsBusy" />
+                    </div>
+                    <div class="form-field">
+                        <label for="duplicate-threshold">Duplicate hold</label>
+                        <input id="duplicate-threshold" type="number" min="0.5" max="1" step="0.01" @bind="PolicyEditor.DuplicateHoldConfidence" disabled="@IsBusy" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="ai-daily-budget">Daily AI budget (USD)</label>
+                        <input id="ai-daily-budget" type="number" min="0" max="100" step="0.01" @bind="PolicyEditor.DailyAiBudgetUsd" disabled="@IsBusy" />
+                    </div>
+                    <div class="form-field">
+                        <label for="publish-limit">Daily publication limit</label>
+                        <input id="publish-limit" type="number" min="1" max="100" @bind="PolicyEditor.MaximumAutoPublishesPerDay" disabled="@IsBusy" />
+                    </div>
+                </div>
+                <div class="button-row">
+                    <button class="button button-primary" type="button" @onclick="SavePolicyAsync" disabled="@IsBusy">Save policy</button>
+                </div>
+                <small>Last updated @LocalTime(PolicyEditor.UpdatedUtc) by @PolicyEditor.UpdatedBy.</small>
+            </div>
+            <div class="autonomous-safety-card">
+                <p class="eyebrow">Hard publication gates</p>
+                <h3>AI cannot override these checks</h3>
+                <ul>
+                    <li>Active, eligible and recently checked source product</li>
+                    <li>Available offer with a positive price and active affiliate link</li>
+                    <li>Published-shop collection assignment</li>
+                    <li>No quality, suitability or unsupported-claim flags</li>
+                    <li>No confirmed or high-confidence probable duplicate</li>
+                    <li>Audited AI provenance with an unchanged validated draft</li>
+                </ul>
+            </div>
+        </div>
+    }
+</section>
+
+<section class="metric-grid" aria-label="Autonomous shadow results">
+    <article class="metric-card"><strong>@RecentDecisionRows.Count</strong><span>Recent decisions</span></article>
+    <article class="metric-card"><strong>@RecentDecisionRows.Count(item => item.Decision == AutonomousCatalogueDecision.WouldPublish)</strong><span>Would publish</span></article>
+    <article class="metric-card"><strong>@RecentDecisionRows.Count(item => item.Decision == AutonomousCatalogueDecision.Hold)</strong><span>Held for review</span></article>
+    <article class="metric-card"><strong>@RecentDecisionRows.Count(item => item.Action == AutonomousCatalogueAction.Published)</strong><span>Actually published</span></article>
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Decision audit</p><h2>Recent autonomous evaluations</h2></div><span class="count-badge">@RecentDecisionRows.Count</span></div>
+    @if (RecentDecisionRows.Count == 0)
+    {
+        <p class="database-empty">The first shadow decisions will appear after the scheduled worker runs.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Evaluated</th><th>Product</th><th>Decision</th><th>Score</th><th>Mode / action</th><th>Reason</th></tr></thead><tbody>
+        @foreach (var decision in RecentDecisionRows)
+        {
+            <tr>
+                <td>@LocalTime(decision.EvaluatedUtc)</td>
+                <td><strong>@decision.ProductTitle</strong><small>@decision.ProductId · @decision.ShopSlug · editorial v@decision.EditorialVersionNumber</small></td>
+                <td><span class="result-badge @DecisionClass(decision.Decision)">@DecisionLabel(decision.Decision)</span></td>
+                <td>@decision.ReadinessScore.ToString("P0")</td>
+                <td><span>@decision.Mode</span><small>@decision.Action</small></td>
+                <td><span>@decision.Summary</span>@if (!string.IsNullOrWhiteSpace(decision.ReasonCodes)) { <small>@decision.ReasonCodes</small> }</td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
 </section>
 
 @if (Monitoring is not null)
@@ -155,8 +281,8 @@
 </section>
 
 <div class="alert-card warning-card automation-note">
-    <strong>Publication remains human-controlled</strong>
-    <span>Automation can discover, refresh and hide a product after two missing direct checks spanning at least 24 hours. It cannot approve or publish a product; editorial approval remains on the Catalogue page.</span>
+    <strong>Shadow mode cannot publish</strong>
+    <span>The worker can discover, refresh, classify and prepare editorial drafts. Shadow decisions are evidence for calibration only; the global automatic-publication safety switch remains off.</span>
 </div>
 
 @code {
@@ -167,6 +293,10 @@
     private List<ShopScheduleRow> Shops = [];
     private List<WorkItemRow> WorkItems = [];
     private List<JobRunRow> JobRuns = [];
+    private List<AutonomousCataloguePolicy> Policies = [];
+    private List<AutonomousDecisionRow> RecentDecisionRows = [];
+    private string? SelectedPolicySlug;
+    private PolicyEditorModel? PolicyEditor;
     private AutomationQueueHealth? QueueHealth;
     private CatalogueAutomationMonitoringReport? Monitoring;
     private bool IsLoading;
@@ -205,6 +335,11 @@
             Shops = rows;
             QueueHealth = await WorkQueue.GetHealthAsync();
             Monitoring = await MonitorService.GetReportAsync(Options);
+            Policies = (await PolicyService.GetAllAsync()).ToList();
+            SelectedPolicySlug = Policies.Any(item => item.ShopSlug == SelectedPolicySlug)
+                ? SelectedPolicySlug
+                : Policies.FirstOrDefault()?.ShopSlug;
+            LoadPolicyEditor();
             WorkItems = await context.AutomationWorkItems.AsNoTracking()
                 .OrderByDescending(item => item.QueuedUtc)
                 .Take(50)
@@ -222,6 +357,22 @@
                     item.CompletedUtc,
                     item.LastError,
                     item.ResultJobId))
+                .ToListAsync();
+            RecentDecisionRows = await context.AutonomousCatalogueDecisions.AsNoTracking()
+                .OrderByDescending(item => item.EvaluatedUtc)
+                .Take(50)
+                .Select(item => new AutonomousDecisionRow(
+                    item.ProductId,
+                    item.Product.Title,
+                    item.Shop.Slug,
+                    item.EditorialVersionNumber,
+                    item.Mode,
+                    item.Decision,
+                    item.Action,
+                    item.ReadinessScore,
+                    item.Summary,
+                    item.ReasonCodesJson,
+                    item.EvaluatedUtc))
                 .ToListAsync();
             JobRuns = await context.IngestionJobs.AsNoTracking()
                 .Where(job => job.Type == IngestionJobType.CatalogueDiscovery ||
@@ -245,6 +396,51 @@
                 .ToListAsync();
         }
         finally { IsLoading = false; }
+    }
+
+    private void PolicySelectionChanged(ChangeEventArgs args)
+    {
+        SelectedPolicySlug = args.Value?.ToString();
+        LoadPolicyEditor();
+    }
+
+    private void LoadPolicyEditor()
+    {
+        var policy = Policies.SingleOrDefault(item => item.ShopSlug == SelectedPolicySlug);
+        PolicyEditor = policy is null ? null : new PolicyEditorModel(policy);
+    }
+
+    private async Task SavePolicyAsync()
+    {
+        if (PolicyEditor is null) return;
+        IsActing = true;
+        ActionFailed = false;
+        try
+        {
+            var authentication = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var actor = authentication.User.Identity?.Name ?? "administrator";
+            var result = await PolicyService.UpdateAsync(new AutonomousCataloguePolicyUpdate(
+                PolicyEditor.ShopSlug,
+                PolicyEditor.Mode,
+                PolicyEditor.ReviewEveryHours,
+                PolicyEditor.MaximumCandidatesPerRun,
+                PolicyEditor.MaximumAutoPublishesPerDay,
+                PolicyEditor.MinimumReadinessScore,
+                PolicyEditor.DuplicateHoldConfidence,
+                PolicyEditor.DailyAiBudgetUsd,
+                actor,
+                PolicyEditor.ExpectedRowVersion));
+            ActionFailed = !result.Succeeded;
+            ActionMessage = result.Message;
+            if (result.Succeeded && Options.Enabled) WakeSignal.Signal();
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            ActionFailed = true;
+            ActionMessage = exception.Message;
+        }
+        finally { IsActing = false; }
     }
 
     private async Task WakeWorkerAsync()
@@ -302,10 +498,39 @@
     private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
     private static string StatusClass(IngestionJobStatus? status) => status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded ? "success" : status is null ? string.Empty : "failure";
     private static string WorkStatusClass(AutomationWorkStatus status) => status == AutomationWorkStatus.Succeeded ? "success" : status is AutomationWorkStatus.DeadLetter or AutomationWorkStatus.Cancelled ? "failure" : string.Empty;
+    private static string ModeClass(AutonomousCatalogueMode mode) => mode == AutonomousCatalogueMode.Shadow ? "success" : mode == AutonomousCatalogueMode.Automatic ? "failure" : string.Empty;
+    private static string DecisionClass(AutonomousCatalogueDecision decision) => decision == AutonomousCatalogueDecision.WouldPublish ? "success" : "failure";
+    private static string DecisionLabel(AutonomousCatalogueDecision decision) => decision == AutonomousCatalogueDecision.WouldPublish ? "Would publish" : "Hold";
     private static string ShortError(string error) => error.Length <= 100 ? error : error[..100] + "…";
     private static string AlertClass(AutomationAlertSeverity severity) => severity switch { AutomationAlertSeverity.Critical => "error-card", AutomationAlertSeverity.Warning => "warning-card", _ => "success-card" };
     private static string Duration(DateTimeOffset? startedUtc, DateTimeOffset? completedUtc) => startedUtc is null ? "—" : completedUtc is null ? "Running" : (completedUtc.Value - startedUtc.Value).TotalSeconds < 60 ? $"{(completedUtc.Value - startedUtc.Value).TotalSeconds:N0} sec" : $"{(completedUtc.Value - startedUtc.Value).TotalMinutes:N1} min";
     private sealed record ShopScheduleRow(string Slug, string DisplayName, IngestionJobStatus? Status, DateTimeOffset? StartedUtc, DateTimeOffset? CompletedUtc, DateTimeOffset? NextDueUtc, bool IsDue);
     private sealed record WorkItemRow(Guid Id, AutomationWorkType Type, string? ShopSlug, AutomationWorkStatus Status, string IdempotencyKey, int AttemptCount, int MaximumAttempts, DateTimeOffset AvailableUtc, string? LeaseOwner, DateTimeOffset? LeaseExpiresUtc, DateTimeOffset? CompletedUtc, string? LastError, Guid? ResultJobId);
     private sealed record JobRunRow(Guid Id, IngestionJobType Type, string? ShopSlug, IngestionJobStatus Status, int ItemsRead, int ItemsWritten, int ItemsRejected, DateTimeOffset QueuedUtc, DateTimeOffset? StartedUtc, DateTimeOffset? CompletedUtc, string? Checkpoint, string? ErrorSummary);
+    private sealed record AutonomousDecisionRow(string ProductId, string ProductTitle, string ShopSlug, int EditorialVersionNumber, AutonomousCatalogueMode Mode, AutonomousCatalogueDecision Decision, AutonomousCatalogueAction Action, decimal ReadinessScore, string Summary, string ReasonCodesJson, DateTimeOffset EvaluatedUtc)
+    {
+        public string ReasonCodes
+        {
+            get
+            {
+                try { return string.Join(", ", System.Text.Json.JsonSerializer.Deserialize<string[]>(ReasonCodesJson) ?? []); }
+                catch (System.Text.Json.JsonException) { return ReasonCodesJson; }
+            }
+        }
+    }
+
+    private sealed class PolicyEditorModel(AutonomousCataloguePolicy policy)
+    {
+        public string ShopSlug { get; } = policy.ShopSlug;
+        public AutonomousCatalogueMode Mode { get; set; } = policy.Mode;
+        public int ReviewEveryHours { get; set; } = policy.ReviewEveryHours;
+        public int MaximumCandidatesPerRun { get; set; } = policy.MaximumCandidatesPerRun;
+        public int MaximumAutoPublishesPerDay { get; set; } = policy.MaximumAutoPublishesPerDay;
+        public decimal MinimumReadinessScore { get; set; } = policy.MinimumReadinessScore;
+        public decimal DuplicateHoldConfidence { get; set; } = policy.DuplicateHoldConfidence;
+        public decimal DailyAiBudgetUsd { get; set; } = policy.DailyAiBudgetUsd;
+        public DateTimeOffset UpdatedUtc { get; } = policy.UpdatedUtc;
+        public string UpdatedBy { get; } = policy.UpdatedBy;
+        public string ExpectedRowVersion { get; } = policy.ExpectedRowVersion;
+    }
 }

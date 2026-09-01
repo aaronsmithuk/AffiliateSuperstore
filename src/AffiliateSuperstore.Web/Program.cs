@@ -93,6 +93,10 @@ builder.Services.AddSingleton(aiAutomationOptions);
 builder.Services
     .AddOptions<CatalogueAutomationOptions>()
     .Bind(builder.Configuration.GetSection(CatalogueAutomationOptions.SectionName));
+var autonomousCatalogueOptions = builder.Configuration
+    .GetSection(AutonomousCatalogueOptions.SectionName)
+    .Get<AutonomousCatalogueOptions>() ?? new AutonomousCatalogueOptions();
+builder.Services.AddSingleton(autonomousCatalogueOptions);
 builder.Services
     .AddOptions<CatalogueSeoOptions>()
     .Bind(builder.Configuration.GetSection(CatalogueSeoOptions.SectionName));
@@ -193,6 +197,8 @@ builder.Services.AddTransient<IStructuredSuggestionProvider>(serviceProvider =>
 builder.Services.AddTransient<CatalogueAiSuggestionService>();
 builder.Services.AddTransient<CatalogueAiQueuePreparationService>();
 builder.Services.AddTransient<CatalogueAiReviewService>();
+builder.Services.AddTransient<AutonomousCataloguePolicyService>();
+builder.Services.AddTransient<AutonomousCatalogueEvaluationService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<CatalogueCollectionService>();
 builder.Services.AddTransient<CatalogueCollectionDiscoveryService>();
@@ -227,6 +233,7 @@ if (app.Environment.IsDevelopment() && !string.IsNullOrWhiteSpace(databaseConnec
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     await app.Services.GetRequiredService<ShopConfigurationSynchronizer>().SynchronizeAsync();
+    await app.Services.GetRequiredService<AutonomousCataloguePolicyService>().EnsureDefaultsAsync();
     await app.Services.GetRequiredService<AdminAccountProvisioner>().EnsureBootstrapAccountAsync();
 }
 

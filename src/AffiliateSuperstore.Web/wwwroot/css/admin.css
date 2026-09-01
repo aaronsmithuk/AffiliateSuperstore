@@ -527,6 +527,56 @@ h2 {
     box-shadow: 0 0 0 3px rgba(47,118,110,0.12);
 }
 
+.autonomous-policy-panel {
+    overflow: hidden;
+}
+
+.panel-copy {
+    color: var(--muted);
+    margin: .35rem 0 0;
+    max-width: 62rem;
+}
+
+.autonomous-policy-grid {
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 24px;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+    padding: 22px;
+}
+
+.autonomous-policy-form small,
+.autonomous-safety-card li {
+    color: var(--muted);
+    font-size: .76rem;
+    line-height: 1.5;
+}
+
+.autonomous-safety-card {
+    align-self: start;
+    background: #f4f8f6;
+    border: 1px solid #d9e6e1;
+    border-radius: 12px;
+    padding: 18px;
+}
+
+.autonomous-safety-card h3 {
+    margin: .2rem 0 .8rem;
+}
+
+.autonomous-safety-card ul {
+    display: grid;
+    gap: .55rem;
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+@media (max-width: 860px) {
+    .autonomous-policy-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .check-field {
     margin: 4px 0 16px;
     display: flex;
