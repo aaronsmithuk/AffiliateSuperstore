@@ -148,10 +148,11 @@ is `wonderaisle.co.uk`, the issuer is Let's Encrypt, TLS 1.3 negotiated, and the
 certificate is valid through 30 November 2026. HSTS is present with a 30-day
 maximum age. The public shop still shows the intended eight reviewed products.
 
-The same read-only pass returned HTTP 200 for every applicable neighbouring
-site. `ilovefitness.co.uk` is now an unrelated expired-domain redirect returning
-404 and is recorded as a pre-existing external-domain issue, not a Wonder Aisle
-runtime regression.
+The final release-validator pass returned HTTP 200 for all seven neighbouring
+domains as well as Wonder Aisle. An earlier raw redirect inspection briefly
+surfaced an external expired-domain response for `ilovefitness.co.uk`, so that
+legacy domain remains worth monitoring even though its final standardized check
+was healthy.
 
 ## Build a release bundle
 
