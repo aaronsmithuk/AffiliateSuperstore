@@ -26,6 +26,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ProductImpressionDailyRecord> ProductImpressions => Set<ProductImpressionDailyRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
     public DbSet<AutomationWorkItemRecord> AutomationWorkItems => Set<AutomationWorkItemRecord>();
+    public DbSet<AiInvocationRecord> AiInvocations => Set<AiInvocationRecord>();
     public DbSet<AffiliateOrderRecord> AffiliateOrders => Set<AffiliateOrderRecord>();
     public DbSet<AffiliateS2sEventRecord> AffiliateS2sEvents => Set<AffiliateS2sEventRecord>();
 
@@ -46,8 +47,36 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureProductImpression(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
         ConfigureAutomationWorkItem(modelBuilder);
+        ConfigureAiInvocation(modelBuilder);
         ConfigureAffiliateOrder(modelBuilder);
         ConfigureAffiliateS2sEvent(modelBuilder);
+    }
+
+    private static void ConfigureAiInvocation(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<AiInvocationRecord>();
+        entity.ToTable("AiInvocations");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.Purpose).HasMaxLength(50).IsRequired();
+        entity.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.Provider).HasMaxLength(50).IsRequired();
+        entity.Property(item => item.Model).HasMaxLength(100).IsRequired();
+        entity.Property(item => item.PromptVersion).HasMaxLength(50).IsRequired();
+        entity.Property(item => item.InputHash).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.CacheKey).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.ProviderResponseId).HasMaxLength(100);
+        entity.Property(item => item.ResponseHash).HasMaxLength(64);
+        entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.ReservedCostUsd).HasPrecision(18, 8);
+        entity.Property(item => item.EstimatedCostUsd).HasPrecision(18, 8);
+        entity.Property(item => item.EditorialValidationState).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.ValidationFindingsJson).HasMaxLength(4000);
+        entity.Property(item => item.ErrorCode).HasMaxLength(80);
+        entity.Property(item => item.ErrorMessage).HasMaxLength(1000);
+        entity.HasIndex(item => new { item.RequestedUtc, item.Status });
+        entity.HasIndex(item => new { item.Purpose, item.RequestedUtc });
+        entity.HasIndex(item => new { item.CacheKey, item.Status, item.CompletedUtc });
+        entity.HasIndex(item => new { item.ProductId, item.RequestedUtc });
     }
 
     private static void ConfigureShop(ModelBuilder modelBuilder)

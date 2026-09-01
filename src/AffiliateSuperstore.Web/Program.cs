@@ -82,6 +82,10 @@ builder.Services.AddSingleton<IShopResolver, ShopResolver>();
 builder.Services.AddSingleton<IClickIdGenerator, GuidClickIdGenerator>();
 builder.Services.AddSingleton<AffiliateTrackingService>();
 builder.Services.AddSingleton(TimeProvider.System);
+var aiAutomationOptions = builder.Configuration
+    .GetSection(AiAutomationOptions.SectionName)
+    .Get<AiAutomationOptions>() ?? new AiAutomationOptions();
+builder.Services.AddSingleton(aiAutomationOptions);
 builder.Services
     .AddOptions<CatalogueAutomationOptions>()
     .Bind(builder.Configuration.GetSection(CatalogueAutomationOptions.SectionName));
@@ -174,6 +178,15 @@ builder.Services.AddTransient<ProductIdentityService>();
 builder.Services.AddTransient<ProductIdentityCalibrationService>();
 builder.Services.AddTransient<EditorialContentValidator>();
 builder.Services.AddTransient<CatalogueEditorialService>();
+builder.Services.AddTransient<AiInvocationAuditService>();
+builder.Services.AddHttpClient<OpenAiStructuredSuggestionProvider>(client =>
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(aiAutomationOptions.TimeoutSeconds, 10, 120)));
+builder.Services.AddSingleton<UnavailableStructuredSuggestionProvider>();
+builder.Services.AddTransient<IStructuredSuggestionProvider>(serviceProvider =>
+    aiAutomationOptions.IsOpenAi
+        ? serviceProvider.GetRequiredService<OpenAiStructuredSuggestionProvider>()
+        : serviceProvider.GetRequiredService<UnavailableStructuredSuggestionProvider>());
+builder.Services.AddTransient<CatalogueAiSuggestionService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<OutboundRedirectService>();
 builder.Services.AddTransient<AffiliateOrderReconciliationService>();

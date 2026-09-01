@@ -35,6 +35,18 @@ unsupported authenticity/delivery/price/safety/rating/superlative, numerical
 and material claims are blocked mechanically, warnings prevent approval, and
 the admin exposes field changes, evidence and restore-as-new-revision history.
 The current projection remains backward-compatible for public reads.
+AI-5 groundwork is now implemented locally through the first provider adapter.
+The provider-neutral structured product-copy contract builds stable source
+packets, validates every returned draft and feeds an authenticated admin preview.
+An additive `AiInvocations` ledger reserves spend in a serializable transaction,
+records provider/model/prompt/hash/token/cost/latency/validation outcomes, blocks
+before the $1 monthly application cap can be exceeded and reuses successful
+unchanged responses at zero cost. The OpenAI Responses adapter requests strict
+JSON Schema output with `store: false`; global configuration remains disabled,
+development enables only the feature switches, and no API key is stored in the
+repository. Consequently no live call can occur until the owner adds a local
+User Secrets key. Previewed drafts still do not save, approve or publish
+themselves.
 
 ## Executive decision
 

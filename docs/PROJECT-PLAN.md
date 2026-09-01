@@ -104,7 +104,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 12 distinct products have original reviewed copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Filtered pages and the thin umbrella home remain `noindex,follow`; broader visual/content work can continue without blocking the plushies launch. |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP; release `0ad6ba8`, a fresh isolated backup, all 14 migrations, protected recurring catalogue automation, the owner account, 12-product reviewed catalogue and search indexing are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all applicable neighbouring-site checks pass; production S2S enablement remains a later conversion-operations task. |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP; release `652eb04`, a fresh isolated backup, all 15 migrations, protected recurring catalogue automation, the owner account, 12-product reviewed catalogue, search indexing and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all applicable neighbouring-site checks pass; production S2S enablement remains a later conversion-operations task. |
 
 ## AI-assisted catalogue and content integration
 
@@ -141,7 +141,7 @@ place in the main delivery sequence.
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Live in production from release `0ad6ba8`: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, SmarterASP signals it every 15 minutes, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
-| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
+| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Product-copy shadow foundation complete locally 1 September 2026: provider-neutral contracts, strict OpenAI Responses schema, stable source-packet/cache hashes, additive invocation audit, transactional $1 monthly cap, token/cost/latency/validation evidence and admin preview are implemented; global configuration is off and the repository contains no API key, so the first owner-authorized local shadow call remains pending |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
 
 ### Main-build acceptance gates
@@ -352,8 +352,11 @@ progress toward the 500-label target before any automatic canonical linking can
 be considered. Lifecycle/copy evaluation sets, production S2S setup and later
 hosted/local model trials remain gated follow-on work.
 
-Privacy-minimised product impression tracking and CTR reporting are locally
-implemented and verified; the additive production migration and deployment
-remain release-gated. The
-catalogue-depth and SEO launch gates have been met. The provider-hosted
-production release is live and indexable over the canonical HTTPS origin.
+Privacy-minimised product impression tracking and CTR reporting are deployed
+in release `652eb04`; live antiforgery-protected recording, SQL aggregation and
+the authenticated performance dashboard are verified. The AI-5 product-copy
+shadow foundation is complete locally with audit, cache and hard-budget
+controls, but remains disabled and unconfigured in production. Its first
+owner-authorized local model call is the next gated trial. The catalogue-depth
+and SEO launch gates have been met, and the provider-hosted production release
+is live and indexable over the canonical HTTPS origin.

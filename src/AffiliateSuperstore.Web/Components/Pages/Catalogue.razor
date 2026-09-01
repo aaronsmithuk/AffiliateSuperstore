@@ -8,6 +8,8 @@
 @inject CatalogueReadinessService ReadinessService
 @inject ProductQualityAssessmentService QualityAssessmentService
 @inject CatalogueEditorialService EditorialService
+@inject CatalogueAiSuggestionService AiSuggestionService
+@inject IStructuredSuggestionProvider AiSuggestionProvider
 @inject IDbContextFactory<AffiliateSuperstoreDbContext> ContextFactory
 @inject IOptions<CatalogueAutomationOptions> AutomationOptions
 @inject AffiliateSuperstoreOptions SuperstoreOptions
@@ -132,8 +134,21 @@
                 <div class="form-field"><label for="editor-order">Display order</label><input id="editor-order" type="number" min="0" max="@CatalogueEditorialService.MaximumDisplayOrder" @bind="Editor.DisplayOrder" @bind:event="oninput" /><ValidationMessage For="() => Editor.DisplayOrder" /></div>
                 <label class="check-field editor-featured"><InputCheckbox @bind-Value="Editor.IsFeatured" /> Feature this product ahead of the standard catalogue order</label>
             </div>
-            <div class="editor-actions"><button class="button" type="button" @onclick="CancelEditing">Cancel</button><button class="button button-primary" type="submit" disabled="@IsSaving">@(IsSaving ? "Saving…" : "Save editorial changes")</button></div>
+            <div class="editor-actions"><button class="button" type="button" title="@AiSuggestionProvider.AvailabilityMessage" disabled="@(!AiSuggestionProvider.IsAvailable || IsSaving || IsSuggesting)" @onclick="SuggestEditorialAsync">@(IsSuggesting ? "Drafting…" : "Suggest with AI")</button><button class="button" type="button" @onclick="CancelEditing">Cancel</button><button class="button button-primary" type="submit" disabled="@(IsSaving || IsSuggesting)">@(IsSaving ? "Saving…" : "Save editorial changes")</button></div>
         </EditForm>
+        @if (AiSuggestion is not null)
+        {
+            <div class="alert-card @(AiSuggestion.Succeeded ? "warning-card" : "error-card") quality-result" role="status">
+                <strong>AI review draft</strong><span>@AiSuggestion.Message</span>
+                @if (AiSuggestion.Suggestion is not null)
+                {
+                    <small>@AiSuggestion.Suggestion.Provider · @AiSuggestion.Suggestion.Model · prompt @CatalogueAiSuggestionService.PromptVersion</small>
+                    @if (AiSuggestion.Suggestion.Uncertainties.Count > 0) { <p><strong>Uncertainties:</strong> @string.Join("; ", AiSuggestion.Suggestion.Uncertainties)</p> }
+                    @if (AiSuggestion.Suggestion.RemovedNoise.Count > 0) { <p><strong>Removed noise:</strong> @string.Join("; ", AiSuggestion.Suggestion.RemovedNoise)</p> }
+                }
+                @if (AiSuggestion.Findings?.Count > 0) { <ul class="validation-findings">@foreach (var finding in AiSuggestion.Findings) { <li>@finding.Message</li> }</ul> }
+            </div>
+        }
         <section class="revision-history" aria-labelledby="revision-history-title">
             <div class="revision-heading"><div><p class="eyebrow">Audit trail</p><h3 id="revision-history-title">Editorial revisions</h3></div><span>@Editor.History.Count revision@(Editor.History.Count == 1 ? "" : "s")</span></div>
             @if (Editor.History.Count == 0)
@@ -210,6 +225,7 @@
     private bool IsAssessing;
     private bool IsEnriching;
     private bool IsSaving;
+    private bool IsSuggesting;
     private string ReviewFilter = "All";
     private string AvailabilityFilter = "All";
     private bool FlaggedOnly;
@@ -217,7 +233,8 @@
     private EditorialForm? Editor;
     private CatalogueCommandResult? CommandResult;
 
-    private bool IsBusy => IsRunning || IsRunningPlan || IsEnriching || IsAssessing || IsSaving;
+    private bool IsBusy => IsRunning || IsRunningPlan || IsEnriching || IsAssessing || IsSaving || IsSuggesting;
+    private CatalogueAiSuggestionResult? AiSuggestion;
     private CatalogueAutomationOptions Options => AutomationOptions.Value;
     private ShopDefinition ConfiguredShop => SuperstoreOptions.Shops.Single(shop => string.Equals(shop.Slug, "plushies", StringComparison.OrdinalIgnoreCase));
     private int ConfiguredRequestCount => CatalogueDiscoveryPlanner.Build(ConfiguredShop, Options.PageSize).Count;
@@ -341,6 +358,7 @@
     private async Task StartEditingAsync(ProductRow product)
     {
         CommandResult = null;
+        AiSuggestion = null;
         Editor = new EditorialForm
         {
             ProductId = product.ProductId,
@@ -357,6 +375,23 @@
     }
 
     private void CancelEditing() => Editor = null;
+
+    private async Task SuggestEditorialAsync()
+    {
+        if (Editor is null) return;
+        IsSuggesting = true;
+        try
+        {
+            AiSuggestion = await AiSuggestionService.SuggestAsync("plushies", Editor.ProductId);
+            if (AiSuggestion.Succeeded && AiSuggestion.Suggestion is not null)
+            {
+                Editor.EditorialTitle = AiSuggestion.Suggestion.SuggestedTitle;
+                Editor.EditorialDescription = AiSuggestion.Suggestion.SuggestedDescription;
+                Editor.ChangeReason = $"AI-assisted draft ({AiSuggestion.Suggestion.Provider}/{AiSuggestion.Suggestion.Model}); reviewed by editor before save.";
+            }
+        }
+        finally { IsSuggesting = false; }
+    }
 
     private async Task SaveEditorialAsync()
     {
