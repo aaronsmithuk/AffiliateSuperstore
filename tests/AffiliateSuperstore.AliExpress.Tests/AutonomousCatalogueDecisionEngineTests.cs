@@ -98,11 +98,14 @@ public sealed class AutonomousCatalogueDecisionEngineTests
         using var context = new InMemoryFactory(Guid.NewGuid().ToString("N")).CreateDbContext();
         var decisionEntity = context.Model.FindEntityType(typeof(AutonomousCatalogueDecisionRecord));
         Assert.NotNull(decisionEntity);
-        var productForeignKey = Assert.Single(
-            decisionEntity!.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ProductRecord));
+        var protectedAuditRelationships = decisionEntity!.GetForeignKeys()
+            .Where(foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ProductRecord)
+                                 || foreignKey.PrincipalEntityType.ClrType == typeof(ShopRecord))
+            .ToArray();
 
-        Assert.Equal(DeleteBehavior.NoAction, productForeignKey.DeleteBehavior);
+        Assert.Equal(2, protectedAuditRelationships.Length);
+        Assert.All(protectedAuditRelationships, foreignKey =>
+            Assert.Equal(DeleteBehavior.NoAction, foreignKey.DeleteBehavior));
     }
 
     private static AutonomousCataloguePolicy Policy() => new(

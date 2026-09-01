@@ -2059,7 +2059,7 @@ namespace AffiliateSuperstore.Persistence.Migrations
                     b.HasOne("AffiliateSuperstore.Persistence.Entities.ShopRecord", "Shop")
                         .WithMany()
                         .HasForeignKey("ShopId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("AffiliateSuperstore.Persistence.Entities.AutomationWorkItemRecord", "WorkItem")

@@ -55,8 +55,7 @@ namespace AffiliateSuperstore.Persistence.Migrations
                         name: "FK_AutonomousCatalogueDecisions_Shops_ShopId",
                         column: x => x.ShopId,
                         principalTable: "Shops",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
