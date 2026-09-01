@@ -130,6 +130,7 @@ public sealed class ShopModel(
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.Currency).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.EvaluationRate).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.RecentSalesVolume).FirstOrDefault(),
+                item.Product.SecondLevelCategoryName,
                 item.Product.SellerName,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.FetchedUtc).FirstOrDefault(),
                 false))
@@ -167,6 +168,7 @@ public sealed class ShopModel(
         string? Currency,
         decimal? EvaluationRate,
         long? RecentSalesVolume,
+        string? Category,
         string? SellerName,
         DateTimeOffset LastCheckedUtc,
         bool IsSaved);

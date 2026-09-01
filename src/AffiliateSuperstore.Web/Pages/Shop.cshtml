@@ -8,7 +8,7 @@
     ViewData["StructuredData"] = Model.StructuredDataJson;
 }
 
-<div class="shop-shell" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
+<div class="shop-shell" data-theme="@Model.Shop.Theme.Profile" data-analytics-page="catalogue" data-analytics-shop="@Model.Shop.Slug" data-analytics-currency="GBP" data-analytics-result-count="@Model.ResultCount" data-analytics-search-used="@((Model.Query is not null).ToString().ToLowerInvariant())" data-analytics-category-used="@((Model.Category is not null).ToString().ToLowerInvariant())" data-analytics-price-used="@((Model.MinimumPrice is not null || Model.MaximumPrice is not null).ToString().ToLowerInvariant())" data-analytics-sort="@Model.Sort" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
     <header class="shop-hero">
         <div class="shop-hero-copy">
             <nav class="shop-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><span>@Model.Shop.DisplayName</span></nav>
@@ -18,7 +18,7 @@
             <p class="shop-description">@Model.Shop.SeoDescription</p>
         </div>
         <div class="shop-hero-visual" aria-hidden="true"><span>✦</span><span>♡</span><span>✧</span></div>
-        <form class="shop-search" method="get" action="@Model.Shop.PathPrefix" role="search">
+        <form class="shop-search" method="get" action="@Model.Shop.PathPrefix" role="search" data-analytics-search data-analytics-shop="@Model.Shop.Slug">
             <label class="visually-hidden" for="shop-search">Search @Model.Shop.DisplayName</label>
             <input id="shop-search" name="q" value="@(Model.Query ?? string.Empty)" placeholder="Search plushies" />
             <button type="submit">Search</button>
@@ -42,7 +42,7 @@
     <div class="catalogue-layout">
         <details class="catalogue-filters" open>
             <summary><span>Filters</span>@if (Model.HasActiveFilters) { <strong>Active</strong> }</summary>
-            <form class="catalogue-filter-bar" method="get" action="@Model.Shop.PathPrefix">
+            <form class="catalogue-filter-bar" method="get" action="@Model.Shop.PathPrefix" data-analytics-filter data-analytics-shop="@Model.Shop.Slug">
                 @if (Model.Query is not null) { <input type="hidden" name="q" value="@Model.Query" /> }
                 <label>Category<select name="category"><option value="">All categories</option>@foreach (var category in Model.Categories) { <option value="@category" selected="@(category == Model.Category)">@category</option> }</select></label>
                 <div class="filter-price-range">
@@ -80,15 +80,15 @@
                 <section class="product-grid" aria-label="Plush products">
                     @foreach (var product in Model.Products)
                     {
-                        <article class="product-card @(product.IsSaved ? "is-saved" : null)" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@product.ProductId" data-impression-placement="product-card">
+                        <article class="product-card @(product.IsSaved ? "is-saved" : null)" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@product.ProductId" data-impression-placement="product-card" data-analytics-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="shop_catalogue">
                             <div class="product-card-media">
                                 @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
                                 {
-                                    <a class="product-image-link" href="/@Model.Shop.Slug/product/@product.ProductId"><img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /></a>
+                                    <a class="product-image-link" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="shop_catalogue"><img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /></a>
                                 }
                                 else
                                 {
-                                    <a class="product-image-link product-image-placeholder" href="/@Model.Shop.Slug/product/@product.ProductId">
+                                    <a class="product-image-link product-image-placeholder" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="shop_catalogue">
                                         <span>Image unavailable</span>
                                     </a>
                                 }
@@ -98,18 +98,18 @@
                                 }
                                 else
                                 {
-                                    <form class="product-save-form" method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId"><button class="product-save-control" type="submit" aria-label="Save @product.Title to your list"><span aria-hidden="true">♡</span></button></form>
+                                    <form class="product-save-form" method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@product.ProductId" data-analytics-save-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="shop_catalogue"><button class="product-save-control" type="submit" aria-label="Save @product.Title to your list"><span aria-hidden="true">♡</span></button></form>
                                 }
                             </div>
                             <div class="product-card-copy">
-                                <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId">@product.Title</a></h3>
+                                <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="shop_catalogue">@product.Title</a></h3>
                                 <p class="product-card-price">@(product.Price is null ? "Check current price" : $"Item price: {product.Currency ?? "GBP"} {product.Price:N2}")</p>
                                 @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
                                 {
                                     <p class="product-card-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(product.SellerName)) { <p class="product-card-seller">@product.SellerName</p> }
-                                <a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">Ad · Check at AliExpress <span aria-hidden="true">↗</span></a>
+                                <a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener" data-analytics-affiliate-click data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="product-card">Ad · Check at AliExpress <span aria-hidden="true">↗</span></a>
                             </div>
                         </article>
                     }

@@ -42,6 +42,12 @@ Wonder Aisle uses Google basic consent mode:
 The existing first-party catalogue impression totals remain separate. They do
 not store an IP address, user agent, identifier, fingerprint or visitor record.
 
+The consented funnel events, parameter boundaries and verification procedure
+are maintained in [`ANALYTICS-EVENTS.md`](ANALYTICS-EVENTS.md). GA4 receives a
+query-free canonical page location and never receives typed catalogue search
+phrases. The first-party SQL click and order records remain authoritative for
+commercial reconciliation.
+
 ## Google Search Console
 
 Use one domain property for `wonderaisle.co.uk`, covering HTTPS/HTTP and all

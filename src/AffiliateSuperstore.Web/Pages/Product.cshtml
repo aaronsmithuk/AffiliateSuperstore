@@ -8,7 +8,7 @@
     ViewData["StructuredData"] = Model.StructuredDataJson;
 }
 
-<article class="shop-shell product-detail" data-theme="@Model.Shop.Theme.Profile" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
+<article class="shop-shell product-detail" data-theme="@Model.Shop.Theme.Profile" data-analytics-page="product" data-analytics-item-id="@Model.Product.ProductId" data-analytics-item-category="@(Model.Product.SecondCategory ?? Model.Product.FirstCategory)" data-analytics-item-price="@(Model.Product.SalePrice?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-currency="@(Model.Product.Currency ?? "GBP")" data-analytics-placement="product_page" style="--theme-brand:@Model.Shop.Theme.PrimaryColour; --theme-accent:@Model.Shop.Theme.AccentColour; --theme-canvas:@Model.Shop.Theme.CanvasColour; --theme-surface:@Model.Shop.Theme.SurfaceColour; --theme-text:@Model.Shop.Theme.TextColour">
     <header class="product-shop-header"><a href="@Model.Shop.PathPrefix"><span aria-hidden="true">←</span> @Model.Shop.Theme.LogoText</a><a href="/basket/@Model.Shop.Slug">Saved list <strong>@Model.SavedCount</strong></a></header>
     <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><a href="@Model.Shop.PathPrefix">@Model.Shop.DisplayName</a><span aria-hidden="true">/</span><span>@(Model.Product.SecondCategory ?? "Product")</span></nav>
     <div class="product-detail-grid">
@@ -56,14 +56,14 @@
             </dl>
             <aside class="listing-data-note"><strong>About this listing data</strong><p>The score shown is AliExpress’s aggregate positive-feedback rate, not reviews collected by this shop. Price may vary by option and exclude delivery, tax, customs or import charges. Check the final total, seller, age guidance and safety warnings on AliExpress before ordering.</p></aside>
             <div class="product-actions">
-                <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@Model.Product.ProductId" data-impression-placement="product-page">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
+                <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@Model.Product.ProductId" data-impression-placement="product-page" data-analytics-affiliate-click data-analytics-item-id="@Model.Product.ProductId" data-analytics-item-category="@(Model.Product.SecondCategory ?? Model.Product.FirstCategory)" data-analytics-item-price="@(Model.Product.SalePrice?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="product-page">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
                 @if (Model.IsSaved)
                 {
                     <a class="product-save-button is-saved" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♥</span> Saved to your list</a>
                 }
                 else
                 {
-                    <form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@Model.Product.ProductId"><button class="product-save-button" type="submit"><span aria-hidden="true">♡</span> Save for later</button></form>
+                    <form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@Model.Product.ProductId" data-analytics-save-item data-analytics-item-id="@Model.Product.ProductId" data-analytics-item-category="@(Model.Product.SecondCategory ?? Model.Product.FirstCategory)" data-analytics-item-price="@(Model.Product.SalePrice?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="product-page"><button class="product-save-button" type="submit"><span aria-hidden="true">♡</span> Save for later</button></form>
                 }
             </div>
             <aside class="partner-notice product-handoff" aria-label="Buying through a partner"><span class="partner-notice-icon" aria-hidden="true">◇</span><div><strong>Affiliate link</strong><p>You’ll leave this shop to buy from an AliExpress seller. We earn a commission on qualifying purchases.</p></div></aside>
@@ -77,7 +77,7 @@
                 @foreach (var product in Model.RelatedProducts)
                 {
                     <article class="related-product-card">
-                        <a href="/@Model.Shop.Slug/product/@product.ProductId">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /> }<strong>@product.Title</strong></a>
+                        <a href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="related_products">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /> }<strong>@product.Title</strong></a>
                         <p>@(product.Price is null ? "Check current price" : $"Item price: {product.Currency ?? "GBP"} {product.Price:N2}")</p>
                     </article>
                 }
