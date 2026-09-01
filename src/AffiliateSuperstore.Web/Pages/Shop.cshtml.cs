@@ -69,12 +69,19 @@ public sealed class ShopModel(
                 item.Product.IsEligible &&
                 item.Product.AffiliateLinks.Any(link =>
                     link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active));
-        Categories = await query
+        var sourceCategories = await query
             .Where(item => item.Product.SecondLevelCategoryName != null)
             .Select(item => item.Product.SecondLevelCategoryName!)
             .Distinct()
             .OrderBy(value => value)
             .ToListAsync(cancellationToken);
+        Categories = sourceCategories
+            .Where(categoryName => IsCustomerFacingCategory(shop, categoryName))
+            .ToArray();
+        if (Category is not null && !Categories.Contains(Category, StringComparer.OrdinalIgnoreCase))
+        {
+            Category = null;
+        }
         var seoCandidates = await query
             .Select(item => new
             {
@@ -136,7 +143,11 @@ public sealed class ShopModel(
                 false))
             .ToListAsync(cancellationToken);
         Products = products
-            .Select(product => product with { IsSaved = savedProductIds.Contains(product.ProductId, StringComparer.Ordinal) })
+            .Select(product => product with
+            {
+                IsSaved = savedProductIds.Contains(product.ProductId, StringComparer.Ordinal),
+                SellerName = CleanSellerName(product.SellerName)
+            })
             .ToArray();
         if (!HasActiveFilters && Products.Count > 0)
         {
@@ -158,6 +169,34 @@ public sealed class ShopModel(
             });
         }
         return Page();
+    }
+
+    public string CategoryDisplayName(string category) => category switch
+    {
+        "Stuffed Animals & Plush" => "Plush toys & soft animals",
+        _ => category
+    };
+
+    public string FormatPrice(decimal? price, string? currency)
+    {
+        if (price is null) return "See current price";
+        return string.Equals(currency, "GBP", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(currency)
+            ? $"From £{price.Value:N2}"
+            : $"From {currency} {price.Value:N2}";
+    }
+
+    private static bool IsCustomerFacingCategory(ShopDefinition shop, string category) =>
+        !string.Equals(shop.Slug, "plushies", StringComparison.OrdinalIgnoreCase) ||
+        category.Contains("plush", StringComparison.OrdinalIgnoreCase) ||
+        category.Contains("stuffed animal", StringComparison.OrdinalIgnoreCase);
+
+    private static string? CleanSellerName(string? sellerName)
+    {
+        if (string.IsNullOrWhiteSpace(sellerName)) return sellerName;
+        const string duplicatedSuffix = " Store Store";
+        return sellerName.EndsWith(duplicatedSuffix, StringComparison.OrdinalIgnoreCase)
+            ? sellerName[..^" Store".Length]
+            : sellerName;
     }
 
     public sealed record ShopProductCard(

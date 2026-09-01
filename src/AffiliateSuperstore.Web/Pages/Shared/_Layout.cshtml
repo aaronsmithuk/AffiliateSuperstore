@@ -6,24 +6,43 @@
     var googleMeasurementId = WebAnalytics.IsConfigured
         ? WebAnalytics.NormalizedGoogleMeasurementId
         : null;
+    var pageTitle = ViewData["Title"] as string ?? SuperstoreOptions.BrandName;
+    var pageDescription = ViewData["Description"] as string;
+    var canonicalUrl = ViewData["Canonical"] as string;
+    var currentPath = Context.Request.Path;
+    var isHome = currentPath == "/";
+    var isPlushies = currentPath.StartsWithSegments("/plushies");
+    var isSaved = currentPath.StartsWithSegments("/basket");
 }
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - @SuperstoreOptions.BrandName</title>
-    @if (ViewData["Description"] is string description)
+    <title>@pageTitle - @SuperstoreOptions.BrandName</title>
+    @if (pageDescription is not null)
     {
-        <meta name="description" content="@description" />
+        <meta name="description" content="@pageDescription" />
     }
     @if (ViewData["Robots"] is string robots)
     {
         <meta name="robots" content="@robots" />
     }
-    @if (ViewData["Canonical"] is string canonical)
+    @if (canonicalUrl is not null)
     {
-        <link rel="canonical" href="@canonical" />
+        <link rel="canonical" href="@canonicalUrl" />
     }
+    <meta property="og:site_name" content="@SuperstoreOptions.BrandName" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="@pageTitle" />
+    @if (pageDescription is not null)
+    {
+        <meta property="og:description" content="@pageDescription" />
+    }
+    @if (canonicalUrl is not null)
+    {
+        <meta property="og:url" content="@canonicalUrl" />
+    }
+    <meta name="twitter:card" content="summary" />
     @if (ViewData["StructuredData"] is string structuredData)
     {
         <script type="application/ld+json">@Html.Raw(structuredData)</script>
@@ -52,11 +71,14 @@
 <body>
     <header class="site-header">
         <nav class="site-navigation" aria-label="Primary navigation">
-            <a class="site-brand" href="/"><img class="site-brand-mark" src="~/favicon.svg" alt="" aria-hidden="true" /><strong>@SuperstoreOptions.BrandName</strong></a>
+            <a class="site-brand" href="/" aria-label="@SuperstoreOptions.BrandName home">
+                <span class="site-brand-badge"><img class="site-brand-mark" src="~/favicon.svg" alt="" aria-hidden="true" /></span>
+                <span class="site-brand-copy"><strong>@SuperstoreOptions.BrandName</strong><small>Small shops, good finds</small></span>
+            </a>
             <ul class="site-links">
-                <li><a href="/#shops">Shops</a></li>
-                <li><a href="/plushies">Plushies</a></li>
-                <li><a href="/basket/plushies">Saved</a></li>
+                <li><a class="@(isHome ? "is-current" : null)" href="/#shops" aria-current="@(isHome ? "page" : null)">Shops</a></li>
+                <li><a class="@(isPlushies ? "is-current" : null)" href="/plushies" aria-current="@(isPlushies ? "page" : null)">Plushies</a></li>
+                <li><a class="site-saved-link @(isSaved ? "is-current" : null)" href="/basket/plushies" aria-current="@(isSaved ? "page" : null)"><span aria-hidden="true">♡</span> Saved</a></li>
             </ul>
         </nav>
     </header>

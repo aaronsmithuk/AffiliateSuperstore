@@ -12,12 +12,18 @@
     <header class="shop-hero">
         <div class="shop-hero-copy">
             <nav class="shop-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><span>@Model.Shop.DisplayName</span></nav>
-            <p class="shop-kicker">Curated plush companions</p>
+            <p class="shop-kicker">A softer corner of Wonder Aisle</p>
             <h1>@Model.Shop.Theme.LogoText</h1>
-            <p class="shop-tagline">Find your next favourite</p>
+            <p class="shop-tagline">Meet your next favourite</p>
             <p class="shop-description">@Model.Shop.SeoDescription</p>
         </div>
-        <div class="shop-hero-visual" aria-hidden="true"><span>✦</span><span>♡</span><span>✧</span></div>
+        <div class="shop-hero-visual" aria-hidden="true">
+            <span class="plush-character plush-character-small"></span>
+            <span class="plush-character plush-character-main"></span>
+            <span class="plush-character plush-character-tall"></span>
+            <span class="shop-hero-spark">✦</span>
+            <small>Picked for personality</small>
+        </div>
         <form class="shop-search" method="get" action="@Model.Shop.PathPrefix" role="search" data-analytics-search data-analytics-shop="@Model.Shop.Slug">
             <label class="visually-hidden" for="shop-search">Search @Model.Shop.DisplayName</label>
             <input id="shop-search" name="q" value="@(Model.Query ?? string.Empty)" placeholder="Search plushies" />
@@ -26,17 +32,20 @@
         <a class="saved-list-link" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♡</span> Saved <strong>@Model.SavedCount</strong></a>
     </header>
 
-    <nav class="shop-categories" aria-label="Browse plush categories">
-        <a class="shop-category-link @(Model.Category is null ? "is-active" : null)" href="@Model.Shop.PathPrefix" aria-current="@(Model.Category is null ? "page" : null)"><span aria-hidden="true">✦</span> Curator's picks</a>
-        @foreach (var category in Model.Categories)
-        {
-            <a class="shop-category-link @(category == Model.Category ? "is-active" : null)" href="@($"{Model.Shop.PathPrefix}?category={Uri.EscapeDataString(category)}")" aria-current="@(category == Model.Category ? "page" : null)">@category</a>
-        }
-    </nav>
+    @if (Model.Categories.Count > 1)
+    {
+        <nav class="shop-categories" aria-label="Browse plush categories">
+            <a class="shop-category-link @(Model.Category is null ? "is-active" : null)" href="@Model.Shop.PathPrefix" aria-current="@(Model.Category is null ? "page" : null)"><span aria-hidden="true">✦</span> All plushies</a>
+            @foreach (var category in Model.Categories)
+            {
+                <a class="shop-category-link @(category == Model.Category ? "is-active" : null)" href="@($"{Model.Shop.PathPrefix}?category={Uri.EscapeDataString(category)}")" aria-current="@(category == Model.Category ? "page" : null)">@Model.CategoryDisplayName(category)</a>
+            }
+        </nav>
+    }
 
     <aside class="partner-notice" aria-label="Buying through a partner">
         <span class="partner-notice-icon" aria-hidden="true">◇</span>
-        <div><strong>Ad · Affiliate catalogue</strong><p>All product links are affiliate advertising: we earn a commission on qualifying purchases. Prices can vary by option and may exclude delivery, tax or import charges; AliExpress confirms the final total.</p></div>
+        <div><strong>A quick note before you shop</strong><p>Links marked “Ad” are affiliate links. If you buy, we may earn a commission at no extra cost to you. AliExpress confirms options, delivery and the final total.</p></div>
     </aside>
 
     <div class="catalogue-layout">
@@ -44,7 +53,10 @@
             <summary><span>Filters</span>@if (Model.HasActiveFilters) { <strong>Active</strong> }</summary>
             <form class="catalogue-filter-bar" method="get" action="@Model.Shop.PathPrefix" data-analytics-filter data-analytics-shop="@Model.Shop.Slug">
                 @if (Model.Query is not null) { <input type="hidden" name="q" value="@Model.Query" /> }
-                <label>Category<select name="category"><option value="">All categories</option>@foreach (var category in Model.Categories) { <option value="@category" selected="@(category == Model.Category)">@category</option> }</select></label>
+                @if (Model.Categories.Count > 1)
+                {
+                    <label>Category<select name="category"><option value="">All plushies</option>@foreach (var category in Model.Categories) { <option value="@category" selected="@(category == Model.Category)">@Model.CategoryDisplayName(category)</option> }</select></label>
+                }
                 <div class="filter-price-range">
                     <label>Minimum price<input type="number" name="minPrice" value="@Model.MinimumPrice" min="0" max="10000" step="0.01" placeholder="£0" /></label>
                     <label>Maximum price<input type="number" name="maxPrice" value="@Model.MaximumPrice" min="0" max="10000" step="0.01" placeholder="Any" /></label>
@@ -56,7 +68,7 @@
 
         <section class="catalogue-results" aria-labelledby="catalogue-heading">
             <header class="catalogue-results-header">
-                <div><p class="shop-kicker">Curator's picks</p><h2 id="catalogue-heading">@(Model.Query is null ? "Plushies chosen with care" : $"Results for “{Model.Query}”")</h2></div>
+                <div><p class="shop-kicker">Shop the collection</p><h2 id="catalogue-heading">@(Model.Query is null ? "Plushies chosen with care" : $"Results for “{Model.Query}”")</h2></div>
                 <p><strong>@Model.ResultCount</strong> @(Model.ResultCount == 1 ? "result" : "results")</p>
             </header>
 
@@ -103,7 +115,7 @@
                             </div>
                             <div class="product-card-copy">
                                 <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="shop_catalogue">@product.Title</a></h3>
-                                <p class="product-card-price">@(product.Price is null ? "Check current price" : $"Item price: {product.Currency ?? "GBP"} {product.Price:N2}")</p>
+                                <p class="product-card-price">@Model.FormatPrice(product.Price, product.Currency)</p>
                                 @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
                                 {
                                     <p class="product-card-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>
@@ -117,6 +129,19 @@
             }
         </section>
     </div>
+
+    <section class="shop-guidance" aria-labelledby="shop-guidance-heading">
+        <header>
+            <p class="shop-kicker">A little help choosing</p>
+            <h2 id="shop-guidance-heading">What we look for—and what to check.</h2>
+            <p>Wonder Aisle shortlists products using clear imagery, current catalogue data, seller feedback and recent sales signals. We do not physically test the products.</p>
+        </header>
+        <ul>
+            <li><span aria-hidden="true">01</span><strong>Check the size</strong><p>Plushies can look larger in photos. Open the product page and confirm the measurements before ordering.</p></li>
+            <li><span aria-hidden="true">02</span><strong>Choose your option</strong><p>Colours, characters and sizes may have different prices. AliExpress shows the final price for the option you select.</p></li>
+            <li><span aria-hidden="true">03</span><strong>Review delivery</strong><p>Check the delivery estimate, tax and any import charges for your address before completing checkout.</p></li>
+        </ul>
+    </section>
 
     <aside class="affiliate-disclosure">
         <strong>Affiliate advertising disclosure</strong>

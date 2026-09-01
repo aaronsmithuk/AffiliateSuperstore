@@ -1,40 +1,50 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Curated specialist shops";
-    ViewData["Description"] = "Step into Wonder Aisle, a growing collection of carefully curated specialist shops.";
-    ViewData["Robots"] = "noindex,follow";
-    ViewData["Canonical"] = SuperstoreOptions.BuildPublicUrl();
+    var canonicalUrl = SuperstoreOptions.BuildPublicUrl();
+    var description = "Explore Wonder Aisle: small, specialist shops with thoughtfully chosen finds, starting with plush toys and collectable companions.";
+    ViewData["Title"] = "Curated shops for thoughtful finds";
+    ViewData["Description"] = description;
+    ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = canonicalUrl;
+    ViewData["StructuredData"] = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "WebSite",
+        ["name"] = SuperstoreOptions.BrandName,
+        ["url"] = canonicalUrl,
+        ["description"] = description
+    });
 }
 
 <div class="wonder-home">
     <section class="wonder-home-hero" aria-labelledby="wonder-home-heading">
         <div class="wonder-home-hero-copy">
-            <p class="wonder-home-kicker"><span aria-hidden="true">01</span> Curated shops under one roof</p>
-            <h1 id="wonder-home-heading">Find the aisle that feels like yours.</h1>
+            <p class="wonder-home-kicker"><span aria-hidden="true">01</span> Thoughtful finds, easier to browse</p>
+            <h1 id="wonder-home-heading">Good finds, gathered with care.</h1>
             <p class="wonder-home-lead">
-                Wonder Aisle is a growing collection of small, specialist shops—each one thoughtfully
-                organised so the good things are easier to find.
+                Explore small, specialist shops filled with things worth a closer look—starting with
+                characterful plush toys, cosy favourites and collectable companions.
             </p>
             <div class="wonder-home-actions">
-                <a class="wonder-home-primary-action" href="#shops">Explore the shops <span aria-hidden="true">↓</span></a>
-                <span>@Model.Shops.Count @(Model.Shops.Count == 1 ? "shop" : "shops") open now</span>
+                <a class="wonder-home-primary-action" href="/plushies">Shop plushies <span aria-hidden="true">→</span></a>
+                <a class="wonder-home-secondary-action" href="#shops">Browse Wonder Aisle <span aria-hidden="true">↓</span></a>
             </div>
         </div>
         <aside class="wonder-home-wayfinder" aria-label="Wonder Aisle directory">
-            <div class="wonder-home-wayfinder-topline"><span>Wonder Aisle</span><span>Directory</span></div>
+            <div class="wonder-home-wayfinder-topline"><span>Wonder Aisle</span><span>First stop</span></div>
             <p aria-hidden="true">W<span>/</span>A</p>
-            <div class="wonder-home-wayfinder-bottomline"><span>Wander well</span><span>Est. 2026</span></div>
+            <div class="wonder-home-wayfinder-bottomline"><span>The Plushy Shop</span><span>Open now</span></div>
         </aside>
     </section>
 
     <section class="wonder-home-shops" id="shops" aria-labelledby="wonder-home-shops-heading">
         <header class="wonder-home-section-heading">
             <div>
-                <p class="wonder-home-kicker"><span aria-hidden="true">02</span> The shop directory</p>
-                <h2 id="wonder-home-shops-heading">Shops, now open</h2>
+                <p class="wonder-home-kicker"><span aria-hidden="true">02</span> Browse Wonder Aisle</p>
+                <h2 id="wonder-home-shops-heading">One lovely place to start.</h2>
             </div>
-            <p>Every aisle has its own point of view, look and carefully chosen collection.</p>
+            <p>Each shop has its own point of view and a collection shaped to make choosing feel lighter.</p>
         </header>
 
         @foreach (var shop in Model.Shops)
@@ -80,21 +90,21 @@
     <section class="wonder-home-values" aria-labelledby="wonder-home-values-heading">
         <div class="wonder-home-values-intro">
             <p class="wonder-home-kicker"><span aria-hidden="true">03</span> Why Wonder Aisle</p>
-            <h2 id="wonder-home-values-heading">Less endless scrolling.<br />More good finds.</h2>
+            <h2 id="wonder-home-values-heading">Less endless scrolling.<br />More to love.</h2>
         </div>
         <ol>
             <li><span>01</span><strong>Focused shops</strong><p>Each aisle is built around one subject, not a bit of everything.</p></li>
-            <li><span>02</span><strong>Careful shortlists</strong><p>Collections are reviewed and organised before they reach the shop floor.</p></li>
-            <li><span>03</span><strong>Clear hand-off</strong><p>We show you the finds; our retail partner confirms price and handles checkout.</p></li>
+            <li><span>02</span><strong>Thoughtful shortlists</strong><p>Collections are reviewed and organised before they reach the shop floor.</p></li>
+            <li><span>03</span><strong>No checkout surprises</strong><p>We show you the finds; our retail partner confirms options, delivery and the final total.</p></li>
         </ol>
     </section>
 
     <section class="wonder-home-growing" aria-labelledby="wonder-home-growing-heading">
         <div>
-            <p class="wonder-home-kicker">A growing collection</p>
-            <h2 id="wonder-home-growing-heading">More aisles are taking shape.</h2>
+            <p class="wonder-home-kicker">First stop: plushies</p>
+            <h2 id="wonder-home-growing-heading">Start somewhere soft.</h2>
         </div>
-        <p>We’re adding new shops slowly and thoughtfully. For now, take your time in The Plushy Shop—there’s plenty to discover.</p>
-        <a href="/plushies">Start with plushies <span aria-hidden="true">→</span></a>
+        <p>Meet cheerful characters, cuddly classics and curious little companions in the first Wonder Aisle shop.</p>
+        <a href="/plushies">Visit The Plushy Shop <span aria-hidden="true">→</span></a>
     </section>
 </div>
