@@ -90,6 +90,10 @@ var aiAutomationOptions = builder.Configuration
     .GetSection(AiAutomationOptions.SectionName)
     .Get<AiAutomationOptions>() ?? new AiAutomationOptions();
 builder.Services.AddSingleton(aiAutomationOptions);
+var catalogueAutomationOptions = builder.Configuration
+    .GetSection(CatalogueAutomationOptions.SectionName)
+    .Get<CatalogueAutomationOptions>() ?? new CatalogueAutomationOptions();
+builder.Services.AddSingleton(catalogueAutomationOptions);
 builder.Services
     .AddOptions<CatalogueAutomationOptions>()
     .Bind(builder.Configuration.GetSection(CatalogueAutomationOptions.SectionName));
