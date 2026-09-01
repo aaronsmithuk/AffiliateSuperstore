@@ -1,8 +1,8 @@
 # Webmaster and consent-based analytics setup
 
-Status: Google Analytics property and web stream created; Search Console domain
-ownership verified and sitemap accepted; Bing Webmaster signed in and awaiting
-Search Console import.
+Status: Google Analytics, Search Console and Bing Webmaster setup complete;
+Google and Bing sitemap processing is under way, and Bing's initial bounded
+site scan is queued.
 
 Updated: 1 September 2026
 
@@ -66,6 +66,12 @@ Then run one site scan, confirm the canonical HTTPS origin, and leave IndexNow
 or URL Submission API work until catalogue publication volume justifies another
 credential and integration.
 
+Wonder Aisle was imported alone from the six Search Console properties visible
+to the account. Because Bing's import did not initially include the newly added
+sitemap, `https://wonderaisle.co.uk/sitemap.xml` was submitted directly. The
+initial scan uses that sitemap, is capped at 50 pages, and does not send email
+updates.
+
 ## Verification checklist
 
 - [x] GA4 property created.
@@ -74,9 +80,9 @@ credential and integration.
 - [x] Basic consent banner implemented.
 - [x] Initial and rejected states verified locally with no Google script.
 - [x] Privacy and cookie notice updated.
-- [ ] GA4 property placed in the Hydra Analytics account.
+- [x] GA4 property placed in the Hydra Analytics account.
 - [x] Search Console DNS TXT record published and verified.
 - [x] Sitemap submitted to Search Console (13 discovered URLs on submission).
-- [ ] Search Console linked to GA4.
-- [ ] Site imported into Bing Webmaster Tools.
+- [x] Search Console linked to GA4.
+- [x] Site imported into Bing Webmaster Tools.
 - [x] Consent release deployed and checked over canonical HTTPS.
