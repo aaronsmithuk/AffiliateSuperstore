@@ -3,6 +3,7 @@
     ViewData["Title"] = "Website terms of use";
     ViewData["Description"] = $"Terms for using {SuperstoreOptions.BrandName}, an independent AliExpress affiliate catalogue.";
     ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = SuperstoreOptions.BuildPublicUrl("/Terms");
     var operatorName = string.IsNullOrWhiteSpace(LegalNotice.OperatorName) ? "[operator details not configured]" : LegalNotice.OperatorName;
     var contactEmail = string.IsNullOrWhiteSpace(LegalNotice.ContactEmail) ? "[contact email not configured]" : LegalNotice.ContactEmail;
 }

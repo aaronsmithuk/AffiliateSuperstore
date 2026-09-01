@@ -5,7 +5,7 @@
     var description = "Explore Wonder Aisle: small, specialist shops with thoughtfully chosen finds, starting with plush toys and collectable companions.";
     ViewData["Title"] = "Curated shops for thoughtful finds";
     ViewData["Description"] = description;
-    ViewData["Robots"] = "index,follow";
+    ViewData["Robots"] = Model.IsIndexable ? "index,follow" : "noindex,follow";
     ViewData["Canonical"] = canonicalUrl;
     ViewData["StructuredData"] = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
     {

@@ -4,6 +4,7 @@
     ViewData["Title"] = "Privacy and cookie notice";
     ViewData["Description"] = $"How {SuperstoreOptions.BrandName} uses personal information, cookies and affiliate tracking.";
     ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = SuperstoreOptions.BuildPublicUrl("/Privacy");
     var operatorName = string.IsNullOrWhiteSpace(LegalNotice.OperatorName) ? "[operator details not configured]" : LegalNotice.OperatorName;
     var contactEmail = string.IsNullOrWhiteSpace(LegalNotice.ContactEmail) ? "[privacy contact not configured]" : LegalNotice.ContactEmail;
 }

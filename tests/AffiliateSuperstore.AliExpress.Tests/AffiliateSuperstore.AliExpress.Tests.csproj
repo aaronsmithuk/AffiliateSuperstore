@@ -21,9 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\src\AffiliateSuperstore.AliExpress\AffiliateSuperstore.AliExpress.csproj" />
     <ProjectReference Include="..\..\src\AffiliateSuperstore.Core\AffiliateSuperstore.Core.csproj" />
     <ProjectReference Include="..\..\src\AffiliateSuperstore.Persistence\AffiliateSuperstore.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\AffiliateSuperstore.Web\AffiliateSuperstore.Web.csproj" />
   </ItemGroup>
 
 </Project>

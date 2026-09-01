@@ -1,0 +1,63 @@
+@page "/contact"
+@{
+    var canonicalUrl = SuperstoreOptions.BuildPublicUrl("/contact");
+    var description = "Contact Wonder Aisle about catalogue corrections, affiliate disclosures, privacy, accessibility or the operation of this website.";
+    ViewData["Title"] = "Contact Wonder Aisle";
+    ViewData["Description"] = description;
+    ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = canonicalUrl;
+    ViewData["StructuredData"] = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "ContactPage",
+        ["name"] = "Contact Wonder Aisle",
+        ["description"] = description,
+        ["url"] = canonicalUrl
+    });
+}
+
+<article class="legal-page">
+    <header class="legal-page-header">
+        <p class="platform-kicker">Contact and corrections</p>
+        <h1>Tell us what needs attention.</h1>
+        <p>Contact us about Wonder Aisle’s pages, editorial decisions, affiliate disclosures, privacy or accessibility. Order and seller support remains with AliExpress.</p>
+    </header>
+
+    <aside class="legal-summary" aria-labelledby="contact-summary-heading">
+        <h2 id="contact-summary-heading">For a useful report</h2>
+        <p>Include the Wonder Aisle page address, product reference where applicable, what appears wrong and any evidence that helps us verify the correction.</p>
+    </aside>
+
+    <section>
+        <h2>Contact details</h2>
+        <dl class="legal-contact-list">
+            <div><dt>Operator</dt><dd>@(string.IsNullOrWhiteSpace(LegalNotice.OperatorName) ? "[operator details not configured]" : LegalNotice.OperatorName)</dd></div>
+            <div><dt>Email</dt><dd>@if (string.IsNullOrWhiteSpace(LegalNotice.ContactEmail)) { <span class="legal-configuration-warning">[contact email not configured]</span> } else { <a href="mailto:@LegalNotice.ContactEmail?subject=Wonder%20Aisle%20enquiry">@LegalNotice.ContactEmail</a> }</dd></div>
+            @if (!string.IsNullOrWhiteSpace(LegalNotice.Telephone))
+            {
+                <div><dt>Telephone</dt><dd>@LegalNotice.Telephone</dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(LegalNotice.GeographicAddress))
+            {
+                <div><dt>Postal address</dt><dd class="legal-address">@LegalNotice.GeographicAddress</dd></div>
+            }
+        </dl>
+    </section>
+
+    <section>
+        <h2>Catalogue and safety concerns</h2>
+        <p>Report inaccurate copy, broken destinations, suspected counterfeit or unauthorised products, missing warnings, unsafe-product concerns or media that should not appear. We may temporarily remove a listing while evidence is reviewed.</p>
+        <p>For an immediate product-safety risk or a product already purchased, also use AliExpress’s reporting and dispute routes and contact the appropriate UK product-safety authority where necessary.</p>
+    </section>
+
+    <section>
+        <h2>Orders, payment, delivery and returns</h2>
+        <p>Wonder Aisle does not have access to your AliExpress account or order details. Contact the seller and AliExpress through the order page for payment, cancellation, delivery, return, refund or buyer-protection questions.</p>
+        <p>Do not email us payment-card details, passwords, identity documents or other information that is not needed to explain a website issue.</p>
+    </section>
+
+    <section>
+        <h2>Privacy and legal requests</h2>
+        <p>The <a href="/Privacy">privacy and cookie notice</a> explains your data-protection rights and complaint routes. The <a href="/Terms">website terms</a> contain the full operator and legal information.</p>
+    </section>
+</article>

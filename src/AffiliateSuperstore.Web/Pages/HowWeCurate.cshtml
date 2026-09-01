@@ -1,0 +1,66 @@
+@page "/how-we-curate"
+@{
+    var canonicalUrl = SuperstoreOptions.BuildPublicUrl("/how-we-curate");
+    var description = "How Wonder Aisle selects, reviews, describes and refreshes affiliate products—and what our review does not establish.";
+    ViewData["Title"] = "How we curate";
+    ViewData["Description"] = description;
+    ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = canonicalUrl;
+    ViewData["StructuredData"] = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "WebPage",
+        ["name"] = "How Wonder Aisle curates products",
+        ["description"] = description,
+        ["url"] = canonicalUrl
+    });
+}
+
+<article class="legal-page">
+    <header class="legal-page-header">
+        <p class="platform-kicker">Our editorial method</p>
+        <h1>Selection with limits, evidence and review.</h1>
+        <p>Our job is to make a large marketplace easier to browse without pretending that catalogue data is the same as first-hand product testing.</p>
+    </header>
+
+    <aside class="legal-summary" aria-labelledby="curation-summary-heading">
+        <h2 id="curation-summary-heading">What our inclusion means</h2>
+        <p>A listed product passed our current catalogue and editorial controls. It does not mean that we manufactured, physically inspected, safety-tested or independently authenticated the item.</p>
+    </aside>
+
+    <section>
+        <h2>1. We begin with a defined collection</h2>
+        <p>Products are considered for a specific shop or editorial collection, not imported merely to increase page count. A collection must make sense as a real browsing task and contain enough useful choices before it is published.</p>
+        <p>We avoid building pages around every keyword, colour, size or location variation. Overlapping ideas are consolidated into the page that can serve the visitor most completely.</p>
+    </section>
+
+    <section>
+        <h2>2. Automated checks narrow the candidates</h2>
+        <p>Authorised affiliate data supplies the initial product identity, imagery, seller information, price snapshot and marketplace signals. Automated checks remove or flag listings with missing evidence, stale data, inactive affiliate destinations, likely duplicates, misleading variant pricing, prohibited themes or intellectual-property concerns.</p>
+        <p>These checks are screening tools. Passing them does not publish a product or prove its quality, safety, authenticity or legal compliance.</p>
+    </section>
+
+    <section>
+        <h2>3. Public copy receives editorial review</h2>
+        <p>Public titles and descriptions are reviewed for clarity, distinctiveness and support in the available evidence. We avoid unsupported claims about materials, dimensions, licensing, popularity, delivery, age suitability, safety and first-hand experience.</p>
+        <p>Artificial intelligence may suggest or structure review-only copy from permitted evidence. A model cannot approve or publish that copy. A human remains accountable for the public version, and automated output is rejected when its claims cannot be supported.</p>
+    </section>
+
+    <section>
+        <h2>4. Marketplace signals are labelled as marketplace signals</h2>
+        <p>Where shown, sales volume and positive-feedback figures originate from AliExpress data. They are not reviews collected by Wonder Aisle, and they should not be read as independent testing or a guarantee of a particular seller or product.</p>
+        <p>Prices are time-stamped snapshots and may apply to a particular variant. Delivery, taxes, customs charges, coupons and the final total depend on the option, destination and account shown at AliExpress checkout.</p>
+    </section>
+
+    <section>
+        <h2>5. Freshness is part of eligibility</h2>
+        <p>Indexable product pages require a recent positive price snapshot, approved editorial copy, suitable imagery and an active affiliate destination. A product is removed from the sitemap or made non-indexable when its evidence becomes stale, approval is withdrawn or its destination no longer works.</p>
+        <p>Collections must continue to meet their minimum useful-product threshold. A published collection can therefore leave the sitemap if too many of its products become ineligible.</p>
+    </section>
+
+    <section>
+        <h2>6. The final check remains yours</h2>
+        <p>Before ordering, confirm the exact seller, variant, measurements, materials, age guidance, warnings, dispatch location, delivery estimate, taxes and total directly on AliExpress. If essential safety or identity information is missing, do not rely on the listing imagery alone.</p>
+        <p>If a Wonder Aisle page is inaccurate, stale or misleading, please <a href="/contact">send us the page address and product reference</a>. We can review our listing, but AliExpress or the seller must handle order, payment, delivery and return issues.</p>
+    </section>
+</article>

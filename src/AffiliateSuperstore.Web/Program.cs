@@ -192,6 +192,7 @@ builder.Services.AddTransient<IStructuredSuggestionProvider>(serviceProvider =>
         : serviceProvider.GetRequiredService<UnavailableStructuredSuggestionProvider>());
 builder.Services.AddTransient<CatalogueAiSuggestionService>();
 builder.Services.AddTransient<CatalogueAiQueuePreparationService>();
+builder.Services.AddTransient<CatalogueAiReviewService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<CatalogueCollectionService>();
 builder.Services.AddTransient<CatalogueCollectionDiscoveryService>();
@@ -235,6 +236,7 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
+    app.UseMiddleware<CanonicalOriginRedirectMiddleware>();
 }
 
 app.UseHttpsRedirection();

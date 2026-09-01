@@ -15,7 +15,6 @@ public sealed class RobotsModel(
         var rules = seoOptions.IndexingEnabled
             ? """
               Disallow: /admin/
-              Disallow: /basket/
               Disallow: /go/
               Disallow: /health/
               Disallow: /Error

@@ -1,3 +1,4 @@
+using AffiliateSuperstore.Application.Catalogue;
 using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
@@ -8,9 +9,11 @@ namespace AffiliateSuperstore.Web.Pages;
 
 public sealed class IndexModel(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
-    AffiliateSuperstoreOptions superstoreOptions) : PageModel
+    AffiliateSuperstoreOptions superstoreOptions,
+    CatalogueSeoOptions seoOptions) : PageModel
 {
     public IReadOnlyList<HomeShopEntry> Shops { get; private set; } = [];
+    public bool IsIndexable => seoOptions.IndexingEnabled;
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {

@@ -15,6 +15,9 @@ public sealed class SitemapModel(
     CatalogueSeoOptions seoOptions,
     AffiliateSuperstoreOptions superstoreOptions) : PageModel
 {
+    private static readonly string[] StaticIndexablePaths =
+        ["/", "/about", "/how-we-curate", "/contact", "/Privacy", "/Terms"];
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
@@ -47,6 +50,12 @@ public sealed class SitemapModel(
             : [];
         XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
         var urls = new List<XElement>();
+        if (seoOptions.IndexingEnabled)
+        {
+            urls.AddRange(StaticIndexablePaths.Select(path =>
+                CreateUrlElement(ns, superstoreOptions.BuildPublicUrl(path), lastModified: null)));
+        }
+
         foreach (var shop in indexable.GroupBy(candidate => candidate.ShopSlug))
         {
             if (CatalogueSeoPolicy.IsShopIndexable(shop.Count()))
@@ -116,10 +125,10 @@ public sealed class SitemapModel(
         return Content(document.ToString(SaveOptions.DisableFormatting), "application/xml; charset=utf-8");
     }
 
-    private static XElement CreateUrlElement(XNamespace ns, string location, DateTimeOffset lastModified) =>
+    private static XElement CreateUrlElement(XNamespace ns, string location, DateTimeOffset? lastModified) =>
         new(ns + "url",
             new XElement(ns + "loc", location),
-            new XElement(ns + "lastmod", lastModified.ToString("yyyy-MM-dd")));
+            lastModified is null ? null : new XElement(ns + "lastmod", lastModified.Value.ToString("yyyy-MM-dd")));
 
     private sealed record SitemapCandidate(
         string ShopSlug,

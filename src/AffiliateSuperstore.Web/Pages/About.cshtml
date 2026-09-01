@@ -1,0 +1,61 @@
+@page "/about"
+@{
+    var canonicalUrl = SuperstoreOptions.BuildPublicUrl("/about");
+    var description = "Meet Wonder Aisle, an independent affiliate catalogue that builds small, carefully reviewed shops around useful themes.";
+    ViewData["Title"] = "About Wonder Aisle";
+    ViewData["Description"] = description;
+    ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = canonicalUrl;
+    ViewData["StructuredData"] = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "AboutPage",
+        ["name"] = "About Wonder Aisle",
+        ["description"] = description,
+        ["url"] = canonicalUrl
+    });
+}
+
+<article class="legal-page">
+    <header class="legal-page-header">
+        <p class="platform-kicker">A small-shop approach</p>
+        <h1>Good finds, with the gaps made clear.</h1>
+        <p>Wonder Aisle is an independent affiliate catalogue. We organise selected products into focused shops, add practical context and make it clear what still needs checking with the seller.</p>
+    </header>
+
+    <aside class="legal-summary" aria-labelledby="about-summary-heading">
+        <h2 id="about-summary-heading">The short version</h2>
+        <p>We help people browse. We do not sell, import, ship or physically test the products. Purchases take place with an AliExpress seller, and links marked “Ad” may earn us a commission.</p>
+    </aside>
+
+    <section>
+        <h2>Why Wonder Aisle exists</h2>
+        <p>Large marketplaces offer enormous choice, but their listings can be repetitive and awkward to compare. Wonder Aisle takes a smaller approach: one specialist shop at a time, with a deliberately limited selection and clearer navigation.</p>
+        <p>The first shop focuses on plush toys and collectable companions. Future shops will be added only when they have a useful point of view, enough carefully reviewed products and the capacity to keep their information current.</p>
+    </section>
+
+    <section>
+        <h2>How the site is funded</h2>
+        <p>Wonder Aisle participates in the AliExpress affiliate programme. When you follow an affiliate link and make a qualifying purchase, we may receive a commission from AliExpress at no extra cost to you.</p>
+        <p>Affiliate links are visibly marked “Ad” and carry the appropriate sponsored-link attributes. Commercial eligibility does not automatically earn a product a place in the public catalogue; it must still pass the site’s eligibility, freshness and editorial-review controls.</p>
+    </section>
+
+    <section>
+        <h2>What independence means here</h2>
+        <p>Wonder Aisle is not AliExpress, an AliExpress seller or a marketplace. Sellers and AliExpress control product options, checkout, payment, delivery, returns and buyer support. We do not accept payment or receive your AliExpress account credentials.</p>
+        <p>We describe what our evidence supports and explicitly identify important limitations. Read <a href="/how-we-curate">How we curate</a> for the selection, review and freshness process.</p>
+    </section>
+
+    <section>
+        <h2>Who operates the site</h2>
+        @if (!string.IsNullOrWhiteSpace(LegalNotice.OperatorName))
+        {
+            <p>Wonder Aisle is operated by <strong>@LegalNotice.OperatorName</strong>@if (!string.IsNullOrWhiteSpace(LegalNotice.TradingName)) { <text>, trading as @LegalNotice.TradingName</text> }.</p>
+        }
+        else
+        {
+            <p class="legal-configuration-warning">The operator details must be configured before this page is published.</p>
+        }
+        <p>Legal identity and address information is available in the <a href="/Terms">website terms</a>. Questions and corrections can be sent through the <a href="/contact">contact page</a>.</p>
+    </section>
+</article>
