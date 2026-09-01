@@ -146,6 +146,62 @@ public sealed class AutomationWorkQueueService(
         return true;
     }
 
+    public async Task<bool> RenewLeaseAsync(
+        Guid workItemId,
+        string leaseOwner,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(leaseOwner);
+        if (leaseDuration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(leaseDuration));
+
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var item = await context.AutomationWorkItems.SingleOrDefaultAsync(
+            work => work.Id == workItemId &&
+                    work.Status == AutomationWorkStatus.Leased &&
+                    work.LeaseOwner == leaseOwner,
+            cancellationToken);
+        if (item is null) return false;
+
+        var now = timeProvider.GetUtcNow();
+        item.LeaseExpiresUtc = now + leaseDuration;
+        item.Checkpoint = $"lease-renewed:attempt={item.AttemptCount};expires={item.LeaseExpiresUtc:O}";
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> RequeueDeadLetterAsync(
+        Guid workItemId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var item = await context.AutomationWorkItems.SingleOrDefaultAsync(
+            work => work.Id == workItemId && work.Status == AutomationWorkStatus.DeadLetter,
+            cancellationToken);
+        if (item is null) return false;
+
+        var now = timeProvider.GetUtcNow();
+        item.Status = AutomationWorkStatus.Pending;
+        item.AvailableUtc = now;
+        item.AttemptCount = 0;
+        item.StartedUtc = null;
+        item.CompletedUtc = null;
+        item.LeaseOwner = null;
+        item.LeaseExpiresUtc = null;
+        item.LastError = null;
+        item.ResultJobId = null;
+        item.Checkpoint = $"operator-requeued:{now:O}";
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<AutomationWorkStatus?> FailAsync(
         Guid workItemId,
         string leaseOwner,

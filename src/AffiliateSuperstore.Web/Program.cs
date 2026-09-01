@@ -186,6 +186,7 @@ builder.Services.AddSingleton<CatalogueAutomationWakeSignal>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     builder.Services.AddSingleton<AutomationWorkQueueService>();
+    builder.Services.AddSingleton<CatalogueAutomationMonitorService>();
     builder.Services.AddHostedService<CatalogueAutomationWorker>();
     builder.Services.AddHostedService<OrderReconciliationWorker>();
 }

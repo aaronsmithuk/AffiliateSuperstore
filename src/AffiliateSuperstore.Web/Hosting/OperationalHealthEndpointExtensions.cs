@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Application.Catalogue;
 using AffiliateSuperstore.Web.Services;
@@ -25,6 +27,7 @@ public static class OperationalHealthEndpointExtensions
             .AllowAnonymous();
 
         endpoints.MapGet("/health/wake", (
+            HttpRequest request,
             HttpResponse response,
             IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
             TimeProvider timeProvider,
@@ -32,7 +35,32 @@ public static class OperationalHealthEndpointExtensions
             IOptions<CatalogueAutomationOptions> automationOptions,
             CancellationToken cancellationToken) =>
         {
-            if (automationOptions.Value.Enabled) wakeSignal.Signal();
+            response.Headers.CacheControl = "no-store";
+            var options = automationOptions.Value;
+            if (!options.Enabled)
+            {
+                return Task.FromResult<IResult>(Results.Json(
+                    new ScheduledWakeResponse("disabled", false, timeProvider.GetUtcNow()),
+                    statusCode: StatusCodes.Status503ServiceUnavailable));
+            }
+            if (string.IsNullOrWhiteSpace(options.WakeToken))
+            {
+                return Task.FromResult<IResult>(Results.Json(
+                    new ScheduledWakeResponse("misconfigured", false, timeProvider.GetUtcNow()),
+                    statusCode: StatusCodes.Status503ServiceUnavailable));
+            }
+
+            var suppliedToken = request.Headers["X-Automation-Key"].FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(suppliedToken))
+            {
+                suppliedToken = request.Query["key"].FirstOrDefault();
+            }
+            if (!SecretsEqual(options.WakeToken, suppliedToken))
+            {
+                return Task.FromResult<IResult>(Results.Unauthorized());
+            }
+
+            wakeSignal.Signal();
             return CheckDatabaseAsync("scheduled-wake", response, contextFactory, timeProvider, cancellationToken);
         })
             .AllowAnonymous();
@@ -70,4 +98,17 @@ public static class OperationalHealthEndpointExtensions
         string Status,
         string Check,
         DateTimeOffset CheckedUtc);
+
+    private sealed record ScheduledWakeResponse(
+        string Status,
+        bool Signalled,
+        DateTimeOffset CheckedUtc);
+
+    private static bool SecretsEqual(string expected, string? supplied)
+    {
+        if (string.IsNullOrWhiteSpace(supplied)) return false;
+        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expected));
+        var suppliedHash = SHA256.HashData(Encoding.UTF8.GetBytes(supplied));
+        return CryptographicOperations.FixedTimeEquals(expectedHash, suppliedHash);
+    }
 }

@@ -7,6 +7,8 @@
 @inject AffiliateSuperstoreOptions SuperstoreOptions
 @inject TimeProvider TimeProvider
 @inject AutomationWorkQueueService WorkQueue
+@inject CatalogueAutomationMonitorService MonitorService
+@inject AffiliateSuperstore.Web.Services.CatalogueAutomationWakeSignal WakeSignal
 
 <PageTitle>Catalogue automation</PageTitle>
 
@@ -16,17 +18,46 @@
         <h1>Catalogue automation</h1>
         <p class="lede">Restart-safe scheduling with idempotent SQL work items, recoverable leases and bounded retries.</p>
     </div>
-    <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsLoading">Refresh</button>
+    <div class="button-row">
+        <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsBusy">Refresh</button>
+        <button class="button button-primary refresh-button" type="button" @onclick="WakeWorkerAsync" disabled="@(!Options.Enabled || IsBusy)">Wake worker</button>
+    </div>
 </header>
+
+@if (!string.IsNullOrWhiteSpace(ActionMessage))
+{
+    <div class="alert-card @(ActionFailed ? "error-card" : "success-card")" role="status"><strong>@(ActionFailed ? "Action failed" : "Automation updated")</strong><span>@ActionMessage</span></div>
+}
 
 <section class="database-hero @(Options.Enabled ? "healthy" : "unhealthy")">
     <div>
         <p class="eyebrow">Worker</p>
         <h2>@(Options.Enabled ? "Automatic refresh is enabled" : "Automatic refresh is disabled")</h2>
-        <p>The worker checks every @Options.PollEveryMinutes minutes and refreshes successful catalogues every @Options.RefreshEveryHours hours.</p>
+        <p>The worker checks every @Options.PollEveryMinutes minutes and refreshes successful catalogues every @Options.RefreshEveryHours hours. The external wake URL @(string.IsNullOrWhiteSpace(Options.WakeToken) ? "is not configured" : "requires its configured secret").</p>
     </div>
     <span class="database-health">@(Options.Enabled ? "Running" : "Off")</span>
 </section>
+
+@if (Monitoring is not null)
+{
+    <section class="metric-grid" aria-label="Catalogue health">
+        <article class="metric-card"><strong>@Monitoring.PublishedProducts</strong><span>Published products</span></article>
+        <article class="metric-card"><strong>@Monitoring.FreshProducts</strong><span>Fresh products</span></article>
+        <article class="metric-card"><strong>@Monitoring.StaleProducts</strong><span>Stale products</span></article>
+        <article class="metric-card"><strong>@Monitoring.NeverCheckedProducts</strong><span>Never detail-checked</span></article>
+        <article class="metric-card"><strong>@Monitoring.SuspectedUnavailableProducts</strong><span>Availability watch</span></article>
+        <article class="metric-card"><strong>@Monitoring.ConfirmedUnavailableProducts</strong><span>Hidden unavailable</span></article>
+        <article class="metric-card"><strong>@Monitoring.StaleLinks</strong><span>Stale links</span></article>
+        <article class="metric-card"><strong>@Monitoring.FailedRunsInAlertWindow</strong><span>Recent failed runs</span></article>
+    </section>
+
+    <section aria-label="Operational alerts">
+        @foreach (var alert in Monitoring.Alerts)
+        {
+            <div class="alert-card @AlertClass(alert.Severity)"><strong>@alert.Title</strong><span>@alert.Detail</span></div>
+        }
+    </section>
+}
 
 <section class="metric-grid" aria-label="Automation settings">
     <article class="metric-card"><strong>@Options.PageSize</strong><span>Products per request</span></article>
@@ -50,7 +81,7 @@
     }
     else
     {
-        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Type</th><th>Shop</th><th>Status</th><th>Attempts</th><th>Available / completed</th><th>Lease</th><th>Result</th></tr></thead><tbody>
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Type</th><th>Shop</th><th>Status</th><th>Attempts</th><th>Available / completed</th><th>Lease</th><th>Result / action</th></tr></thead><tbody>
         @foreach (var item in WorkItems)
         {
             <tr>
@@ -60,7 +91,40 @@
                 <td>@item.AttemptCount / @item.MaximumAttempts</td>
                 <td>@LocalTime(item.CompletedUtc ?? item.AvailableUtc)</td>
                 <td>@if (item.Status == AutomationWorkStatus.Leased) { <span>@LocalTime(item.LeaseExpiresUtc)</span><small>@item.LeaseOwner</small> } else { <span>—</span> }</td>
-                <td>@(item.ResultJobId?.ToString() ?? "—")</td>
+                <td>
+                    <span>@(item.ResultJobId?.ToString() ?? "—")</span>
+                    @if (item.Status == AutomationWorkStatus.DeadLetter)
+                    {
+                        <button class="button refresh-button" type="button" @onclick="() => RetryAsync(item.Id)" disabled="@IsBusy">Retry</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Run history</p><h2>Recent catalogue jobs</h2></div><span class="count-badge">@JobRuns.Count</span></div>
+    @if (JobRuns.Count == 0)
+    {
+        <p class="database-empty">No catalogue jobs have run yet.</p>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Started</th><th>Type</th><th>Shop</th><th>Status</th><th>Read</th><th>Written</th><th>Rejected</th><th>Duration</th><th>Checkpoint / error</th></tr></thead><tbody>
+        @foreach (var job in JobRuns)
+        {
+            <tr>
+                <td>@LocalTime(job.StartedUtc ?? job.QueuedUtc)</td>
+                <td><strong>@job.Type</strong><small>@job.Id</small></td>
+                <td>@(job.ShopSlug ?? "—")</td>
+                <td><span class="result-badge @StatusClass(job.Status)">@job.Status</span></td>
+                <td>@job.ItemsRead</td>
+                <td>@job.ItemsWritten</td>
+                <td>@job.ItemsRejected</td>
+                <td>@Duration(job.StartedUtc, job.CompletedUtc)</td>
+                <td><small title="@(job.ErrorSummary ?? job.Checkpoint)">@ShortError(job.ErrorSummary ?? job.Checkpoint ?? "—")</small></td>
             </tr>
         }
         </tbody></table></div>
@@ -91,8 +155,8 @@
 </section>
 
 <div class="alert-card warning-card automation-note">
-    <strong>Configuration-owned for now</strong>
-    <span>Scheduling remains deliberately configuration-owned rather than editable in the admin UI. Manual catalogue runs remain available on the Catalogue page.</span>
+    <strong>Publication remains human-controlled</strong>
+    <span>Automation can discover, refresh and hide a product after two missing direct checks spanning at least 24 hours. It cannot approve or publish a product; editorial approval remains on the Catalogue page.</span>
 </div>
 
 @code {
@@ -102,8 +166,14 @@
         .Sum(shop => CatalogueDiscoveryPlanner.Build(shop, Options.PageSize).Count);
     private List<ShopScheduleRow> Shops = [];
     private List<WorkItemRow> WorkItems = [];
+    private List<JobRunRow> JobRuns = [];
     private AutomationQueueHealth? QueueHealth;
+    private CatalogueAutomationMonitoringReport? Monitoring;
     private bool IsLoading;
+    private bool IsActing;
+    private bool IsBusy => IsLoading || IsActing;
+    private string? ActionMessage;
+    private bool ActionFailed;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -134,10 +204,12 @@
             }
             Shops = rows;
             QueueHealth = await WorkQueue.GetHealthAsync();
+            Monitoring = await MonitorService.GetReportAsync(Options);
             WorkItems = await context.AutomationWorkItems.AsNoTracking()
                 .OrderByDescending(item => item.QueuedUtc)
                 .Take(50)
                 .Select(item => new WorkItemRow(
+                    item.Id,
                     item.Type,
                     item.Shop == null ? null : item.Shop.Slug,
                     item.Status,
@@ -151,8 +223,69 @@
                     item.LastError,
                     item.ResultJobId))
                 .ToListAsync();
+            JobRuns = await context.IngestionJobs.AsNoTracking()
+                .Where(job => job.Type == IngestionJobType.CatalogueDiscovery ||
+                              job.Type == IngestionJobType.ProductRefresh ||
+                              job.Type == IngestionJobType.LinkRefresh)
+                .OrderByDescending(job => job.QueuedUtc)
+                .Take(50)
+                .Select(job => new JobRunRow(
+                    job.Id,
+                    job.Type,
+                    job.Shop == null ? null : job.Shop.Slug,
+                    job.Status,
+                    job.ItemsRead,
+                    job.ItemsWritten,
+                    job.ItemsRejected,
+                    job.QueuedUtc,
+                    job.StartedUtc,
+                    job.CompletedUtc,
+                    job.Checkpoint,
+                    job.ErrorSummary))
+                .ToListAsync();
         }
         finally { IsLoading = false; }
+    }
+
+    private async Task WakeWorkerAsync()
+    {
+        IsActing = true;
+        ActionFailed = false;
+        try
+        {
+            WakeSignal.Signal();
+            ActionMessage = "The worker was signalled. Due SQL work will be planned and claimed in a bounded cycle.";
+            await Task.Delay(250);
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            ActionFailed = true;
+            ActionMessage = exception.Message;
+        }
+        finally { IsActing = false; }
+    }
+
+    private async Task RetryAsync(Guid workItemId)
+    {
+        IsActing = true;
+        ActionFailed = false;
+        try
+        {
+            var requeued = await WorkQueue.RequeueDeadLetterAsync(workItemId);
+            ActionFailed = !requeued;
+            ActionMessage = requeued
+                ? "The dead-letter item was reset and queued for an immediate retry."
+                : "The item is no longer in the dead-letter state.";
+            if (requeued && Options.Enabled) WakeSignal.Signal();
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            ActionFailed = true;
+            ActionMessage = exception.Message;
+        }
+        finally { IsActing = false; }
     }
 
     private DateTimeOffset? NextDue(IngestionJobRecord? job)
@@ -170,6 +303,9 @@
     private static string StatusClass(IngestionJobStatus? status) => status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded ? "success" : status is null ? string.Empty : "failure";
     private static string WorkStatusClass(AutomationWorkStatus status) => status == AutomationWorkStatus.Succeeded ? "success" : status is AutomationWorkStatus.DeadLetter or AutomationWorkStatus.Cancelled ? "failure" : string.Empty;
     private static string ShortError(string error) => error.Length <= 100 ? error : error[..100] + "…";
+    private static string AlertClass(AutomationAlertSeverity severity) => severity switch { AutomationAlertSeverity.Critical => "error-card", AutomationAlertSeverity.Warning => "warning-card", _ => "success-card" };
+    private static string Duration(DateTimeOffset? startedUtc, DateTimeOffset? completedUtc) => startedUtc is null ? "—" : completedUtc is null ? "Running" : (completedUtc.Value - startedUtc.Value).TotalSeconds < 60 ? $"{(completedUtc.Value - startedUtc.Value).TotalSeconds:N0} sec" : $"{(completedUtc.Value - startedUtc.Value).TotalMinutes:N1} min";
     private sealed record ShopScheduleRow(string Slug, string DisplayName, IngestionJobStatus? Status, DateTimeOffset? StartedUtc, DateTimeOffset? CompletedUtc, DateTimeOffset? NextDueUtc, bool IsDue);
-    private sealed record WorkItemRow(AutomationWorkType Type, string? ShopSlug, AutomationWorkStatus Status, string IdempotencyKey, int AttemptCount, int MaximumAttempts, DateTimeOffset AvailableUtc, string? LeaseOwner, DateTimeOffset? LeaseExpiresUtc, DateTimeOffset? CompletedUtc, string? LastError, Guid? ResultJobId);
+    private sealed record WorkItemRow(Guid Id, AutomationWorkType Type, string? ShopSlug, AutomationWorkStatus Status, string IdempotencyKey, int AttemptCount, int MaximumAttempts, DateTimeOffset AvailableUtc, string? LeaseOwner, DateTimeOffset? LeaseExpiresUtc, DateTimeOffset? CompletedUtc, string? LastError, Guid? ResultJobId);
+    private sealed record JobRunRow(Guid Id, IngestionJobType Type, string? ShopSlug, IngestionJobStatus Status, int ItemsRead, int ItemsWritten, int ItemsRejected, DateTimeOffset QueuedUtc, DateTimeOffset? StartedUtc, DateTimeOffset? CompletedUtc, string? Checkpoint, string? ErrorSummary);
 }

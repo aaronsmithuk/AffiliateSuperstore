@@ -123,7 +123,9 @@ Development automation is enabled and runs the configured discovery plan every
 pages (12 sequential API calls), stops on the first failure and cannot overlap
 another plan in the same application process. It checks persisted job history
 every 15 minutes, so an application restart does not duplicate a recent run.
-Production automation is off by default.
+Production automation is off by default. The external `/health/wake` endpoint
+requires the configured `CatalogueAutomation:WakeToken`; it only signals a
+bounded worker cycle and never accepts catalogue or job parameters.
 After a due discovery run, approved linked products whose detail data is older
 than 24 hours are refreshed in batches of up to 50 IDs. A forced detail refresh
 is also available on `/admin/catalogue`; its result reports enriched products,

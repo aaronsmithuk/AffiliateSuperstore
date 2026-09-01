@@ -67,6 +67,7 @@ repository, publish archive or command history.
 | `AllowedHosts` | canonical hostname and any temporary verification hostname, separated by semicolons |
 | `Superstore__Shops__0__Hostnames__2` | exact temporary verification hostname until the canonical domain is attached |
 | `CatalogueAutomation__Enabled` | `false` for first release |
+| `CatalogueAutomation__WakeToken` | unique high-entropy secret required by the scheduled wake URL; never commit or log it |
 | `OrderReconciliation__Enabled` | `false` for first release |
 | `Seo__IndexingEnabled` | `false` for first release |
 | `AliExpressS2s__Enabled` | `false` until the callback verification checklist passes |
@@ -291,10 +292,13 @@ Check in this order:
 9. no `app_offline.htm` remains in the target root.
 
 Only after this baseline is stable should the scheduled task call
-`/health/wake`. It performs a read-only SQL readiness check and writes only to a
-bounded in-memory wake signal; it accepts no job parameters. The worker then
-plans due work through unique persisted idempotency keys, so the request cannot
-directly create or execute duplicate work.
+`/health/wake?key=<CatalogueAutomation__WakeToken>`. Missing or incorrect keys
+return HTTP 401. A correctly authenticated request performs a read-only SQL
+readiness check and writes only to a bounded in-memory wake signal; it accepts
+no catalogue or job parameters. The worker then plans due work through unique
+persisted idempotency keys, so the request cannot directly create or execute
+duplicate work. Treat the scheduled URL as a secret because some provider logs
+and control panels retain full query strings.
 
 ## Rollback
 

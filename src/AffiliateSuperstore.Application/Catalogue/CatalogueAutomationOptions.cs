@@ -20,6 +20,10 @@ public sealed class CatalogueAutomationOptions
     public int MaximumAttempts { get; set; } = 5;
     public int RetryBaseMinutes { get; set; } = 15;
     public int RetryMaximumMinutes { get; set; } = 360;
+    public int ProductStaleAfterHours { get; set; } = 30;
+    public int QueueDelayWarningMinutes { get; set; } = 60;
+    public int FailureAlertHours { get; set; } = 24;
+    public string WakeToken { get; set; } = string.Empty;
 }
 
 public static class CatalogueAutomationPlanner

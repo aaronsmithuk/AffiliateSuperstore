@@ -85,6 +85,47 @@ public sealed class AutomationWorkQueueServiceTests
         Assert.Null(stored.LeaseExpiresUtc);
     }
 
+    [Fact]
+    public async Task RenewLeaseAsync_ExtendsOnlyTheCurrentOwnersLease()
+    {
+        var (factory, clock, shopId) = await CreateDatabaseAsync();
+        await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 3);
+        var service = new AutomationWorkQueueService(factory, clock);
+        var lease = await service.ClaimNextAsync("worker-a", TimeSpan.FromMinutes(10));
+        clock.UtcNow = clock.UtcNow.AddMinutes(5);
+
+        Assert.False(await service.RenewLeaseAsync(lease!.Id, "worker-b", TimeSpan.FromMinutes(10)));
+        Assert.True(await service.RenewLeaseAsync(lease.Id, "worker-a", TimeSpan.FromMinutes(10)));
+
+        await using var context = factory.CreateDbContext();
+        var stored = await context.AutomationWorkItems.SingleAsync();
+        Assert.Equal(clock.UtcNow.AddMinutes(10), stored.LeaseExpiresUtc);
+        Assert.StartsWith("lease-renewed:", stored.Checkpoint);
+    }
+
+    [Fact]
+    public async Task RequeueDeadLetterAsync_ResetsRetryStateForOperatorRecovery()
+    {
+        var (factory, clock, shopId) = await CreateDatabaseAsync();
+        await SeedWorkAsync(factory, shopId, clock.UtcNow, maximumAttempts: 1);
+        var service = new AutomationWorkQueueService(factory, clock);
+        var lease = await service.ClaimNextAsync("worker-a", TimeSpan.FromMinutes(10));
+        Assert.Equal(AutomationWorkStatus.DeadLetter,
+            await service.FailAsync(lease!.Id, "worker-a", "test failure", Options()));
+
+        clock.UtcNow = clock.UtcNow.AddMinutes(1);
+        Assert.True(await service.RequeueDeadLetterAsync(lease.Id));
+
+        await using var context = factory.CreateDbContext();
+        var stored = await context.AutomationWorkItems.SingleAsync();
+        Assert.Equal(AutomationWorkStatus.Pending, stored.Status);
+        Assert.Equal(0, stored.AttemptCount);
+        Assert.Equal(clock.UtcNow, stored.AvailableUtc);
+        Assert.Null(stored.LastError);
+        Assert.Null(stored.CompletedUtc);
+        Assert.StartsWith("operator-requeued:", stored.Checkpoint);
+    }
+
     private static CatalogueAutomationOptions Options() => new()
     {
         RefreshEveryHours = 24,

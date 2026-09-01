@@ -138,7 +138,7 @@ place in the main delivery sequence.
 |---|---|---|---|
 | AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Planned; blocks production enablement, not offline development |
 | AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Complete locally; migration, admin visibility and lifecycle regression coverage added 31 August 2026 |
-| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Complete locally; independent queues, recovery tests, admin health and bounded `/health/wake` signal added 31 August 2026 |
+| AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Production-hardening complete locally 1 September 2026: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
 | AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Later; disabled by default |
@@ -297,7 +297,8 @@ Active product links older than 120 hours are revalidated in batches of 50;
 changed URLs replace and expire the previous link through an audited
 `LinkRefresh` job. The worker reads SQL job history on startup, so restarting
 the app does not trigger duplicate work. Production automation remains disabled
-until deployment configuration is reviewed.
+until the hardened release, protected wake token and scheduled URL are deployed
+and verified.
 
 Canonical URLs collapse all search, price, category and sort variants back to
 the unfiltered shop URL; filtered variants remain `noindex,follow`. Product

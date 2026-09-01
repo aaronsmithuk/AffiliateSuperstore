@@ -26,7 +26,18 @@ public sealed class CatalogueAutomationWorker(
         ValidateOptions();
         while (!stoppingToken.IsCancellationRequested)
         {
-            await RunDueJobsAsync(stoppingToken);
+            try
+            {
+                await RunDueJobsAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Catalogue automation cycle failed; the worker will retry after the normal poll interval.");
+            }
             await WaitForPollOrWakeAsync(stoppingToken);
         }
     }
@@ -49,7 +60,26 @@ public sealed class CatalogueAutomationWorker(
 
             try
             {
-                var resultJobId = await ExecuteLeaseAsync(lease, cancellationToken);
+                using var leaseCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var renewal = RenewLeaseUntilCancelledAsync(lease, leaseCancellation.Token);
+                Guid? resultJobId;
+                try
+                {
+                    resultJobId = await ExecuteLeaseAsync(lease, cancellationToken);
+                }
+                finally
+                {
+                    await leaseCancellation.CancelAsync();
+                    try
+                    {
+                        await renewal;
+                    }
+                    catch (OperationCanceledException) when (leaseCancellation.IsCancellationRequested)
+                    {
+                        // Expected when the work finishes before the next renewal interval.
+                    }
+                }
+
                 if (!await workQueue.CompleteAsync(lease.Id, _leaseOwner, resultJobId, cancellationToken))
                 {
                     logger.LogWarning("Work item {WorkItemId} completed after its lease was lost.", lease.Id);
@@ -75,6 +105,30 @@ public sealed class CatalogueAutomationWorker(
                     lease.AttemptCount,
                     lease.MaximumAttempts,
                     status);
+            }
+        }
+    }
+
+    private async Task RenewLeaseUntilCancelledAsync(
+        AutomationWorkLease lease,
+        CancellationToken cancellationToken)
+    {
+        var leaseDuration = TimeSpan.FromMinutes(_options.LeaseMinutes);
+        var renewalInterval = TimeSpan.FromTicks(Math.Max(
+            TimeSpan.FromMinutes(1).Ticks,
+            leaseDuration.Ticks / 3));
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(renewalInterval, timeProvider, cancellationToken);
+            if (!await workQueue.RenewLeaseAsync(
+                    lease.Id,
+                    _leaseOwner,
+                    leaseDuration,
+                    cancellationToken))
+            {
+                logger.LogWarning("Automation work item {WorkItemId} lost its lease during execution.", lease.Id);
+                return;
             }
         }
     }
@@ -183,5 +237,8 @@ public sealed class CatalogueAutomationWorker(
         if (_options.MaximumAttempts is < 1 or > 20) throw new InvalidOperationException("CatalogueAutomation:MaximumAttempts must be between 1 and 20.");
         if (_options.RetryBaseMinutes is < 1 or > 1440) throw new InvalidOperationException("CatalogueAutomation:RetryBaseMinutes must be between 1 and 1440.");
         if (_options.RetryMaximumMinutes < _options.RetryBaseMinutes || _options.RetryMaximumMinutes > 10080) throw new InvalidOperationException("CatalogueAutomation:RetryMaximumMinutes must be between RetryBaseMinutes and 10080.");
+        if (_options.ProductStaleAfterHours < _options.RefreshEveryHours || _options.ProductStaleAfterHours > 1440) throw new InvalidOperationException("CatalogueAutomation:ProductStaleAfterHours must be between RefreshEveryHours and 1440.");
+        if (_options.QueueDelayWarningMinutes is < 1 or > 10080) throw new InvalidOperationException("CatalogueAutomation:QueueDelayWarningMinutes must be between 1 and 10080.");
+        if (_options.FailureAlertHours is < 1 or > 720) throw new InvalidOperationException("CatalogueAutomation:FailureAlertHours must be between 1 and 720.");
     }
 }
