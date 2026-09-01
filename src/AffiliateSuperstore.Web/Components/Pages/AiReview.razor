@@ -1,0 +1,375 @@
+@page "/admin/ai-review"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
+@rendermode InteractiveServer
+@inject CatalogueAiReviewService ReviewService
+@inject CatalogueEditorialService EditorialService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>AI editorial review</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Editorial control</p>
+        <h1>AI review queue</h1>
+        <p class="lede">Compare every AI-assisted draft with its source evidence before explicitly approving, editing or rejecting it.</p>
+    </div>
+    <div class="topbar-actions">
+        <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsBusy">@(IsLoading ? "Refreshing…" : "Refresh queue")</button>
+        <a class="button" href="/admin/catalogue">Prepare more drafts</a>
+        <a class="public-site-link" href="/plushies">View public shop <span aria-hidden="true">↗</span></a>
+    </div>
+</header>
+
+@if (Dashboard is null)
+{
+    <section class="panel ai-review-loading"><span class="spinner"></span><p>Loading AI review evidence…</p></section>
+}
+else
+{
+    <section class="metric-grid ai-review-metrics" aria-label="AI review totals">
+        <article class="metric-card"><strong>@Dashboard.AwaitingReview</strong><span>Awaiting human review</span></article>
+        <article class="metric-card"><strong>@Dashboard.Approved</strong><span>Approved after review</span></article>
+        <article class="metric-card"><strong>@Dashboard.Rejected</strong><span>Rejected</span></article>
+        <article class="metric-card"><strong>@Dashboard.WarningInvocations</strong><span>Recent warnings</span></article>
+        <article class="metric-card"><strong>@Dashboard.BlockedInvocations</strong><span>Recent blocks</span></article>
+        <article class="metric-card"><strong>USD @Dashboard.RecentEstimatedCostUsd.ToString("F6")</strong><span>Recent audited cost</span></article>
+    </section>
+
+    <div class="alert-card warning-card ai-review-safety">
+        <strong>Publication always requires a person</strong>
+        <span>AI output can create a versioned draft, but only the explicit confirmation below can approve it for the public shop. Source price, stock and links remain API-controlled.</span>
+    </div>
+
+    @if (CommandResult is not null)
+    {
+        <div class="alert-card @(CommandResult.Succeeded ? "success-card" : "error-card") quality-result" role="status">
+            <strong>@(CommandResult.Succeeded ? "Review recorded" : "Action blocked")</strong>
+            <span>@CommandResult.Message</span>
+            @if (CommandResult.Findings?.Count > 0)
+            {
+                <ul class="validation-findings">
+                    @foreach (var finding in CommandResult.Findings)
+                    {
+                        <li><strong>@finding.Field:</strong> @finding.Message @if (!string.IsNullOrWhiteSpace(finding.Evidence)) { <code>@finding.Evidence</code> }</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+
+    @if (PendingAction is not null)
+    {
+        <section class="panel ai-review-confirm" role="alertdialog" aria-labelledby="ai-review-confirm-title" aria-describedby="ai-review-confirm-copy">
+            <div>
+                <p class="eyebrow">Confirmation required</p>
+                <h2 id="ai-review-confirm-title">@PendingAction.Heading</h2>
+                <p id="ai-review-confirm-copy">@PendingAction.Message</p>
+                <strong>@PendingAction.ProductTitle</strong>
+            </div>
+            <div class="editor-actions">
+                <button class="button" type="button" @onclick="CancelAction" disabled="@IsSaving">Cancel</button>
+                <button class="button @(PendingAction.Status == ProductReviewStatus.Rejected ? "button-danger" : "button-primary")" type="button" @onclick="ConfirmActionAsync" disabled="@IsSaving">@(IsSaving ? "Saving…" : PendingAction.ConfirmLabel)</button>
+            </div>
+        </section>
+    }
+
+    <section class="panel ai-review-queue" aria-labelledby="ai-review-queue-title">
+        <div class="panel-heading catalogue-table-heading">
+            <div><p class="eyebrow">Human decisions</p><h2 id="ai-review-queue-title">AI-assisted products</h2></div>
+            <div class="catalogue-filters">
+                <label>Status
+                    <select @bind="ReviewFilter">
+                        <option value="Awaiting">Awaiting review</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="All">All AI-assisted</option>
+                    </select>
+                </label>
+                <label class="flag-filter"><input type="checkbox" @bind="IssuesOnly" /> Issues only</label>
+                <span class="count-badge">@DisplayedItems.Count / @Dashboard.Items.Count</span>
+            </div>
+        </div>
+
+        @if (DisplayedItems.Count == 0)
+        {
+            <div class="empty-response compact"><h3>No products match this view</h3><p>Prepare another bounded batch from Catalogue, or choose a different status filter.</p></div>
+        }
+        else
+        {
+            <div class="ai-review-list">
+                @foreach (var item in DisplayedItems)
+                {
+                    <article class="ai-review-card" id="ai-review-@item.ProductId">
+                        <header class="ai-review-card-heading">
+                            <div class="ai-review-product">
+                                @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                                {
+                                    <img src="@item.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                                }
+                                <div>
+                                    <span class="review-status @item.ReviewStatus.ToString().ToLowerInvariant()">@ReviewLabel(item.ReviewStatus)</span>
+                                    @if (item.WasHumanEdited) { <span class="editorial-chip">Human edited</span> }
+                                    <h3>@(item.EditorialTitle ?? item.SourceTitle)</h3>
+                                    <p>@item.ProductId · AI draft v@item.AiDraftVersionNumber · current v@item.CurrentVersionNumber</p>
+                                </div>
+                            </div>
+                            <div class="ai-review-actions">
+                                <button class="button" type="button" @onclick="() => StartEditing(item)" disabled="@IsBusy">Edit draft</button>
+                                @if (!item.IsAwaitingReview)
+                                {
+                                    <button class="button" type="button" @onclick="() => AskForAction(item, ProductReviewStatus.NeedsReview)" disabled="@IsBusy">Return to review</button>
+                                }
+                                @if (item.ReviewStatus != ProductReviewStatus.Rejected)
+                                {
+                                    <button class="button button-danger" type="button" @onclick="() => AskForAction(item, ProductReviewStatus.Rejected)" disabled="@IsBusy">Reject</button>
+                                }
+                                @if (item.ReviewStatus != ProductReviewStatus.Approved)
+                                {
+                                    <button class="button button-primary" type="button" title="@(item.CanApprove ? "Approve and publish this product" : "Approval gates are not currently clear")" @onclick="() => AskForAction(item, ProductReviewStatus.Approved)" disabled="@(!item.CanApprove || IsBusy)">Approve &amp; publish</button>
+                                }
+                            </div>
+                        </header>
+
+                        <div class="ai-review-comparison">
+                            <section class="ai-review-source">
+                                <p class="eyebrow">AliExpress source evidence</p>
+                                <h4>@item.SourceTitle</h4>
+                                <dl class="ai-review-facts">
+                                    <dt>Price</dt><dd>@Money(item.SalePrice, item.Currency)@if (item.OriginalPrice is not null) { <small> · listed before @Money(item.OriginalPrice, item.Currency)</small> }</dd>
+                                    <dt>Sales volume</dt><dd>@(item.RecentSalesVolume?.ToString("N0") ?? "Not supplied")</dd>
+                                    <dt>Evaluation</dt><dd>@(item.EvaluationRate is null ? "Not supplied" : $"{item.EvaluationRate:N1}%")</dd>
+                                    <dt>Category</dt><dd>@Category(item)</dd>
+                                    <dt>Seller</dt><dd>@(item.SellerName ?? "Not supplied")</dd>
+                                    <dt>Collections</dt><dd>@(item.Collections.Count == 0 ? "Unassigned" : string.Join(", ", item.Collections))</dd>
+                                    <dt>Availability</dt><dd><span class="table-status @(item.AvailabilityState == ProductAvailabilityState.Available ? "ready" : "missing")">@item.AvailabilityState</span></dd>
+                                    <dt>Affiliate link</dt><dd><span class="table-status @(item.HasActiveLink ? "ready" : "missing")">@(item.HasActiveLink ? "Active" : "Missing")</span></dd>
+                                </dl>
+                                @if (!string.IsNullOrWhiteSpace(item.ProductDetailUrl))
+                                {
+                                    <a class="source-link" href="@item.ProductDetailUrl" target="_blank" rel="external noopener noreferrer">Open source listing <span aria-hidden="true">↗</span></a>
+                                }
+                            </section>
+
+                            <section class="ai-review-draft">
+                                <p class="eyebrow">Proposed public copy</p>
+                                <h4>@(item.EditorialTitle ?? "No editorial title")</h4>
+                                <p class="ai-review-description">@(item.EditorialDescription ?? "No editorial description")</p>
+                                <div class="ai-review-validation">
+                                    <span class="validation-state @item.ValidationState.ToString().ToLowerInvariant()">Validation: @item.ValidationState</span>
+                                    @if (item.QualityFlags.Count == 0 && item.ValidationFindings.Count == 0)
+                                    {
+                                        <span class="quality-clear">Mechanical checks clear</span>
+                                    }
+                                    @if (item.QualityFlags.Count > 0)
+                                    {
+                                        <ul class="validation-findings">@foreach (var flag in item.QualityFlags) { <li><strong>@flag.Code:</strong> @flag.Message</li> }</ul>
+                                    }
+                                    @if (item.ValidationFindings.Count > 0)
+                                    {
+                                        <ul class="validation-findings">@foreach (var finding in item.ValidationFindings) { <li><strong>@finding.Field:</strong> @finding.Message</li> }</ul>
+                                    }
+                                </div>
+                            </section>
+                        </div>
+
+                        <footer class="ai-review-audit">
+                            <div><strong>Draft provenance</strong><span>@item.AiCreatedBy · @item.AiCreatedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span><small>@item.AiChangeReason</small></div>
+                            @if (item.Invocation is { } invocation)
+                            {
+                                <div><strong>@invocation.Provider / @invocation.Model</strong><span>Prompt @invocation.PromptVersion · @invocation.InputTokens input / @invocation.OutputTokens output tokens</span><small>Invocation @invocation.Id · USD @invocation.EstimatedCostUsd.ToString("F6") · @(invocation.LatencyMilliseconds?.ToString("N0") ?? "—") ms</small></div>
+                            }
+                        </footer>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="panel catalogue-table-panel" aria-labelledby="ai-invocation-title">
+        <div class="panel-heading catalogue-table-heading"><div><p class="eyebrow">Provider audit</p><h2 id="ai-invocation-title">Recent AI outcomes</h2></div><span class="method-badge">@Dashboard.RecentInvocations.Count MOST RECENT</span></div>
+        @if (Dashboard.RecentInvocations.Count == 0)
+        {
+            <p class="database-empty">No audited product-copy calls have been recorded.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Requested</th><th>Product</th><th>Provider</th><th>Outcome</th><th>Evidence</th><th>Usage / cost</th></tr></thead><tbody>
+                @foreach (var invocation in Dashboard.RecentInvocations)
+                {
+                    <tr>
+                        <td>@invocation.RequestedUtc.ToLocalTime().ToString("dd MMM HH:mm")<small>@(invocation.LatencyMilliseconds?.ToString("N0") ?? "—") ms</small></td>
+                        <td><strong>@invocation.SourceTitle</strong><small>@invocation.ProductId</small></td>
+                        <td>@invocation.Provider / @invocation.Model<small>@invocation.PromptVersion · @invocation.Status</small></td>
+                        <td><span class="validation-state @invocation.ValidationState.ToString().ToLowerInvariant()">@invocation.ValidationState</span>@if (invocation.WasCached) { <small>Cache hit</small> }</td>
+                        <td>@if (invocation.Findings.Count == 0) { <span>Clear</span> } else { <ul class="validation-findings">@foreach (var finding in invocation.Findings) { <li>@finding.Message</li> }</ul> }@if (!string.IsNullOrWhiteSpace(invocation.ErrorMessage)) { <small>@invocation.ErrorCode · @invocation.ErrorMessage</small> }</td>
+                        <td>@invocation.InputTokens / @invocation.OutputTokens tokens<small>USD @invocation.EstimatedCostUsd.ToString("F6")</small></td>
+                    </tr>
+                }
+            </tbody></table></div>
+        }
+    </section>
+}
+
+@if (Editor is not null)
+{
+    <section class="panel editorial-panel" id="ai-review-editor" role="dialog" aria-labelledby="ai-review-editor-title">
+        <div class="panel-heading">
+            <div><p class="eyebrow">Human revision</p><h2 id="ai-review-editor-title">Edit AI-assisted copy</h2></div>
+            <button class="editor-close" type="button" aria-label="Close editor" @onclick="CancelEditing">×</button>
+        </div>
+        <EditForm Model="Editor" OnValidSubmit="SaveEditorialAsync" FormName="ai-review-editor">
+            <DataAnnotationsValidator />
+            <div class="editor-source">
+                @if (!string.IsNullOrWhiteSpace(Editor.ImageUrl)) { <img src="@Editor.ImageUrl" alt="" referrerpolicy="no-referrer" /> }
+                <div><span>AliExpress source title</span><strong>@Editor.SourceTitle</strong><small>Product @Editor.ProductId</small></div>
+            </div>
+            <div class="editor-fields">
+                <div class="form-field editor-title"><label for="ai-editor-title">Public title</label><input id="ai-editor-title" @bind="Editor.EditorialTitle" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumTitleLength" /><ValidationMessage For="() => Editor.EditorialTitle" /><small>@(Editor.EditorialTitle?.Length ?? 0) / @CatalogueEditorialService.MaximumTitleLength characters</small></div>
+                <div class="form-field editor-description"><label for="ai-editor-description">Public description</label><textarea id="ai-editor-description" @bind="Editor.EditorialDescription" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumDescriptionLength" rows="8"></textarea><ValidationMessage For="() => Editor.EditorialDescription" /><small>@(Editor.EditorialDescription?.Length ?? 0) / @CatalogueEditorialService.MaximumDescriptionLength characters</small></div>
+                <div class="form-field editor-description"><label for="ai-editor-reason">Review note</label><input id="ai-editor-reason" @bind="Editor.ChangeReason" maxlength="@CatalogueEditorialService.MaximumChangeReasonLength" /><small>This note becomes part of the immutable editorial history.</small></div>
+                <div class="form-field"><label for="ai-editor-order">Display order</label><input id="ai-editor-order" type="number" min="0" max="@CatalogueEditorialService.MaximumDisplayOrder" @bind="Editor.DisplayOrder" /><ValidationMessage For="() => Editor.DisplayOrder" /></div>
+                <label class="check-field editor-featured"><InputCheckbox @bind-Value="Editor.IsFeatured" /> Feature this product</label>
+            </div>
+            <div class="editor-actions"><button class="button" type="button" @onclick="CancelEditing">Cancel</button><button class="button button-primary" type="submit" disabled="@IsSaving">@(IsSaving ? "Saving…" : "Save revised draft")</button></div>
+        </EditForm>
+    </section>
+}
+
+@code {
+    private CatalogueAiReviewDashboard? Dashboard;
+    private string ReviewFilter = "Awaiting";
+    private bool IssuesOnly;
+    private bool IsLoading;
+    private bool IsSaving;
+    private ReviewEditor? Editor;
+    private ReviewAction? PendingAction;
+    private CatalogueCommandResult? CommandResult;
+    private bool IsBusy => IsLoading || IsSaving;
+
+    private IReadOnlyList<CatalogueAiReviewItem> DisplayedItems => Dashboard?.Items
+        .Where(item => ReviewFilter switch
+        {
+            "Awaiting" => item.IsAwaitingReview,
+            "Approved" => item.ReviewStatus == ProductReviewStatus.Approved,
+            "Rejected" => item.ReviewStatus == ProductReviewStatus.Rejected,
+            _ => true
+        })
+        .Where(item => !IssuesOnly || item.QualityFlags.Count > 0 || item.ValidationFindings.Count > 0 || !item.CanApprove)
+        .OrderBy(item => item.ReviewStatus == ProductReviewStatus.NeedsReview ? 0 : 1)
+        .ThenByDescending(item => item.AiCreatedUtc)
+        .ToArray() ?? [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try { Dashboard = await ReviewService.GetAsync("plushies"); }
+        finally { IsLoading = false; }
+    }
+
+    private void StartEditing(CatalogueAiReviewItem item)
+    {
+        PendingAction = null;
+        CommandResult = null;
+        Editor = new ReviewEditor
+        {
+            ProductId = item.ProductId,
+            SourceTitle = item.SourceTitle,
+            ImageUrl = item.ImageUrl,
+            EditorialTitle = item.EditorialTitle,
+            EditorialDescription = item.EditorialDescription,
+            IsFeatured = item.IsFeatured,
+            DisplayOrder = item.DisplayOrder,
+            ExpectedRowVersion = item.ExpectedRowVersion,
+            ChangeReason = "Human review of AI-assisted draft."
+        };
+    }
+
+    private void CancelEditing() => Editor = null;
+
+    private async Task SaveEditorialAsync()
+    {
+        if (Editor is null) return;
+        IsSaving = true;
+        try
+        {
+            var productId = Editor.ProductId;
+            CommandResult = await EditorialService.SaveAsync(new CatalogueEditorialUpdate(
+                "plushies",
+                productId,
+                Editor.EditorialTitle,
+                Editor.EditorialDescription,
+                Editor.IsFeatured,
+                Editor.DisplayOrder,
+                Editor.ExpectedRowVersion,
+                await CurrentActorAsync(),
+                Editor.ChangeReason));
+            await LoadAsync();
+            if (CommandResult.Succeeded)
+            {
+                Editor = null;
+            }
+        }
+        finally { IsSaving = false; }
+    }
+
+    private void AskForAction(CatalogueAiReviewItem item, ProductReviewStatus status)
+    {
+        Editor = null;
+        CommandResult = null;
+        PendingAction = status switch
+        {
+            ProductReviewStatus.Approved => new(item.ProductId, item.EditorialTitle ?? item.SourceTitle, status,
+                "Approve and publish this product?", "It will become visible in the public shop immediately while its active affiliate link and quality gates remain valid.", "Approve & publish"),
+            ProductReviewStatus.Rejected => new(item.ProductId, item.EditorialTitle ?? item.SourceTitle, status,
+                "Reject this product?", "It will remain in the audit trail but will not appear in the public shop or the active review queue.", "Reject product"),
+            _ => new(item.ProductId, item.EditorialTitle ?? item.SourceTitle, ProductReviewStatus.NeedsReview,
+                "Return this product to review?", "It will be removed from the public shop, if currently visible, and placed back into the human review queue.", "Return to review")
+        };
+    }
+
+    private void CancelAction() => PendingAction = null;
+
+    private async Task ConfirmActionAsync()
+    {
+        if (PendingAction is null) return;
+        IsSaving = true;
+        try
+        {
+            CommandResult = await EditorialService.SetReviewStatusAsync("plushies", PendingAction.ProductId, PendingAction.Status);
+            PendingAction = null;
+            await LoadAsync();
+        }
+        finally { IsSaving = false; }
+    }
+
+    private async Task<string> CurrentActorAsync() =>
+        (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name ?? "administrator";
+
+    private static string ReviewLabel(ProductReviewStatus status) => status switch
+    {
+        ProductReviewStatus.NeedsReview => "Needs review",
+        ProductReviewStatus.Pending => "Pending review",
+        _ => status.ToString()
+    };
+
+    private static string Money(decimal? value, string currency) => value is null ? "Not supplied" : $"{currency} {value:N2}";
+    private static string Category(CatalogueAiReviewItem item) => string.Join(" › ", new[] { item.FirstLevelCategoryName, item.SecondLevelCategoryName }.Where(value => !string.IsNullOrWhiteSpace(value))!) is { Length: > 0 } category ? category : "Not supplied";
+
+    private sealed class ReviewEditor
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public string SourceTitle { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumTitleLength)] public string? EditorialTitle { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumDescriptionLength)] public string? EditorialDescription { get; set; }
+        public bool IsFeatured { get; set; }
+        [Range(0, CatalogueEditorialService.MaximumDisplayOrder)] public int DisplayOrder { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumChangeReasonLength)] public string? ChangeReason { get; set; }
+        public string? ExpectedRowVersion { get; set; }
+    }
+
+    private sealed record ReviewAction(string ProductId, string ProductTitle, ProductReviewStatus Status, string Heading, string Message, string ConfirmLabel);
+}
