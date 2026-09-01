@@ -354,6 +354,35 @@ expected funnel instrumentation. `circlesofstone.co.uk`,
 `propertiesandhomes.co.uk` all returned HTTP 200 after following canonical
 redirects.
 
+## Ninth production release and editorial collections record
+
+Commit `38c6630` was deployed on 1 September 2026 from the clean detached
+`20260901-144046-38c6630` bundle. All 140 tests in that committed revision
+passed, and both the project and published `web.config` validated as
+OutOfProcess.
+
+A successful production SQL backup was recorded as provider queue item
+`3745113` before the additive `20260901142700_AddEditorialCollections`
+migration was applied. The migration created the `Collections` and
+`CollectionProducts` tables, their foreign keys and four supporting indexes,
+then advanced `__EFMigrationsHistory` to 16 entries. It did not alter existing
+catalogue rows or publish collection content automatically.
+
+The verified target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. The archive
+excluded `App_Data`; its persistent Data Protection key ring remained intact.
+The maintenance marker was renamed out of its active filename after extraction,
+and this release's 29 MB uploaded archive was deleted after explicit
+confirmation. No application-pool or account-wide restart was performed.
+
+Both health endpoints, the home page, `/plushies`, a representative product,
+`/robots.txt` and `/sitemap.xml` returned HTTP 200. `/admin/collections`
+redirected anonymous visitors to `/admin/login`. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after following canonical
+redirects.
+
 ## Build a release bundle
 
 From the repository root:
