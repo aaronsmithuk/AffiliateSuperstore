@@ -16,6 +16,10 @@
   align-items: start;
 }
 
+.collection-editor-panel form {
+  padding: 20px 24px 24px;
+}
+
 .collection-admin-list {
   display: grid;
   gap: .65rem;
