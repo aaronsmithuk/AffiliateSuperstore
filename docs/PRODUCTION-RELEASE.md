@@ -425,6 +425,57 @@ After the migration and paid run, both health endpoints, the home page,
 and inactive maintenance-marker record remain available for explicit,
 separately confirmed cleanup.
 
+## Eleventh production release, SEO trust and AI review record
+
+Commit `b6833ea` was deployed on 1 September 2026 from the clean detached
+`20260901-171622-b6833ea` bundle. All 154 tests passed, and both the project
+and published `web.config` validated as OutOfProcess. The release contains no
+database migration and made no intentional production-data change.
+
+The verified target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. `App_Data` was
+excluded from the archive and remained present with its persistent Data
+Protection key ring. Provider decompression completed successfully. The
+maintenance marker was renamed to the inactive
+`app_offline.b6833ea.complete` record and the uploaded archive was deleted.
+No application-pool or account-wide restart was performed.
+
+The release adds canonical-origin enforcement, index-switch-aware home-page
+metadata, corrected robots rules, the home and public trust pages to the
+sitemap, About, How we curate and Contact pages, self-canonicals for the legal
+pages, and a 1200-by-630 social-sharing image with Open Graph and Twitter card
+metadata. It also adds the protected, read-only `/admin/ai-review` queue for
+reviewing AI-assisted editorial drafts without publishing or generating copy.
+
+Both health endpoints, the home page, all three new trust pages, `/plushies`, a
+representative product, `/robots.txt`, `/sitemap.xml` and the social image
+returned HTTP 200. All 19 sitemap URLs returned HTTP 200 with matching
+self-canonicals. The sitemap contains all six intended static URLs, robots no
+longer blocks the saved basket from crawlers that need to read its `noindex`,
+and `www.wonderaisle.co.uk` returns a permanent 308 redirect to the canonical
+apex while preserving path and query. Anonymous access to `/admin/ai-review`
+redirected to `/admin/login`. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after following canonical
+redirects.
+
+Signed-in verification of the new review queue found one display-only Razor
+defect: its version expressions appeared literally. Commit `506967e` corrected
+the expression boundaries and was deployed immediately afterward from the
+clean detached `20260901-172757-506967e` bundle. All 154 tests passed again;
+the release contained no migration. The same target-only `app_offline.htm`
+workflow preserved `App_Data`, provider decompression succeeded, the marker
+was renamed to `app_offline.506967e.complete`, the uploaded archive was
+deleted, and the application pool was not recycled. Target health and every
+neighbouring site returned HTTP 200 after the follow-up release, and all 19
+sitemap URLs still returned HTTP 200 with matching self-canonicals.
+
+The final signed-in verification showed all five version lines correctly as AI
+draft version 1 and current version 1, with five edit, reject and approve
+controls. Starting an approval opened the required confirmation dialog;
+cancelling it closed the dialog without publishing or changing a draft.
+
 ## Build a release bundle
 
 From the repository root:
