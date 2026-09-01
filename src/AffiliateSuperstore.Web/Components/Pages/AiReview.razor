@@ -111,7 +111,7 @@ else
                                     <span class="review-status @item.ReviewStatus.ToString().ToLowerInvariant()">@ReviewLabel(item.ReviewStatus)</span>
                                     @if (item.WasHumanEdited) { <span class="editorial-chip">Human edited</span> }
                                     <h3>@(item.EditorialTitle ?? item.SourceTitle)</h3>
-                                    <p>@item.ProductId · AI draft v@item.AiDraftVersionNumber · current v@item.CurrentVersionNumber</p>
+                                    <p>@item.ProductId · AI draft v@(item.AiDraftVersionNumber) · current v@(item.CurrentVersionNumber)</p>
                                 </div>
                             </div>
                             <div class="ai-review-actions">
