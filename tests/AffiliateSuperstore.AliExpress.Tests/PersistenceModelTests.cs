@@ -95,6 +95,7 @@ public sealed class PersistenceModelTests
         var goldLabel = context.Model.FindEntityType(typeof(ProductIdentityGoldLabelRecord))!;
         var member = context.Model.FindEntityType(typeof(CanonicalProductMemberRecord))!;
         var editorialVersion = context.Model.FindEntityType(typeof(EditorialVersionRecord))!;
+        var shopProduct = context.Model.FindEntityType(typeof(ShopProductRecord))!;
         var imageFingerprint = context.Model.FindEntityType(typeof(ProductImageFingerprintRecord))!;
         var collection = context.Model.FindEntityType(typeof(CollectionRecord))!;
         var collectionProduct = context.Model.FindEntityType(typeof(CollectionProductRecord))!;
@@ -111,6 +112,9 @@ public sealed class PersistenceModelTests
         Assert.Contains(goldLabel.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(ProductIdentityGoldLabelRecord.CandidateId), nameof(ProductIdentityGoldLabelRecord.CreatedUtc)]));
         Assert.Contains(member.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(CanonicalProductMemberRecord.ProductId));
         Assert.Contains(editorialVersion.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(EditorialVersionRecord.ShopId), nameof(EditorialVersionRecord.ProductId), nameof(EditorialVersionRecord.VersionNumber)]));
+        Assert.Equal(300, shopProduct.FindProperty(nameof(ShopProductRecord.VerifiedSize))!.GetMaxLength());
+        Assert.Equal(600, shopProduct.FindProperty(nameof(ShopProductRecord.VerifiedOptions))!.GetMaxLength());
+        Assert.Equal(1000, editorialVersion.FindProperty(nameof(EditorialVersionRecord.VerificationEvidence))!.GetMaxLength());
         Assert.Contains(imageFingerprint.GetIndexes(), index => index.Properties.Single().Name == nameof(ProductImageFingerprintRecord.ContentSha256));
         Assert.True(imageFingerprint.FindProperty(nameof(ProductImageFingerprintRecord.RowVersion))!.IsConcurrencyToken);
         Assert.Contains(collection.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual([nameof(CollectionRecord.ShopId), nameof(CollectionRecord.Slug)]));

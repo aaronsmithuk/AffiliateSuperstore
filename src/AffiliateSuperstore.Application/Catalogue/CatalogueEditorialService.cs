@@ -16,7 +16,10 @@ public sealed record CatalogueEditorialUpdate(
     int DisplayOrder,
     string? ExpectedRowVersion = null,
     string EditedBy = "administrator",
-    string? ChangeReason = null);
+    string? ChangeReason = null,
+    string? VerifiedSize = null,
+    string? VerifiedOptions = null,
+    string? VerificationEvidence = null);
 
 public sealed record CatalogueCommandResult(
     bool Succeeded,
@@ -29,6 +32,9 @@ public sealed record EditorialVersionHistoryEntry(
     int VersionNumber,
     string? EditorialTitle,
     string? EditorialDescription,
+    string? VerifiedSize,
+    string? VerifiedOptions,
+    string? VerificationEvidence,
     bool IsFeatured,
     int DisplayOrder,
     EditorialVersionChangeKind ChangeKind,
@@ -49,6 +55,9 @@ public sealed class CatalogueEditorialService(
 {
     public const int MaximumTitleLength = 180;
     public const int MaximumDescriptionLength = 1000;
+    public const int MaximumVerifiedSizeLength = 300;
+    public const int MaximumVerifiedOptionsLength = 600;
+    public const int MaximumVerificationEvidenceLength = 1000;
     public const int MaximumDisplayOrder = 10_000;
     public const int MaximumChangeReasonLength = 500;
     public const int MaximumActorLength = 256;
@@ -59,7 +68,10 @@ public sealed class CatalogueEditorialService(
     {
         var title = Normalise(update.EditorialTitle);
         var description = Normalise(update.EditorialDescription);
-        var inputError = ValidateInput(title, description, update.DisplayOrder);
+        var verifiedSize = Normalise(update.VerifiedSize);
+        var verifiedOptions = Normalise(update.VerifiedOptions);
+        var verificationEvidence = Normalise(update.VerificationEvidence);
+        var inputError = ValidateInput(title, description, verifiedSize, verifiedOptions, verificationEvidence, update.DisplayOrder);
         if (inputError is not null) return Failure(inputError);
         if (Normalise(update.ChangeReason)?.Length > MaximumChangeReasonLength) return Failure($"The change note must be {MaximumChangeReasonLength} characters or fewer.");
         if (NormaliseActor(update.EditedBy).Length > MaximumActorLength) return Failure("The editor identity is too long to store safely.");
@@ -82,12 +94,13 @@ public sealed class CatalogueEditorialService(
         if (latest is null && HasExistingProjection(item))
         {
             latest = CreateVersion(item, 1, EditorialVersionChangeKind.Imported, "system migration", "Imported the pre-versioning catalogue projection.", null,
-                ValidateEditorial(item, item.EditorialTitle, item.EditorialDescription), item.EditorialTitle, item.EditorialDescription, item.IsFeatured, item.DisplayOrder);
+                ValidateEditorial(item, item.EditorialTitle, item.EditorialDescription), item.EditorialTitle, item.EditorialDescription,
+                item.VerifiedSize, item.VerifiedOptions, item.VerificationEvidence, item.IsFeatured, item.DisplayOrder);
             context.EditorialVersions.Add(latest);
             ApplyVersionProjection(item, latest);
         }
 
-        var proposedHash = ContentHash(title, description, update.IsFeatured, update.DisplayOrder);
+        var proposedHash = ContentHash(title, description, verifiedSize, verifiedOptions, verificationEvidence, update.IsFeatured, update.DisplayOrder);
         if (latest is not null && latest.ContentHash == proposedHash && latest.ValidatorVersion == EditorialContentValidator.Version)
         {
             ApplyValidationProjection(item, validation);
@@ -115,6 +128,9 @@ public sealed class CatalogueEditorialService(
             validation,
             title,
             description,
+            verifiedSize,
+            verifiedOptions,
+            verificationEvidence,
             update.IsFeatured,
             update.DisplayOrder);
         context.EditorialVersions.Add(version);
@@ -155,6 +171,9 @@ public sealed class CatalogueEditorialService(
                 version.VersionNumber,
                 version.EditorialTitle,
                 version.EditorialDescription,
+                version.VerifiedSize,
+                version.VerifiedOptions,
+                version.VerificationEvidence,
                 version.IsFeatured,
                 version.DisplayOrder,
                 version.ChangeKind,
@@ -213,6 +232,9 @@ public sealed class CatalogueEditorialService(
             validation,
             target.EditorialTitle,
             target.EditorialDescription,
+            target.VerifiedSize,
+            target.VerifiedOptions,
+            target.VerificationEvidence,
             target.IsFeatured,
             target.DisplayOrder);
         context.EditorialVersions.Add(version);
@@ -307,7 +329,8 @@ public sealed class CatalogueEditorialService(
         if (await LatestVersionAsync(context, item, cancellationToken) is not null) return;
         var baseline = CreateVersion(item, 1, EditorialVersionChangeKind.Imported, "system migration",
             "Imported the pre-versioning catalogue projection.", null, validation,
-            item.EditorialTitle, item.EditorialDescription, item.IsFeatured, item.DisplayOrder);
+            item.EditorialTitle, item.EditorialDescription, item.VerifiedSize, item.VerifiedOptions,
+            item.VerificationEvidence, item.IsFeatured, item.DisplayOrder);
         context.EditorialVersions.Add(baseline);
         ApplyVersionProjection(item, baseline);
     }
@@ -322,17 +345,22 @@ public sealed class CatalogueEditorialService(
         EditorialValidationResult validation,
         string? title,
         string? description,
+        string? verifiedSize,
+        string? verifiedOptions,
+        string? verificationEvidence,
         bool isFeatured,
         int displayOrder)
     {
         return new EditorialVersionRecord
         {
             Id = Guid.NewGuid(), ShopId = item.ShopId, ProductId = item.ProductId, VersionNumber = versionNumber,
-            EditorialTitle = title, EditorialDescription = description, IsFeatured = isFeatured, DisplayOrder = displayOrder,
+            EditorialTitle = title, EditorialDescription = description, VerifiedSize = verifiedSize,
+            VerifiedOptions = verifiedOptions, VerificationEvidence = verificationEvidence,
+            IsFeatured = isFeatured, DisplayOrder = displayOrder,
             ChangeKind = changeKind, RolledBackFromVersionId = rolledBackFromVersionId, ChangeReason = changeReason,
             CreatedBy = createdBy, CreatedUtc = timeProvider.GetUtcNow(), ValidationState = validation.State,
             ValidationFindingsJson = validation.SerializedFindings, ValidatorVersion = EditorialContentValidator.Version,
-            ContentHash = ContentHash(title, description, isFeatured, displayOrder)
+            ContentHash = ContentHash(title, description, verifiedSize, verifiedOptions, verificationEvidence, isFeatured, displayOrder)
         };
     }
 
@@ -340,6 +368,9 @@ public sealed class CatalogueEditorialService(
     {
         item.EditorialTitle = version.EditorialTitle;
         item.EditorialDescription = version.EditorialDescription;
+        item.VerifiedSize = version.VerifiedSize;
+        item.VerifiedOptions = version.VerifiedOptions;
+        item.VerificationEvidence = version.VerificationEvidence;
         item.IsFeatured = version.IsFeatured;
         item.DisplayOrder = version.DisplayOrder;
         item.CurrentEditorialVersionNumber = version.VersionNumber;
@@ -378,14 +409,33 @@ public sealed class CatalogueEditorialService(
         var changed = new List<string>();
         if (previous.EditorialTitle != current.EditorialTitle) changed.Add("Title");
         if (previous.EditorialDescription != current.EditorialDescription) changed.Add("Description");
+        if (previous.VerifiedSize != current.VerifiedSize) changed.Add("Verified size");
+        if (previous.VerifiedOptions != current.VerifiedOptions) changed.Add("Verified options");
+        if (previous.VerificationEvidence != current.VerificationEvidence) changed.Add("Verification evidence");
         if (previous.IsFeatured != current.IsFeatured) changed.Add("Featured state");
         if (previous.DisplayOrder != current.DisplayOrder) changed.Add("Display order");
         return changed.Count == 0 ? ["Validation/provenance only"] : changed;
     }
 
-    private static string ContentHash(string? title, string? description, bool isFeatured, int displayOrder)
+    private static string ContentHash(
+        string? title,
+        string? description,
+        string? verifiedSize,
+        string? verifiedOptions,
+        string? verificationEvidence,
+        bool isFeatured,
+        int displayOrder)
     {
-        var json = JsonSerializer.Serialize(new { title, description, isFeatured, displayOrder });
+        var json = JsonSerializer.Serialize(new
+        {
+            title,
+            description,
+            verifiedSize,
+            verifiedOptions,
+            verificationEvidence,
+            isFeatured,
+            displayOrder
+        });
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
     }
 
@@ -396,15 +446,35 @@ public sealed class CatalogueEditorialService(
         catch (FormatException) { return false; }
     }
 
-    private static string? ValidateInput(string? title, string? description, int displayOrder)
+    private static string? ValidateInput(
+        string? title,
+        string? description,
+        string? verifiedSize,
+        string? verifiedOptions,
+        string? verificationEvidence,
+        int displayOrder)
     {
         if (title?.Length > MaximumTitleLength) return $"The editorial title must be {MaximumTitleLength} characters or fewer.";
         if (description?.Length > MaximumDescriptionLength) return $"The editorial description must be {MaximumDescriptionLength} characters or fewer.";
+        if (verifiedSize?.Length > MaximumVerifiedSizeLength) return $"The verified size must be {MaximumVerifiedSizeLength} characters or fewer.";
+        if (verifiedOptions?.Length > MaximumVerifiedOptionsLength) return $"The verified options must be {MaximumVerifiedOptionsLength} characters or fewer.";
+        if (verificationEvidence?.Length > MaximumVerificationEvidenceLength) return $"The verification evidence must be {MaximumVerificationEvidenceLength} characters or fewer.";
+        if ((verifiedSize is not null || verifiedOptions is not null) && verificationEvidence is null)
+        {
+            return "Add verification evidence before publishing a size or option statement.";
+        }
+        if (verifiedSize is null && verifiedOptions is null && verificationEvidence is not null)
+        {
+            return "Verification evidence needs a verified size or option statement.";
+        }
         if (displayOrder is < 0 or > MaximumDisplayOrder) return $"Display order must be between 0 and {MaximumDisplayOrder:N0}.";
         return null;
     }
 
-    private static bool HasExistingProjection(ShopProductRecord item) => item.EditorialTitle is not null || item.EditorialDescription is not null || item.IsFeatured || item.DisplayOrder != 0;
+    private static bool HasExistingProjection(ShopProductRecord item) =>
+        item.EditorialTitle is not null || item.EditorialDescription is not null ||
+        item.VerifiedSize is not null || item.VerifiedOptions is not null || item.VerificationEvidence is not null ||
+        item.IsFeatured || item.DisplayOrder != 0;
     private static bool HasQualityFlags(ShopProductRecord item) => ProductQualityAssessmentService.ReadFlags(item.AutomatedReviewFlags).Count > 0;
     private static void HoldForReview(ShopProductRecord item) { if (item.ReviewStatus != ProductReviewStatus.Rejected) item.ReviewStatus = ProductReviewStatus.NeedsReview; }
     private static string? Normalise(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

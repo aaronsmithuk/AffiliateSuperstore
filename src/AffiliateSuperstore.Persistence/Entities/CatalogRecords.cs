@@ -298,6 +298,9 @@ public sealed class ShopProductRecord
     public int DisplayOrder { get; set; }
     public string? EditorialTitle { get; set; }
     public string? EditorialDescription { get; set; }
+    public string? VerifiedSize { get; set; }
+    public string? VerifiedOptions { get; set; }
+    public string? VerificationEvidence { get; set; }
     public int? CurrentEditorialVersionNumber { get; set; }
     public EditorialValidationState EditorialValidationState { get; set; } = EditorialValidationState.NotEvaluated;
     public string? EditorialValidationFlags { get; set; }
@@ -337,6 +340,9 @@ public sealed class EditorialVersionRecord
     public int VersionNumber { get; set; }
     public string? EditorialTitle { get; set; }
     public string? EditorialDescription { get; set; }
+    public string? VerifiedSize { get; set; }
+    public string? VerifiedOptions { get; set; }
+    public string? VerificationEvidence { get; set; }
     public bool IsFeatured { get; set; }
     public int DisplayOrder { get; set; }
     public EditorialVersionChangeKind ChangeKind { get; set; }

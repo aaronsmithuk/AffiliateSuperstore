@@ -15,6 +15,7 @@
         <h1>@Model.Collection.DisplayName</h1>
         <p class="collection-lede">@Model.Collection.ShortDescription</p>
         <p>@Model.Collection.IntroductoryCopy</p>
+        <p class="collection-guide-link"><a href="/plushies/size-guide">Not sure what 15 cm or 45 cm looks like? Use our visual plush size guide.</a></p>
         <a class="saved-list-link" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♡</span> Saved <strong>@Model.SavedCount</strong></a>
     </header>
 
@@ -33,6 +34,15 @@
         <span class="partner-notice-icon" aria-hidden="true">◇</span>
         <div><strong>A curated shortlist, not an endorsement</strong><p>Wonder Aisle does not manufacture or physically test these products. AliExpress confirms the seller, selected option, delivery and final total.</p></div>
     </aside>
+
+    <section class="collection-method" aria-labelledby="collection-method-heading">
+        <div><p class="shop-kicker">What this shortlist adds</p><h2 id="collection-method-heading">Comparable details, with the gaps left visible.</h2></div>
+        <ul>
+            <li><strong>Editorial review</strong><span>@Model.Products.Count product@(Model.Products.Count == 1 ? "" : "s") with reviewed public copy</span></li>
+            <li><strong>Current signals</strong><span>Observed price date, seller feedback and recent sales where supplied</span></li>
+            <li><strong>Listing evidence</strong><span>@Model.Products.Count(product => !string.IsNullOrWhiteSpace(product.VerifiedSize) || !string.IsNullOrWhiteSpace(product.VerifiedOptions)) product@(Model.Products.Count(product => !string.IsNullOrWhiteSpace(product.VerifiedSize) || !string.IsNullOrWhiteSpace(product.VerifiedOptions)) == 1 ? "" : "s") with human-checked size or option notes</span></li>
+        </ul>
+    </section>
 
     <section class="catalogue-results collection-results" aria-labelledby="collection-products-heading">
         <header class="catalogue-results-header">
@@ -71,6 +81,14 @@
                         <div class="product-card-copy">
                             <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId" data-analytics-select-item data-analytics-item-id="@product.ProductId" data-analytics-item-category="@product.Category" data-analytics-item-price="@(product.Price?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" data-analytics-shop="@Model.Shop.Slug" data-analytics-placement="@Model.Collection.Slug">@product.Title</a></h3>
                             <p class="product-card-price">@Model.FormatPrice(product.Price, product.Currency)</p>
+                            @if (!string.IsNullOrWhiteSpace(product.VerifiedSize))
+                            {
+                                <p class="product-card-verified"><span aria-hidden="true">✓</span> Size checked: @product.VerifiedSize</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(product.VerifiedOptions))
+                            {
+                                <p class="product-card-options">@product.VerifiedOptions</p>
+                            }
                             @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
                             {
                                 <p class="product-card-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>

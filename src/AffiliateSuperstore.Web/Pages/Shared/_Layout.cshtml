@@ -11,6 +11,8 @@
     var canonicalUrl = ViewData["Canonical"] as string;
     var socialImageUrl = ViewData["SocialImage"] as string ?? SuperstoreOptions.BuildPublicUrl("/images/wonder-aisle-social.png");
     var socialImageAlt = ViewData["SocialImageAlt"] as string ?? "A curated display of characterful plush animals at Wonder Aisle.";
+    var socialImageWidth = ViewData["SocialImageWidth"] as int? ?? 1200;
+    var socialImageHeight = ViewData["SocialImageHeight"] as int? ?? 630;
     var currentPath = Context.Request.Path;
     var isHome = currentPath == "/";
     var isPlushies = currentPath.StartsWithSegments("/plushies");
@@ -47,8 +49,8 @@
     }
     <meta property="og:image" content="@socialImageUrl" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:image:width" content="@socialImageWidth" />
+    <meta property="og:image:height" content="@socialImageHeight" />
     <meta property="og:image:alt" content="@socialImageAlt" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="@pageTitle" />
@@ -106,7 +108,7 @@
     <footer class="site-footer">
         <div>
             <span>&copy; 2026 @SuperstoreOptions.BrandName</span>
-            <span><a href="/about">About</a> · <a href="/how-we-curate">How we curate</a> · <a href="/contact">Contact</a></span>
+            <span><a href="/about">About</a> · <a href="/how-we-curate">How we curate</a> · <a href="/plushies/size-guide">Plush size guide</a> · <a href="/contact">Contact</a></span>
             <span><a href="/Privacy">Privacy &amp; cookies</a> · <a href="/Terms">Website terms</a>@if (googleMeasurementId is not null) { <text> · <button class="cookie-settings-link" type="button" data-cookie-settings>Cookie settings</button></text> }</span>
             @if (!string.IsNullOrWhiteSpace(LegalNotice.OperatorName))
             {

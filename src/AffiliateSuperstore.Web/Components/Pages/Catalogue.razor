@@ -195,6 +195,9 @@
             <div class="editor-fields">
                 <div class="form-field editor-title"><label for="editor-title">Public title</label><input id="editor-title" @bind="Editor.EditorialTitle" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumTitleLength" placeholder="Leave blank to use the source title" /><ValidationMessage For="() => Editor.EditorialTitle" /><small>@(Editor.EditorialTitle?.Length ?? 0) / @CatalogueEditorialService.MaximumTitleLength characters</small></div>
                 <div class="form-field editor-description"><label for="editor-description">Public description</label><textarea id="editor-description" @bind="Editor.EditorialDescription" @bind:event="oninput" maxlength="@CatalogueEditorialService.MaximumDescriptionLength" rows="5" placeholder="Add a useful, original description for shoppers and search engines"></textarea><ValidationMessage For="() => Editor.EditorialDescription" /><small>@(Editor.EditorialDescription?.Length ?? 0) / @CatalogueEditorialService.MaximumDescriptionLength characters</small></div>
+                <div class="form-field editor-description"><label for="editor-verified-size">Human-verified size</label><input id="editor-verified-size" @bind="Editor.VerifiedSize" maxlength="@CatalogueEditorialService.MaximumVerifiedSizeLength" placeholder="Example: 16 cm tall for the selected pictured option" /><ValidationMessage For="() => Editor.VerifiedSize" /><small>Leave blank until the listing images and option selector agree. Machine-parsed title sizes are never published here.</small></div>
+                <div class="form-field editor-description"><label for="editor-verified-options">Human-verified options</label><textarea id="editor-verified-options" @bind="Editor.VerifiedOptions" maxlength="@CatalogueEditorialService.MaximumVerifiedOptionsLength" rows="3" placeholder="Summarise only options confirmed on the live seller listing"></textarea><ValidationMessage For="() => Editor.VerifiedOptions" /></div>
+                <div class="form-field editor-description"><label for="editor-verification-evidence">Verification evidence</label><textarea id="editor-verification-evidence" @bind="Editor.VerificationEvidence" maxlength="@CatalogueEditorialService.MaximumVerificationEvidenceLength" rows="3" placeholder="Record what was checked, where, and any limitation"></textarea><ValidationMessage For="() => Editor.VerificationEvidence" /><small>Required whenever a verified size or option is supplied. Saving creates an audited revision and returns an approved product to review.</small></div>
                 <div class="form-field editor-description"><label for="editor-reason">Change note</label><input id="editor-reason" @bind="Editor.ChangeReason" maxlength="@CatalogueEditorialService.MaximumChangeReasonLength" placeholder="Why this revision was made (optional)" /><small>Stored with the revision for future review.</small></div>
                 <div class="form-field"><label for="editor-order">Display order</label><input id="editor-order" type="number" min="0" max="@CatalogueEditorialService.MaximumDisplayOrder" @bind="Editor.DisplayOrder" @bind:event="oninput" /><ValidationMessage For="() => Editor.DisplayOrder" /></div>
                 <label class="check-field editor-featured"><InputCheckbox @bind-Value="Editor.IsFeatured" /> Feature this product ahead of the standard catalogue order</label>
@@ -230,7 +233,7 @@
                             <p>@string.Join(", ", revision.ChangedFields) · @revision.CreatedBy · @revision.CreatedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</p>
                             @if (revision.RolledBackFromVersionNumber is not null) { <p>Restored from revision @revision.RolledBackFromVersionNumber.</p> }
                             @if (!string.IsNullOrWhiteSpace(revision.ChangeReason)) { <blockquote>@revision.ChangeReason</blockquote> }
-                            <details><summary>View stored content and evidence</summary><dl><dt>Title</dt><dd>@(revision.EditorialTitle ?? "Uses source title")</dd><dt>Description</dt><dd>@(revision.EditorialDescription ?? "No description")</dd></dl>@if (revision.Findings.Count > 0) { <ul class="validation-findings">@foreach (var finding in revision.Findings) { <li>@finding.Message</li> }</ul> }</details>
+                            <details><summary>View stored content and evidence</summary><dl><dt>Title</dt><dd>@(revision.EditorialTitle ?? "Uses source title")</dd><dt>Description</dt><dd>@(revision.EditorialDescription ?? "No description")</dd><dt>Verified size</dt><dd>@(revision.VerifiedSize ?? "Not recorded")</dd><dt>Verified options</dt><dd>@(revision.VerifiedOptions ?? "Not recorded")</dd><dt>Verification evidence</dt><dd>@(revision.VerificationEvidence ?? "Not recorded")</dd></dl>@if (revision.Findings.Count > 0) { <ul class="validation-findings">@foreach (var finding in revision.Findings) { <li>@finding.Message</li> }</ul> }</details>
                             @if (revision.VersionNumber != Editor.CurrentVersionNumber)
                             {
                                 <button class="button revision-restore" type="button" disabled="@IsSaving" @onclick="() => RestoreRevisionAsync(revision.Id)">Restore as new revision</button>
@@ -264,7 +267,7 @@
         @foreach (var product in DisplayedProducts)
         {
             <tr>
-                <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.DisplayTitle">@product.DisplayTitle</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small>@if (product.IsFeatured) { <span class="editorial-chip">Featured · @product.DisplayOrder</span> } else if (product.HasEditorialContent) { <span class="editorial-chip">Edited</span> }</div></div></td>
+                <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong title="@product.DisplayTitle">@product.DisplayTitle</strong><small>@product.ProductId · @product.RefreshedUtc.ToLocalTime().ToString("dd MMM HH:mm")</small>@if (product.HasVerifiedFacts) { <span class="editorial-chip">Facts verified</span> }@if (product.IsFeatured) { <span class="editorial-chip">Featured · @product.DisplayOrder</span> } else if (product.HasEditorialContent) { <span class="editorial-chip">Edited</span> }</div></div></td>
                 <td>@Money(product.SalePrice, product.Currency)</td><td>@Percent(product.CommissionRate)</td><td>@product.Volume?.ToString("N0")</td><td>@if (product.LastDetailRefreshedUtc is null) { <span class="table-status missing">Basic only</span> } else { <span class="table-status ready">@product.MediaCount media</span><small class="table-detail-time">@product.LastDetailRefreshedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }</td>
                 <td><span class="table-status @(product.AvailabilityState == ProductAvailabilityState.Available ? "ready" : "missing")">@product.AvailabilityState</span>@if (product.LastCheckedUtc is not null) { <small class="table-detail-time">Checked @product.LastCheckedUtc.Value.ToLocalTime().ToString("dd MMM HH:mm")</small> }@if (product.ConsecutiveUnavailableChecks > 0) { <small class="table-detail-time">@product.ConsecutiveUnavailableChecks direct miss@(product.ConsecutiveUnavailableChecks == 1 ? "" : "es")</small> }</td>
                 <td>@if (product.Flags.Count == 0) { <span class="quality-clear">Clear</span> } else { <details class="quality-flags"><summary>@product.Flags.Count flag@(product.Flags.Count == 1 ? "" : "s")</summary><ul>@foreach (var flag in product.Flags) { <li><strong>@flag.Code</strong>@flag.Message</li> }</ul></details> }</td>
@@ -373,6 +376,9 @@
                 item.Product.Title,
                 item.EditorialTitle,
                 item.EditorialDescription,
+                item.VerifiedSize,
+                item.VerifiedOptions,
+                item.VerificationEvidence,
                 item.Product.MainImageUrl,
                 item.Product.LastRefreshedUtc,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc).Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
@@ -434,6 +440,9 @@
             SourceTitle = product.SourceTitle,
             EditorialTitle = product.EditorialTitle,
             EditorialDescription = product.EditorialDescription,
+            VerifiedSize = product.VerifiedSize,
+            VerifiedOptions = product.VerifiedOptions,
+            VerificationEvidence = product.VerificationEvidence,
             ImageUrl = product.ImageUrl,
             IsFeatured = product.IsFeatured,
             DisplayOrder = product.DisplayOrder,
@@ -504,7 +513,10 @@
                 Editor.DisplayOrder,
                 Editor.ExpectedRowVersion,
                 actor,
-                Editor.ChangeReason));
+                Editor.ChangeReason,
+                Editor.VerifiedSize,
+                Editor.VerifiedOptions,
+                Editor.VerificationEvidence));
             CommandResult = result;
             await LoadProductsAsync();
             if (result.Succeeded)
@@ -559,6 +571,9 @@
         public string? ImageUrl { get; set; }
         [StringLength(CatalogueEditorialService.MaximumTitleLength)] public string? EditorialTitle { get; set; }
         [StringLength(CatalogueEditorialService.MaximumDescriptionLength)] public string? EditorialDescription { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumVerifiedSizeLength)] public string? VerifiedSize { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumVerifiedOptionsLength)] public string? VerifiedOptions { get; set; }
+        [StringLength(CatalogueEditorialService.MaximumVerificationEvidenceLength)] public string? VerificationEvidence { get; set; }
         public bool IsFeatured { get; set; }
         [Range(0, CatalogueEditorialService.MaximumDisplayOrder)] public int DisplayOrder { get; set; }
         [StringLength(CatalogueEditorialService.MaximumChangeReasonLength)] public string? ChangeReason { get; set; }
@@ -572,6 +587,9 @@
         string SourceTitle,
         string? EditorialTitle,
         string? EditorialDescription,
+        string? VerifiedSize,
+        string? VerifiedOptions,
+        string? VerificationEvidence,
         string? ImageUrl,
         DateTimeOffset RefreshedUtc,
         decimal? SalePrice,
@@ -595,6 +613,7 @@
         public IReadOnlyList<ProductQualityFlag> Flags => ProductQualityAssessmentService.ReadFlags(SerializedFlags);
         public string DisplayTitle => EditorialTitle ?? SourceTitle;
         public bool HasEditorialContent => !string.IsNullOrWhiteSpace(EditorialTitle) || !string.IsNullOrWhiteSpace(EditorialDescription);
+        public bool HasVerifiedFacts => !string.IsNullOrWhiteSpace(VerifiedSize) || !string.IsNullOrWhiteSpace(VerifiedOptions);
         public bool CanApprove => Flags.Count == 0 && HasActiveLink;
         public bool IsClearReviewCandidate => Flags.Count == 0 && HasActiveLink && ReviewStatus is ProductReviewStatus.Pending or ProductReviewStatus.NeedsReview;
     }

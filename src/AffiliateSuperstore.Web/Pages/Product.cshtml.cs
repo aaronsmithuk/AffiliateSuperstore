@@ -47,6 +47,9 @@ public sealed class ProductModel(
                 item.Product.Title,
                 item.EditorialTitle,
                 item.EditorialDescription,
+                item.VerifiedSize,
+                item.VerifiedOptions,
+                item.VerificationEvidence,
                 item.Product.MainImageUrl,
                 item.Product.FirstLevelCategoryName,
                 item.Product.SecondLevelCategoryName,
@@ -109,6 +112,8 @@ public sealed class ProductModel(
 
     private string BuildStructuredData(ProductView product)
     {
+        // Intentionally omit Offer and AggregateRating until the source price semantics,
+        // variant scope and availability contract pass docs/PRODUCT-STRUCTURED-DATA-DECISION.md.
         var data = new Dictionary<string, object?>
         {
             ["@context"] = "https://schema.org",
@@ -129,6 +134,9 @@ public sealed class ProductModel(
         string SourceTitle,
         string? EditorialTitle,
         string? EditorialDescription,
+        string? VerifiedSize,
+        string? VerifiedOptions,
+        string? VerificationEvidence,
         string? ImageUrl,
         string? FirstCategory,
         string? SecondCategory,

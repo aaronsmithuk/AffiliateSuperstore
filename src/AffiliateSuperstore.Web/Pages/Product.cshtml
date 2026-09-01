@@ -46,6 +46,18 @@
             }
             <div class="product-price"><strong>@(Model.Product.SalePrice is null ? "Check current price" : $"Item price: {Model.Product.Currency ?? "GBP"} {Model.Product.SalePrice:N2}")</strong></div>
             @if (!string.IsNullOrWhiteSpace(Model.Product.EditorialDescription)) { <p class="product-description">@Model.Product.EditorialDescription</p> }
+            @if (!string.IsNullOrWhiteSpace(Model.Product.VerifiedSize) || !string.IsNullOrWhiteSpace(Model.Product.VerifiedOptions))
+            {
+                <section class="verified-listing-facts" aria-labelledby="verified-listing-heading">
+                    <div><p class="shop-kicker">Human checked</p><h2 id="verified-listing-heading">Verified listing details</h2></div>
+                    <dl>
+                        @if (!string.IsNullOrWhiteSpace(Model.Product.VerifiedSize)) { <div><dt>Size</dt><dd>@Model.Product.VerifiedSize</dd></div> }
+                        @if (!string.IsNullOrWhiteSpace(Model.Product.VerifiedOptions)) { <div><dt>Options</dt><dd>@Model.Product.VerifiedOptions</dd></div> }
+                    </dl>
+                    @if (!string.IsNullOrWhiteSpace(Model.Product.VerificationEvidence)) { <p><strong>Evidence note:</strong> @Model.Product.VerificationEvidence</p> }
+                    <a href="/plushies/size-guide">Use the plush size guide</a>
+                </section>
+            }
             <dl class="product-facts">
                 @if (!string.IsNullOrWhiteSpace(Model.Product.SellerName)) { <div><dt>AliExpress seller</dt><dd>@Model.Product.SellerName</dd></div> }
                 @if (!string.IsNullOrWhiteSpace(Model.Product.SecondCategory ?? Model.Product.FirstCategory)) { <div><dt>Category</dt><dd>@(Model.Product.SecondCategory ?? Model.Product.FirstCategory)</dd></div> }

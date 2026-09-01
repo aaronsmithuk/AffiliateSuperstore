@@ -16,7 +16,7 @@ public sealed class SitemapModel(
     AffiliateSuperstoreOptions superstoreOptions) : PageModel
 {
     private static readonly string[] StaticIndexablePaths =
-        ["/", "/about", "/how-we-curate", "/contact", "/Privacy", "/Terms"];
+        ["/", "/about", "/how-we-curate", "/contact", "/plushies/size-guide", "/Privacy", "/Terms"];
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {

@@ -29,6 +29,50 @@ public sealed class CatalogueEditorialServiceTests
     }
 
     [Fact]
+    public async Task SaveAsync_RequiresEvidenceForVerifiedFacts()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, "facts-without-evidence", "Pineapple bear plush toy 16cm", includeLink: true);
+        var service = CreateService(factory);
+
+        var result = await service.SaveAsync(new CatalogueEditorialUpdate(
+            "plushies", "facts-without-evidence", "Pineapple Bear Plush", PublicationReadyDescription, false, 0,
+            VerifiedSize: "16 cm tall for the selected option"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("verification evidence", result.Message, StringComparison.OrdinalIgnoreCase);
+        await using var context = factory.CreateDbContext();
+        Assert.Empty(await context.EditorialVersions.ToListAsync());
+        Assert.Null((await context.ShopProducts.SingleAsync()).VerifiedSize);
+    }
+
+    [Fact]
+    public async Task SaveAsync_VersionsVerifiedFactsAndReturnsApprovedProductToReview()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, "verified-facts", "Pineapple bear plush toy 16cm", includeLink: true,
+            reviewStatus: ProductReviewStatus.Approved);
+        var service = CreateService(factory);
+
+        var result = await service.SaveAsync(new CatalogueEditorialUpdate(
+            "plushies", "verified-facts", "Pineapple Bear Plush", PublicationReadyDescription, false, 0,
+            EditedBy: "editor@example.test",
+            ChangeReason: "Checked the selected listing option",
+            VerifiedSize: "16 cm tall for the selected pictured option",
+            VerifiedOptions: "The live listing showed two colour choices for the 16 cm option.",
+            VerificationEvidence: "Compared the option selector with the labelled measurement image on 1 September 2026."));
+
+        Assert.True(result.Succeeded);
+        await using var context = factory.CreateDbContext();
+        var projection = await context.ShopProducts.SingleAsync();
+        Assert.Equal("16 cm tall for the selected pictured option", projection.VerifiedSize);
+        Assert.Equal(ProductReviewStatus.NeedsReview, projection.ReviewStatus);
+        var version = await context.EditorialVersions.SingleAsync();
+        Assert.Equal(projection.VerifiedSize, version.VerifiedSize);
+        Assert.Contains("option selector", version.VerificationEvidence, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SetReviewStatusAsync_RefusesRiskySourceEvenWhenEditorialTitleLooksSafe()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));

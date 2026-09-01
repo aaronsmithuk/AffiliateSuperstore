@@ -24,6 +24,7 @@ public sealed class SeoEndpointTests
             "https://wonderaisle.co.uk/about",
             "https://wonderaisle.co.uk/how-we-curate",
             "https://wonderaisle.co.uk/contact",
+            "https://wonderaisle.co.uk/plushies/size-guide",
             "https://wonderaisle.co.uk/Privacy",
             "https://wonderaisle.co.uk/Terms"
         ], enabled);

@@ -1,0 +1,100 @@
+@page "/plushies/size-guide"
+@using System.Text.Json
+@{
+    const string title = "Plush Size Guide: 15 cm to 45 cm Compared";
+    const string description = "See how 15 cm, 20 cm, 25 cm and 45 cm plush toys compare, how to read marketplace measurements and what to verify before ordering.";
+    var canonical = SuperstoreOptions.BuildPublicUrl("/plushies/size-guide");
+    ViewData["Title"] = title;
+    ViewData["Description"] = description;
+    ViewData["Robots"] = "index,follow";
+    ViewData["Canonical"] = canonical;
+    ViewData["SocialImage"] = SuperstoreOptions.BuildPublicUrl("/images/editorial/plush-size-lineup.png");
+    ViewData["SocialImageAlt"] = "Four original plush creatures arranged from pocket-sized to oversized.";
+    ViewData["SocialImageWidth"] = 1536;
+    ViewData["SocialImageHeight"] = 1024;
+    ViewData["StructuredData"] = JsonSerializer.Serialize(new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "WebPage",
+        ["name"] = title,
+        ["description"] = description,
+        ["url"] = canonical,
+        ["isPartOf"] = new Dictionary<string, object?>
+        {
+            ["@type"] = "WebSite",
+            ["name"] = SuperstoreOptions.BrandName,
+            ["url"] = SuperstoreOptions.BuildPublicUrl("/")
+        }
+    });
+}
+
+<article class="size-guide-shell">
+    <header class="size-guide-hero">
+        <nav class="shop-breadcrumb" aria-label="Breadcrumb"><a href="/">Shops</a><span aria-hidden="true">/</span><a href="/plushies">Plushies</a><span aria-hidden="true">/</span><span>Size guide</span></nav>
+        <div class="size-guide-hero-grid">
+            <div>
+                <p class="shop-kicker">Measure before you choose</p>
+                <h1>What does a 15–45 cm plush look like?</h1>
+                <p>Marketplace photographs can make a small plush fill the frame. This guide compares four common listing sizes and explains the checks that matter before you leave Wonder Aisle to order.</p>
+                <a class="size-guide-cta" href="#comparison">Compare the sizes</a>
+            </div>
+            <figure>
+                <img src="/images/editorial/plush-size-lineup.png" alt="Four original plush creatures arranged from smallest to largest." />
+                <figcaption>Illustrative artwork shows the progression only; use the measured diagram below for the actual ratio.</figcaption>
+            </figure>
+        </div>
+    </header>
+
+    <section class="size-comparison" id="comparison" aria-labelledby="size-comparison-heading">
+        <div class="size-guide-heading">
+            <p class="shop-kicker">Same baseline, true ratio</p>
+            <h2 id="size-comparison-heading">15 cm, 20 cm, 25 cm and 45 cm compared</h2>
+            <p>The shapes below use one consistent scale. They compare stated height only and are not life-size on your screen.</p>
+        </div>
+        <div class="size-scale-graphic" role="img" aria-label="Relative height comparison of 15, 20, 25 and 45 centimetres">
+            <svg viewBox="0 0 980 520" aria-hidden="true" focusable="false">
+                <line class="size-baseline" x1="35" y1="430" x2="945" y2="430" />
+                <g class="size-figure size-15" transform="translate(95 325)"><circle cx="70" cy="30" r="30"/><rect x="42" y="58" width="56" height="47" rx="25"/><circle cx="59" cy="27" r="4"/><circle cx="81" cy="27" r="4"/></g>
+                <g class="size-figure size-20" transform="translate(295 290)"><circle cx="70" cy="38" r="38"/><rect x="32" y="73" width="76" height="67" rx="32"/><circle cx="56" cy="34" r="5"/><circle cx="84" cy="34" r="5"/></g>
+                <g class="size-figure size-25" transform="translate(500 255)"><circle cx="70" cy="46" r="46"/><rect x="24" y="88" width="92" height="87" rx="40"/><circle cx="53" cy="41" r="6"/><circle cx="87" cy="41" r="6"/></g>
+                <g class="size-figure size-45" transform="translate(720 115)"><circle cx="90" cy="70" r="70"/><rect x="20" y="135" width="140" height="180" rx="65"/><circle cx="65" cy="62" r="8"/><circle cx="115" cy="62" r="8"/></g>
+                <g class="size-ruler"><line x1="60" y1="325" x2="60" y2="430"/><line x1="260" y1="290" x2="260" y2="430"/><line x1="465" y1="255" x2="465" y2="430"/><line x1="685" y1="115" x2="685" y2="430"/></g>
+            </svg>
+            <ol class="size-scale-labels">
+                <li><strong>15 cm</strong><span>Mini</span><p>Often suited to shelves, bags or small gifts.</p></li>
+                <li><strong>20 cm</strong><span>Handheld</span><p>A compact soft toy that is still easy to carry.</p></li>
+                <li><strong>25 cm</strong><span>Medium</span><p>More presence on a bed, chair or desk.</p></li>
+                <li><strong>45 cm</strong><span>Large</span><p>Closer to a cushion-sized companion.</p></li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="size-guide-advice" aria-labelledby="measure-heading">
+        <div>
+            <p class="shop-kicker">Before checkout</p>
+            <h2 id="measure-heading">How to check a seller’s measurement</h2>
+        </div>
+        <ol>
+            <li><strong>Find the exact option.</strong><p>A listing may combine several characters, colours and sizes. Select the intended option before reading its price or dimensions.</p></li>
+            <li><strong>Check the direction.</strong><p>“20 cm” might describe height, length or the longest dimension. Look for a labelled diagram rather than relying on the main photograph.</p></li>
+            <li><strong>Allow for softness.</strong><p>Filled fabric compresses and handmade measurements can vary. Treat a marketplace measurement as approximate unless the seller states a tolerance.</p></li>
+            <li><strong>Mark it out at home.</strong><p>Use a tape measure against the shelf, bag, bed or chair where the plush will live. This is more reliable than comparing screen images.</p></li>
+        </ol>
+    </section>
+
+    <section class="size-guide-caveats" aria-labelledby="what-we-check-heading">
+        <div>
+            <p class="shop-kicker">What Wonder Aisle verifies</p>
+            <h2 id="what-we-check-heading">A checked note is different from a title guess</h2>
+            <p>We display a “Size checked” note only after a human has compared the live listing’s option selector and supporting images and recorded the evidence. A number found automatically in a merchant title is not enough.</p>
+        </div>
+        <aside><strong>Still confirm on AliExpress</strong><p>The seller controls the listing and can change its options. Recheck the selected size, final price, delivery estimate, age guidance and safety information immediately before ordering.</p></aside>
+    </section>
+
+    <section class="size-guide-next" aria-labelledby="browse-heading">
+        <p class="shop-kicker">Ready to browse?</p>
+        <h2 id="browse-heading">Use the guide beside the shortlist.</h2>
+        <p>Open a product, look for a human-checked size note, then verify the chosen option again on the seller page.</p>
+        <a href="/plushies">Browse curated plushies</a>
+    </section>
+</article>

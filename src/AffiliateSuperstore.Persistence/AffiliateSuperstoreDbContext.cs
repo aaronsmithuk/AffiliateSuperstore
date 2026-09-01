@@ -147,6 +147,9 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.ProductId).HasMaxLength(64);
         entity.Property(item => item.EditorialTitle).HasMaxLength(1000);
         entity.Property(item => item.EditorialDescription).HasMaxLength(4000);
+        entity.Property(item => item.VerifiedSize).HasMaxLength(300);
+        entity.Property(item => item.VerifiedOptions).HasMaxLength(600);
+        entity.Property(item => item.VerificationEvidence).HasMaxLength(1000);
         entity.Property(item => item.EditorialValidationState).HasConversion<string>().HasMaxLength(30)
             .HasDefaultValue(EditorialValidationState.NotEvaluated);
         entity.Property(item => item.EditorialValidationFlags).HasMaxLength(4000);
@@ -167,6 +170,9 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.Property(item => item.ProductId).HasMaxLength(64).IsRequired();
         entity.Property(item => item.EditorialTitle).HasMaxLength(1000);
         entity.Property(item => item.EditorialDescription).HasMaxLength(4000);
+        entity.Property(item => item.VerifiedSize).HasMaxLength(300);
+        entity.Property(item => item.VerifiedOptions).HasMaxLength(600);
+        entity.Property(item => item.VerificationEvidence).HasMaxLength(1000);
         entity.Property(item => item.ChangeKind).HasConversion<string>().HasMaxLength(30);
         entity.Property(item => item.ChangeReason).HasMaxLength(500);
         entity.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
