@@ -236,6 +236,42 @@ products, zero failed runs, retries, active or recoverable leases and dead
 letters, and no operational alerts. The public catalogue remained at exactly
 12 human-approved products.
 
+## Sixth production release and performance record
+
+Release `652eb04` was deployed on 1 September 2026 from the clean detached
+`20260901-114138-652eb04` bundle. All 124 tests passed, and both the project
+and published `web.config` validated as OutOfProcess. SmarterASP backup queue
+item `3744565` completed successfully before the additive production migration
+or site files changed.
+
+Migration `20260901113234_AddProductImpressionAggregates` was applied to the
+isolated `db_a34d03_wonderaisle` database in provider-safe static batches.
+Production now reports 15 EF migrations and 28 tables. The new
+`ProductImpressions` table has all eight expected columns, its primary key,
+two foreign keys and both reporting indexes.
+
+The verified target-root archive was extracted into `\wonderaisle` while a
+target-scoped `app_offline.htm` held only Wonder Aisle offline. The archive
+excluded `App_Data`, so the production Data Protection key ring remained
+untouched. Provider decompression completed successfully, after which the
+maintenance marker and uploaded archive were removed. No application-pool or
+account-wide restart was performed.
+
+Both health endpoints, the home page, `/plushies`, a representative product,
+`/robots.txt` and `/sitemap.xml` return HTTP 200. The anonymous performance
+route redirects to the admin login, while the authenticated dashboard renders
+the selected attribution window, impressions, outbound clicks, CTR, order and
+commission summaries, placement channels and product-level performance. A
+live antiforgery-protected product-card impression was accepted by
+`/analytics/impressions` and verified in SQL.
+
+The protected scheduler wake credential was rotated in the dedicated
+`hydraadmin-001E96` pool and the single scheduled URL was replaced with a new
+15-minute task. The replacement credential returns HTTP 200 from the bounded
+wake check and an invalid credential returns HTTP 401. All active neighbouring
+sites returned HTTP 200 after the release; `ilovefitness.co.uk` remains
+excluded for its previously documented external expired-domain behaviour.
+
 ## Canonical HTTPS verification
 
 On 1 September 2026, `https://wonderaisle.co.uk/`, `/plushies`, both health
