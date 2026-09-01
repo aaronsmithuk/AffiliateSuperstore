@@ -1,0 +1,117 @@
+@page
+@{
+    ViewData["Title"] = "Website terms of use";
+    ViewData["Description"] = $"Terms for using {SuperstoreOptions.BrandName}, an independent AliExpress affiliate catalogue.";
+    ViewData["Robots"] = "index,follow";
+    var operatorName = string.IsNullOrWhiteSpace(LegalNotice.OperatorName) ? "[operator details not configured]" : LegalNotice.OperatorName;
+    var contactEmail = string.IsNullOrWhiteSpace(LegalNotice.ContactEmail) ? "[contact email not configured]" : LegalNotice.ContactEmail;
+}
+
+<article class="legal-page">
+    <header class="legal-page-header">
+        <p class="platform-kicker">Legal information</p>
+        <h1>@ViewData["Title"]</h1>
+        <p class="legal-updated">Effective: <time datetime="2026-09-01">1 September 2026</time></p>
+        <p>These terms govern your use of @SuperstoreOptions.BrandName. They do not govern a purchase made from an AliExpress seller.</p>
+    </header>
+
+    <aside class="legal-summary" aria-labelledby="terms-summary-heading">
+        <h2 id="terms-summary-heading">Important: this is an affiliate catalogue</h2>
+        <p><strong>This site contains advertising and affiliate links.</strong> If you follow one of our AliExpress links and make a qualifying purchase, we earn a commission. This does not add a fee to the price you pay.</p>
+        <p>@SuperstoreOptions.BrandName is independent. It is not AliExpress, an AliExpress seller, a marketplace, an importer or a party to your purchase. Checkout, payment, delivery, returns, refunds and product support take place on AliExpress and are handled under the seller’s and AliExpress’s terms.</p>
+    </aside>
+
+    <section>
+        <h2>1. About us and how to contact us</h2>
+        <p>The site is operated by <strong>@operatorName</strong>, trading as @SuperstoreOptions.BrandName.</p>
+        <dl class="legal-contact-list">
+            <div><dt>Legal form</dt><dd>@(string.IsNullOrWhiteSpace(LegalNotice.LegalForm) ? "[legal form not configured]" : LegalNotice.LegalForm)</dd></div>
+            <div><dt>Geographic address</dt><dd class="legal-address">@(string.IsNullOrWhiteSpace(LegalNotice.GeographicAddress) ? "[address not configured]" : LegalNotice.GeographicAddress)</dd></div>
+            <div><dt>Email</dt><dd>@if (string.IsNullOrWhiteSpace(LegalNotice.ContactEmail)) { <span>[email not configured]</span> } else { <a href="mailto:@LegalNotice.ContactEmail">@LegalNotice.ContactEmail</a> }</dd></div>
+            <div><dt>Telephone</dt><dd>@(string.IsNullOrWhiteSpace(LegalNotice.Telephone) ? "[telephone not configured]" : LegalNotice.Telephone)</dd></div>
+            @if (!string.IsNullOrWhiteSpace(LegalNotice.CompanyNumber))
+            {
+                <div><dt>Company number</dt><dd>@LegalNotice.CompanyNumber</dd></div>
+                <div><dt>Registered in</dt><dd>@LegalNotice.CompanyRegistrationJurisdiction</dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(LegalNotice.VatNumber))
+            {
+                <div><dt>VAT number</dt><dd>@LegalNotice.VatNumber</dd></div>
+            }
+        </dl>
+    </section>
+
+    <section>
+        <h2>2. Using the site</h2>
+        <p>You may browse the site and use the saved-list feature for personal, non-commercial purposes. The saved list is a browser-based comparison aid, not a shopping basket or order. Each product opens separately on AliExpress.</p>
+        <p>If you are under 18, please use the site with a parent or guardian and ask them to help before following a shopping link. You must meet AliExpress’s and the relevant seller’s age and account requirements to transact there.</p>
+        <p>You must not:</p>
+        <ul>
+            <li>use the site unlawfully, fraudulently or to harm another person;</li>
+            <li>attempt to gain unauthorised access, introduce malicious code, overwhelm the service or bypass security;</li>
+            <li>generate artificial clicks, orders or other activity, or interfere with affiliate attribution;</li>
+            <li>systematically extract or republish the catalogue, media or database without written permission; or</li>
+            <li>misrepresent a connection with us, AliExpress or any seller.</li>
+        </ul>
+        <p>We may restrict access where reasonably necessary to protect users, the service, our rights or the integrity of the affiliate programme.</p>
+    </section>
+
+    <section>
+        <h2>3. Product listings, prices and advertising</h2>
+        <p>Product titles, images, seller information, prices, availability, ratings, sales figures and other listing data originate from AliExpress and participating sellers through authorised affiliate tools. We may add our own categorisation or editorial summary. Affiliate content is advertising even where it also contains editorial selection.</p>
+        <p>Listing information is a time-stamped snapshot and can change without notice. A displayed price may:</p>
+        <ul>
+            <li>apply only to a particular size, colour, quantity, configuration, new-user offer or other variant;</li>
+            <li>exclude delivery charges, taxes, customs duties, import charges and other fees;</li>
+            <li>depend on destination, account status, coupons or promotion conditions; and</li>
+            <li>differ from the final total shown by AliExpress.</li>
+        </ul>
+        <p>Check the current seller identity, exact variant, full price, delivery estimate, dispatch location and all charges on AliExpress before ordering. A crossed-out price, percentage reduction or sales figure is supplier data and is not our independent verification of savings, demand or value.</p>
+        <p>We do not publish user reviews. Any score shown is identified as AliExpress aggregate feedback data and is not a review collected or verified by us. Please report information you believe is fake, incentivised, unsafe, illegal or materially misleading so that we can review the listing and remove or correct it where appropriate.</p>
+    </section>
+
+    <section>
+        <h2>4. Product safety and suitability</h2>
+        <p>Our catalogue review is not laboratory testing, conformity assessment or professional safety advice. The presence of a product does not mean that we have verified its composition, authenticity, age grading, warnings, traceability, UKCA/CE status or compliance with UK product-safety law.</p>
+        <p>Before buying a toy or children’s product, review the seller’s safety information and warnings, consider the intended user’s age and needs, and check for small parts, long cords, button batteries, magnets, flammability, materials and other relevant risks. Do not rely on a product image alone. If safety information is missing or doubtful, do not buy the item. Report suspected unsafe products to AliExpress and to us at <strong>@contactEmail</strong>; serious concerns can also be reported through Citizens Advice or the relevant UK product-safety authority.</p>
+    </section>
+
+    <section>
+        <h2>5. Purchases on AliExpress</h2>
+        <p>Following a link takes you to a third-party platform. Any purchase contract is made with the seller identified at checkout, through AliExpress. The seller’s terms, the <a href="https://terms.alicdn.com/legal-agreement/terms/suit_bu1_aliexpress/suit_bu1_aliexpress202204182115_66077.html" rel="external noopener">AliExpress Terms of Use</a>, its privacy and cookie notices, and any applicable buyer-protection rules apply there.</p>
+        <p>Questions about payment, delivery, cancellation, returns, refunds, warranties, seller conduct or an order must be raised with the seller and AliExpress through their platform. Nothing in these website terms takes away rights you may have against a seller, marketplace, payment provider or other person under consumer law.</p>
+        <p>Affiliate attribution and commission are handled by AliExpress’s systems. We cannot promise that a link, promotion, product or commission will remain available.</p>
+    </section>
+
+    <section>
+        <h2>6. Intellectual property and trade marks</h2>
+        <p>Our site design, original copy, software, selection and arrangement are protected by intellectual-property law. Product media, listing material, names and trade marks belong to AliExpress, the relevant seller or other rights holder and are used for affiliate advertising under the permissions made available to us.</p>
+        <p>“AliExpress” and related marks belong to their respective owners. Their use identifies the destination platform and does not imply that @SuperstoreOptions.BrandName is owned, operated or endorsed by AliExpress.</p>
+        <p>You may link to public pages fairly and lawfully, without implying association or approval. Other copying, adaptation, commercial reuse, framing or database extraction requires the relevant rights holder’s prior permission, except where law expressly permits it.</p>
+    </section>
+
+    <section>
+        <h2>7. Availability and responsibility</h2>
+        <p>We use reasonable care to operate the site and present affiliate information accurately, but we do not promise uninterrupted availability or that third-party data will always be complete, current or error-free. We may correct, suspend, withdraw or change site content and features.</p>
+        <p>We are responsible for loss or damage that is a foreseeable result of our breach of these terms or failure to use reasonable care and skill. We are not responsible for loss caused by an AliExpress seller, the AliExpress platform, a payment or delivery provider, inaccurate third-party information that we could not reasonably have identified, or your failure to check the final listing and order details.</p>
+        <p>We do not exclude or limit liability where it would be unlawful, including liability for death or personal injury caused by our negligence, fraud or fraudulent misrepresentation, or your mandatory statutory rights.</p>
+        <p>The site is provided for consumers. If you use it for business purposes, we are not liable for loss of profit, revenue, business, contracts, anticipated savings, data or goodwill, to the extent the law permits.</p>
+    </section>
+
+    <section>
+        <h2>8. Privacy</h2>
+        <p>Our <a href="/Privacy">Privacy and cookie notice</a> explains how we use information, including the saved-list cookie, click attribution and limited AliExpress order reports.</p>
+    </section>
+
+    <section>
+        <h2>9. Complaints and disputes</h2>
+        <p>For a complaint about this site, contact <strong>@contactEmail</strong> and include the page or product reference, what went wrong and the outcome you want. This route is separate from the AliExpress dispute process for purchases.</p>
+        <p>These terms and non-contractual matters connected with them are governed by the law of England and Wales. If you are a consumer resident elsewhere in the United Kingdom, you keep any mandatory protections of your home nation and may bring proceedings in the courts available to you there. Otherwise, the courts of England and Wales have jurisdiction.</p>
+    </section>
+
+    <section>
+        <h2>10. Changes and general terms</h2>
+        <p>We may update these terms to reflect changes to the site, law, security or affiliate rules. The current version and effective date will remain available on this page; material changes will be highlighted where appropriate.</p>
+        <p>If a court finds part of these terms unlawful or unenforceable, the remaining terms continue to apply. A delay in enforcing a term is not a waiver. These terms do not give rights to anyone other than you and us.</p>
+    </section>
+</article>

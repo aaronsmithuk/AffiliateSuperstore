@@ -2,7 +2,7 @@
   position: relative;
   z-index: 10;
   border-bottom: 1px solid rgb(255 255 255 / 14%);
-  background: linear-gradient(110deg, #2b1830, #5b244d 70%, #6d2e5b);
+  background: #163b34;
   color: #fff;
 }
 
@@ -32,15 +32,15 @@
 .site-brand > span {
   width: 2.25rem;
   height: 2.25rem;
-  border-radius: var(--ds-radius-sm);
+  border-radius: 50%;
   display: grid;
   place-items: center;
   border: 1px solid rgb(255 255 255 / 34%);
-  background: rgb(255 255 255 / 12%);
+  background: #d7a747;
   color: #fff;
   font-size: .72rem;
   font-weight: 900;
-  letter-spacing: -.04em;
+  letter-spacing: -.06em;
 }
 
 .site-links {
@@ -66,10 +66,6 @@
   color: #fff;
 }
 
-.site-links .site-admin-link {
-  border: 1px solid rgb(255 255 255 / 30%);
-}
-
 .site-main {
   min-height: calc(100vh - 10rem);
   padding-block: clamp(.75rem, 2vw, 1.5rem) var(--ds-space-7);
@@ -83,6 +79,8 @@
 
 .site-footer > div {
   padding-block: var(--ds-space-5);
+  display: grid;
+  gap: .3rem;
   font-size: .82rem;
 }
 
@@ -104,9 +102,7 @@
     white-space: nowrap;
   }
 
-  .site-links li:first-child,
-  .site-links li:nth-child(4),
-  .site-links .site-admin-link {
+  .site-links li:first-child {
     display: none;
   }
 

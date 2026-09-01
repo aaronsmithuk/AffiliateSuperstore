@@ -30,11 +30,9 @@
         <nav class="site-navigation" aria-label="Primary navigation">
             <a class="site-brand" href="/"><span aria-hidden="true">WA</span><strong>@SuperstoreOptions.BrandName</strong></a>
             <ul class="site-links">
-                <li><a href="/">Home</a></li>
+                <li><a href="/#shops">Shops</a></li>
                 <li><a href="/plushies">Plushies</a></li>
-                <li><a href="/basket/plushies">Saved list</a></li>
-                <li><a href="/Privacy">Privacy</a></li>
-                <li><a class="site-admin-link" href="/admin/api-test">Admin</a></li>
+                <li><a href="/basket/plushies">Saved</a></li>
             </ul>
         </nav>
     </header>
@@ -46,7 +44,16 @@
 
     <footer class="site-footer">
         <div>
-            &copy; 2026 - @SuperstoreOptions.BrandName - <a href="/Privacy">Privacy</a>
+            <span>&copy; 2026 @SuperstoreOptions.BrandName</span>
+            <span><a href="/Privacy">Privacy &amp; cookies</a> · <a href="/Terms">Website terms</a></span>
+            @if (!string.IsNullOrWhiteSpace(LegalNotice.OperatorName))
+            {
+                <span>Operated by @LegalNotice.OperatorName@if (!string.IsNullOrWhiteSpace(LegalNotice.CompanyNumber)) { <text> · Company @LegalNotice.CompanyNumber</text> }</span>
+            }
+            else
+            {
+                <span class="legal-configuration-warning">Legal operator details must be configured before publication.</span>
+            }
         </div>
     </footer>
 

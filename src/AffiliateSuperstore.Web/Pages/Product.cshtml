@@ -38,13 +38,13 @@
             }
         </div>
         <div class="product-detail-copy">
-            <p class="shop-kicker">Curated find</p>
+            <p class="shop-kicker">Ad · Affiliate product</p>
             <h1>@Model.Product.Title</h1>
             @if (Model.Product.EvaluationRate is not null || Model.Product.RecentSalesVolume is not null)
             {
                 <p class="product-confidence">@if (Model.Product.EvaluationRate is not null) { <span>★ @Model.Product.EvaluationRate.Value.ToString("P0") positive</span> }@if (Model.Product.RecentSalesVolume is not null) { <span>@Model.Product.RecentSalesVolume.Value.ToString("N0") sold recently</span> }</p>
             }
-            <div class="product-price"><strong>@(Model.Product.SalePrice is null ? "Check current price" : $"{Model.Product.Currency ?? "GBP"} {Model.Product.SalePrice:N2}")</strong>@if (Model.Product.OriginalPrice > Model.Product.SalePrice) { <del>@(Model.Product.Currency ?? "GBP") @Model.Product.OriginalPrice?.ToString("N2")</del> }@if (!string.IsNullOrWhiteSpace(Model.Product.Discount)) { <span>@Model.Product.Discount</span> }</div>
+            <div class="product-price"><strong>@(Model.Product.SalePrice is null ? "Check current price" : $"Item price: {Model.Product.Currency ?? "GBP"} {Model.Product.SalePrice:N2}")</strong></div>
             @if (!string.IsNullOrWhiteSpace(Model.Product.EditorialDescription)) { <p class="product-description">@Model.Product.EditorialDescription</p> }
             <dl class="product-facts">
                 @if (!string.IsNullOrWhiteSpace(Model.Product.SellerName)) { <div><dt>AliExpress seller</dt><dd>@Model.Product.SellerName</dd></div> }
@@ -54,7 +54,7 @@
                 <div><dt>Price checked</dt><dd>@Model.Product.LastCheckedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</dd></div>
                 @if (Model.Product.LastDetailRefreshedUtc is not null) { <div><dt>Details checked</dt><dd>@Model.Product.LastDetailRefreshedUtc.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm")</dd></div> }
             </dl>
-            <aside class="listing-data-note"><strong>About this listing data</strong><p>The score shown is AliExpress’s aggregate positive-feedback rate, not reviews collected by this shop. Available colours, sizes, delivery dates and the final price are confirmed on AliExpress.</p></aside>
+            <aside class="listing-data-note"><strong>About this listing data</strong><p>The score shown is AliExpress’s aggregate positive-feedback rate, not reviews collected by this shop. Price may vary by option and exclude delivery, tax, customs or import charges. Check the final total, seller, age guidance and safety warnings on AliExpress before ordering.</p></aside>
             <div class="product-actions">
                 <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
                 @if (Model.IsSaved)
@@ -66,7 +66,7 @@
                     <form method="post" asp-page="/Basket" asp-page-handler="Add" asp-route-shopSlug="@Model.Shop.Slug" asp-route-productId="@Model.Product.ProductId"><button class="product-save-button" type="submit"><span aria-hidden="true">♡</span> Save for later</button></form>
                 }
             </div>
-            <aside class="partner-notice product-handoff" aria-label="Buying through a partner"><span class="partner-notice-icon" aria-hidden="true">◇</span><div><strong>Buying through a partner</strong><p>You’ll leave this shop to complete checkout with AliExpress.</p></div></aside>
+            <aside class="partner-notice product-handoff" aria-label="Buying through a partner"><span class="partner-notice-icon" aria-hidden="true">◇</span><div><strong>Affiliate link</strong><p>You’ll leave this shop to buy from an AliExpress seller. We earn a commission on qualifying purchases.</p></div></aside>
         </div>
     </div>
     @if (Model.RelatedProducts.Count > 0)
@@ -78,11 +78,11 @@
                 {
                     <article class="related-product-card">
                         <a href="/@Model.Shop.Slug/product/@product.ProductId">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="@product.Title" loading="lazy" referrerpolicy="no-referrer" /> }<strong>@product.Title</strong></a>
-                        <p>@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p>
+                        <p>@(product.Price is null ? "Check current price" : $"Item price: {product.Currency ?? "GBP"} {product.Price:N2}")</p>
                     </article>
                 }
             </div>
         </section>
     }
-    <aside class="affiliate-disclosure"><strong>Affiliate disclosure</strong><p>We may earn a commission from qualifying purchases at no extra cost to you. @SuperstoreOptions.BrandName is not the seller and does not handle payment, delivery or returns.</p></aside>
+    <aside class="affiliate-disclosure"><strong>Affiliate advertising disclosure</strong><p>We earn a commission from qualifying purchases at no extra cost to you. @SuperstoreOptions.BrandName is not the seller, importer or AliExpress and does not handle payment, delivery or returns.</p></aside>
 </article>

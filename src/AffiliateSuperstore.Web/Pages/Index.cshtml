@@ -1,17 +1,100 @@
-﻿@page
+@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Curated finds from specialist shops";
+    ViewData["Title"] = "Curated specialist shops";
+    ViewData["Description"] = "Step into Wonder Aisle, a growing collection of carefully curated specialist shops.";
     ViewData["Robots"] = "noindex,follow";
     ViewData["Canonical"] = SuperstoreOptions.BuildPublicUrl();
 }
 
-<section class="platform-intro">
-    <p class="platform-kicker">One platform · many specialist shops</p>
-    <h1>Curated finds, organised into shops worth browsing.</h1>
-    <p class="platform-lead">
-        @SuperstoreOptions.BrandName is the shared platform behind themed collections. Start with our
-        growing plushies shop, or open the local control room to manage catalogue quality.
-    </p>
-    <div class="platform-actions"><a class="platform-primary-action" href="/plushies">Browse plushies</a><a class="platform-secondary-action" href="/admin/api-test">Open the control room</a></div>
-</section>
+<div class="wonder-home">
+    <section class="wonder-home-hero" aria-labelledby="wonder-home-heading">
+        <div class="wonder-home-hero-copy">
+            <p class="wonder-home-kicker"><span aria-hidden="true">01</span> Curated shops under one roof</p>
+            <h1 id="wonder-home-heading">Find the aisle that feels like yours.</h1>
+            <p class="wonder-home-lead">
+                Wonder Aisle is a growing collection of small, specialist shops—each one thoughtfully
+                organised so the good things are easier to find.
+            </p>
+            <div class="wonder-home-actions">
+                <a class="wonder-home-primary-action" href="#shops">Explore the shops <span aria-hidden="true">↓</span></a>
+                <span>@Model.Shops.Count @(Model.Shops.Count == 1 ? "shop" : "shops") open now</span>
+            </div>
+        </div>
+        <aside class="wonder-home-wayfinder" aria-label="Wonder Aisle directory">
+            <div class="wonder-home-wayfinder-topline"><span>Wonder Aisle</span><span>Directory</span></div>
+            <p aria-hidden="true">W<span>/</span>A</p>
+            <div class="wonder-home-wayfinder-bottomline"><span>Wander well</span><span>Est. 2026</span></div>
+        </aside>
+    </section>
+
+    <section class="wonder-home-shops" id="shops" aria-labelledby="wonder-home-shops-heading">
+        <header class="wonder-home-section-heading">
+            <div>
+                <p class="wonder-home-kicker"><span aria-hidden="true">02</span> The shop directory</p>
+                <h2 id="wonder-home-shops-heading">Shops, now open</h2>
+            </div>
+            <p>Every aisle has its own point of view, look and carefully chosen collection.</p>
+        </header>
+
+        @foreach (var shop in Model.Shops)
+        {
+            <article class="wonder-aisle-card" style="--aisle-colour:@shop.PrimaryColour; --aisle-accent:@shop.AccentColour">
+                <a class="wonder-aisle-card-media" href="@shop.Path" aria-label="Enter @shop.DisplayName">
+                    @if (shop.PreviewImages.Count > 0)
+                    {
+                        <span class="wonder-aisle-image-grid wonder-aisle-image-grid-@Math.Min(shop.PreviewImages.Count, 3)" aria-hidden="true">
+                            @foreach (var imageUrl in shop.PreviewImages.Take(3))
+                            {
+                                <img src="@imageUrl" alt="" loading="@(shop.Order == 1 ? "eager" : "lazy")" referrerpolicy="no-referrer" />
+                            }
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="wonder-aisle-placeholder" aria-hidden="true">
+                            <small>Specialist shop</small>
+                            <strong>@shop.DisplayName</strong>
+                            <span>Curated with care</span>
+                        </span>
+                    }
+                    <span class="wonder-aisle-number" aria-hidden="true">@shop.Order.ToString("00")</span>
+                </a>
+                <div class="wonder-aisle-card-copy">
+                    <p class="wonder-aisle-status"><span aria-hidden="true"></span> Now open</p>
+                    <h3><a href="@shop.Path">@shop.DisplayName</a></h3>
+                    <p>@shop.Description</p>
+                    <ul aria-label="Shop highlights">
+                        @foreach (var highlight in shop.Highlights)
+                        {
+                            <li>@highlight</li>
+                        }
+                    </ul>
+                    <a class="wonder-aisle-enter" href="@shop.Path">Enter the shop <span aria-hidden="true">→</span></a>
+                    <small>Browse here. Checkout is completed with our retail partner.</small>
+                </div>
+            </article>
+        }
+    </section>
+
+    <section class="wonder-home-values" aria-labelledby="wonder-home-values-heading">
+        <div class="wonder-home-values-intro">
+            <p class="wonder-home-kicker"><span aria-hidden="true">03</span> Why Wonder Aisle</p>
+            <h2 id="wonder-home-values-heading">Less endless scrolling.<br />More good finds.</h2>
+        </div>
+        <ol>
+            <li><span>01</span><strong>Focused shops</strong><p>Each aisle is built around one subject, not a bit of everything.</p></li>
+            <li><span>02</span><strong>Careful shortlists</strong><p>Collections are reviewed and organised before they reach the shop floor.</p></li>
+            <li><span>03</span><strong>Clear hand-off</strong><p>We show you the finds; our retail partner confirms price and handles checkout.</p></li>
+        </ol>
+    </section>
+
+    <section class="wonder-home-growing" aria-labelledby="wonder-home-growing-heading">
+        <div>
+            <p class="wonder-home-kicker">A growing collection</p>
+            <h2 id="wonder-home-growing-heading">More aisles are taking shape.</h2>
+        </div>
+        <p>We’re adding new shops slowly and thoughtfully. For now, take your time in The Plushy Shop—there’s plenty to discover.</p>
+        <a href="/plushies">Start with plushies <span aria-hidden="true">→</span></a>
+    </section>
+</div>

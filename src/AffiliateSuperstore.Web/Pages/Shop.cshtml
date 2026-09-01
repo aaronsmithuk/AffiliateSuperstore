@@ -36,7 +36,7 @@
 
     <aside class="partner-notice" aria-label="Buying through a partner">
         <span class="partner-notice-icon" aria-hidden="true">◇</span>
-        <div><strong>Buying through a partner</strong><p>Checkout, payment, delivery and returns are handled by AliExpress. We may earn a commission.</p></div>
+        <div><strong>Ad · Affiliate catalogue</strong><p>All product links are affiliate advertising: we earn a commission on qualifying purchases. Prices can vary by option and may exclude delivery, tax or import charges; AliExpress confirms the final total.</p></div>
     </aside>
 
     <div class="catalogue-layout">
@@ -103,13 +103,13 @@
                             </div>
                             <div class="product-card-copy">
                                 <h3><a class="product-title-link" href="/@Model.Shop.Slug/product/@product.ProductId">@product.Title</a></h3>
-                                <p class="product-card-price">@(product.Price is null ? "Check current price" : $"{product.Currency ?? "GBP"} {product.Price:N2}")</p>
+                                <p class="product-card-price">@(product.Price is null ? "Check current price" : $"Item price: {product.Currency ?? "GBP"} {product.Price:N2}")</p>
                                 @if (product.EvaluationRate is not null || product.RecentSalesVolume is not null)
                                 {
                                     <p class="product-card-confidence">@if (product.EvaluationRate is not null) { <span>★ @product.EvaluationRate.Value.ToString("P0") positive</span> }@if (product.RecentSalesVolume is not null) { <span>@product.RecentSalesVolume.Value.ToString("N0") sold</span> }</p>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(product.SellerName)) { <p class="product-card-seller">@product.SellerName</p> }
-                                <a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">Check at AliExpress <span aria-hidden="true">↗</span></a>
+                                <a class="affiliate-product-link" href="/go/@Model.Shop.Slug/@product.ProductId?placement=product-card" rel="sponsored nofollow noopener">Ad · Check at AliExpress <span aria-hidden="true">↗</span></a>
                             </div>
                         </article>
                     }
@@ -119,7 +119,7 @@
     </div>
 
     <aside class="affiliate-disclosure">
-        <strong>Affiliate disclosure</strong>
-        <p>@SuperstoreOptions.BrandName is not the seller. We may earn a commission from qualifying purchases at no extra cost to you.</p>
+        <strong>Affiliate advertising disclosure</strong>
+        <p>@SuperstoreOptions.BrandName earns a commission from qualifying purchases at no extra cost to you. We are not the seller, importer or AliExpress.</p>
     </aside>
 </div>

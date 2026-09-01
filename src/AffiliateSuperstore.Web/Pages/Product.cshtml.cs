@@ -121,21 +121,6 @@ public sealed class ProductModel(
             ["category"] = product.SecondCategory ?? product.FirstCategory,
             ["url"] = CanonicalUrl
         };
-        if (product.SalePrice is > 0)
-        {
-            data["offers"] = new Dictionary<string, object?>
-            {
-                ["@type"] = "Offer",
-                ["url"] = CanonicalUrl,
-                ["priceCurrency"] = product.Currency ?? "GBP",
-                ["price"] = product.SalePrice.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
-                ["seller"] = string.IsNullOrWhiteSpace(product.SellerName) ? null : new Dictionary<string, object?>
-                {
-                    ["@type"] = "Organization",
-                    ["name"] = product.SellerName
-                }
-            };
-        }
         return JsonSerializer.Serialize(data);
     }
 

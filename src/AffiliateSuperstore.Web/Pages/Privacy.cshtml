@@ -1,11 +1,131 @@
-﻿@page
+@page
 @model PrivacyModel
 @{
-    ViewData["Title"] = "Privacy Policy";
-    ViewData["Robots"] = "noindex,follow";
+    ViewData["Title"] = "Privacy and cookie notice";
+    ViewData["Description"] = $"How {SuperstoreOptions.BrandName} uses personal information, cookies and affiliate tracking.";
+    ViewData["Robots"] = "index,follow";
+    var operatorName = string.IsNullOrWhiteSpace(LegalNotice.OperatorName) ? "[operator details not configured]" : LegalNotice.OperatorName;
+    var contactEmail = string.IsNullOrWhiteSpace(LegalNotice.ContactEmail) ? "[privacy contact not configured]" : LegalNotice.ContactEmail;
 }
-<section class="message-page">
-    <p class="platform-kicker">Platform information</p>
-    <h1>@ViewData["Title"]</h1>
-    <p>The production privacy notice will describe the anonymous saved-list cookie, outbound-click attribution and affiliate-order reconciliation before this site is made public.</p>
-</section>
+
+<article class="legal-page">
+    <header class="legal-page-header">
+        <p class="platform-kicker">Privacy information</p>
+        <h1>@ViewData["Title"]</h1>
+        <p class="legal-updated">Last updated: <time datetime="2026-09-01">1 September 2026</time></p>
+        <p>This notice explains what happens to information when you use @SuperstoreOptions.BrandName, including its shops such as The Plushy Shop.</p>
+    </header>
+
+    <aside class="legal-summary" aria-labelledby="privacy-summary-heading">
+        <h2 id="privacy-summary-heading">The short version</h2>
+        <ul>
+            <li>You do not need an account to browse or save products.</li>
+            <li>A saved list stays in an encrypted cookie in your browser for up to 90 days.</li>
+            <li>We record affiliate-link clicks and receive limited order-attribution information from AliExpress, but not your name, delivery address, payment details or AliExpress login.</li>
+            <li>We do not use advertising pixels, behavioural profiling or optional analytics cookies on this site.</li>
+            <li>You can ask questions, exercise your rights or make a complaint using the contact details below.</li>
+        </ul>
+    </aside>
+
+    <section>
+        <h2>1. Who is responsible for your information?</h2>
+        <p><strong>@operatorName</strong>, trading as @SuperstoreOptions.BrandName, is the controller for the information described in this notice.</p>
+        <dl class="legal-contact-list">
+            <div><dt>Postal address</dt><dd class="legal-address">@(string.IsNullOrWhiteSpace(LegalNotice.GeographicAddress) ? "[address not configured]" : LegalNotice.GeographicAddress)</dd></div>
+            <div><dt>Email</dt><dd>@if (string.IsNullOrWhiteSpace(LegalNotice.ContactEmail)) { <span>[email not configured]</span> } else { <a href="mailto:@LegalNotice.ContactEmail">@LegalNotice.ContactEmail</a> }</dd></div>
+            <div><dt>Telephone</dt><dd>@(string.IsNullOrWhiteSpace(LegalNotice.Telephone) ? "[telephone not configured]" : LegalNotice.Telephone)</dd></div>
+        </dl>
+        <p>AliExpress is a separate organisation and an independent controller for the information it collects when you visit or buy through its platform. See the <a href="https://terms.alicdn.com/legal-agreement/terms/suit_bu1_aliexpress/suit_bu1_aliexpress201909171350_82407.html" rel="external noopener">AliExpress Privacy Policy</a>.</p>
+    </section>
+
+    <section>
+        <h2>2. Information we use, why we use it and our lawful basis</h2>
+        <div class="legal-table-scroll">
+            <table>
+                <thead><tr><th>Information</th><th>Purpose</th><th>UK GDPR lawful basis</th></tr></thead>
+                <tbody>
+                    <tr><td>Technical request and security information, such as IP address, browser type, requested page, time and server events</td><td>Deliver the site, diagnose faults, prevent abuse and keep it secure</td><td>Our legitimate interests in operating and protecting the service</td></tr>
+                    <tr><td>Product references saved in the encrypted saved-list cookie</td><td>Provide the list you expressly ask us to save in this browser</td><td>Our legitimate interests in providing the requested feature; the cookie is exempt from consent under PECR because it is used only for that feature</td></tr>
+                    <tr><td>A randomly generated click ID, product reference, shop, campaign, link placement and click time</td><td>Open the requested AliExpress page, attribute affiliate activity, detect fraud and measure whether the service works</td><td>Our legitimate interests in operating and funding the affiliate service and preventing fraud</td></tr>
+                    <tr><td>Limited order-attribution data supplied by AliExpress, such as sub-order reference, product, time, broad destination country, platform, order status, amount and commission</td><td>Reconcile commissions, investigate missing or invalid attribution, keep accounts and meet tax obligations</td><td>Our legitimate interests in administering the affiliate programme and our legal obligations for accounting and tax records</td></tr>
+                    <tr><td>Your name, contact details and message if you contact us</td><td>Answer enquiries, rights requests and complaints, and keep an appropriate record</td><td>Our legitimate interests in corresponding with you, steps you ask us to take, and our legal obligations</td></tr>
+                    <tr><td>Administrator username, security records and authentication cookie (site administrators only)</td><td>Control and audit access to the private administration area</td><td>Our legitimate interests in securing and administering the service</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p>We do not ask AliExpress for buyer names, delivery addresses, email addresses, payment-card details or account credentials. We do not make decisions about you that have legal or similarly significant effects.</p>
+    </section>
+
+    <section>
+        <h2>3. Cookies and similar technology</h2>
+        <p>We use only the following first-party cookies. Because each is necessary for a feature you request or for security, the law does not require an optional-cookie consent banner for the site in its present form.</p>
+        <div class="legal-table-scroll">
+            <table>
+                <thead><tr><th>Cookie</th><th>Purpose</th><th>Duration</th></tr></thead>
+                <tbody>
+                    <tr><td><code>affiliate-superstore-basket</code></td><td>Stores an encrypted list of product references after you choose “save”. It is not used for advertising or cross-site tracking.</td><td>Up to 90 days; clearing the list deletes it</td></tr>
+                    <tr><td><code>.AspNetCore.Antiforgery…</code></td><td>Protects forms against cross-site request forgery.</td><td>Browser session</td></tr>
+                    <tr><td><code>AffiliateSuperstore.Admin</code></td><td>Authenticates authorised administrators. Public visitors do not receive this cookie.</td><td>Up to 8 hours, with security-controlled renewal</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p>AliExpress uses its own cookies and tracking after you follow an affiliate link. Those technologies are controlled by AliExpress, not by this site. You can review its <a href="https://terms.alicdn.com/legal-agreement/terms/c_platform_service_agreement/20240401172006520/20240401172006520.html" rel="external noopener">Cookie Notice</a> and make choices on the AliExpress platform.</p>
+    </section>
+
+    <section>
+        <h2>4. Where information comes from and who receives it</h2>
+        <p>We receive information from your browser, from choices you make on this site, from messages you send, and from AliExpress affiliate reports or secured server-to-server notifications.</p>
+        <p>We disclose information only where needed to:</p>
+        <ul>
+            <li>hosting, database and technical service providers acting for us under appropriate confidentiality and data-protection terms;</li>
+            <li>AliExpress, when you ask to follow a link, by sending the destination and affiliate-attribution parameters needed for the redirect;</li>
+            <li>professional advisers, insurers, courts, regulators or public authorities where necessary to obtain advice, establish or defend legal rights, or comply with law; and</li>
+            <li>a buyer or successor if the service or its operator is reorganised, subject to appropriate safeguards.</li>
+        </ul>
+        <p>Product images and videos are delivered from AliExpress or seller content-delivery systems. When your browser requests that media, those systems receive ordinary web-request information such as your IP address and browser details.</p>
+        <p>We do not sell personal information.</p>
+    </section>
+
+    <section>
+        <h2>5. International transfers</h2>
+        <p>Some technical providers and AliExpress group companies operate outside the UK, including in Singapore, Hong Kong, China and other countries. AliExpress acts as an independent controller for its platform. Where we make a restricted transfer to a provider acting for us, we use a lawful UK transfer mechanism and carry out the checks required by UK data-protection law. You may contact us for information about the safeguard relevant to your information.</p>
+    </section>
+
+    <section>
+        <h2>6. How long we keep information</h2>
+        <ul>
+            <li>The saved-list cookie expires after 90 days and is deleted sooner if you clear the list.</li>
+            <li>Security and server records are kept for the shortest period reasonably needed to investigate faults, abuse or incidents, according to the host’s configured retention schedule.</li>
+            <li>Click and order-attribution records are kept through the relevant commission validation and dispute period, then deleted or anonymised unless they are still needed for fraud prevention, a legal claim or a legal obligation. We review this data at least annually.</li>
+            <li>Accounting and tax records are normally kept for six years after the relevant financial period.</li>
+            <li>Enquiries and complaints are kept only while needed to respond and for a reasonable period to show how the matter was handled.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>7. Children’s privacy</h2>
+        <p>A plush-toy catalogue may be visited by children, so we apply a high-privacy approach to everyone. There are no public accounts, direct marketing, precise location features, behavioural profiles, personalised adverts or social features. Saving a product is optional and stores only product references in that browser. Children should ask a parent or guardian to help before leaving for AliExpress or making a purchase. A child or their representative can use the rights and complaint routes below.</p>
+    </section>
+
+    <section>
+        <h2>8. Your data-protection rights</h2>
+        <p>Depending on the circumstances, you may ask us for access to your personal information, correction, deletion, restriction, or a portable copy. You may also withdraw consent where a use is based on consent (none of the current uses listed above is), and complain to us or the regulator. These rights can be limited by law; for example, we may need to retain a record to meet a legal obligation.</p>
+        <aside class="legal-right-to-object">
+            <h3>Your right to object</h3>
+            <p>You have the right to object to processing based on our legitimate interests. Tell us what you object to and why. We will stop unless we can demonstrate compelling legitimate grounds that override your interests, rights and freedoms, or the processing is needed for legal claims.</p>
+        </aside>
+        <p>To exercise a right, email <strong>@contactEmail</strong>. We may ask for information reasonably needed to verify your identity or clarify the request. We normally respond within one month; the time limit may pause while we await necessary clarification, and the law permits an extension for a complex or repeated request.</p>
+    </section>
+
+    <section>
+        <h2>9. Data-protection complaints</h2>
+        <p>Email <strong>@contactEmail</strong> with the subject “Data protection complaint” and explain what happened and the outcome you want. We will acknowledge your complaint within 30 days, investigate it appropriately and tell you the outcome without undue delay.</p>
+        <p>You can also complain to the Information Commissioner’s Office: <a href="https://ico.org.uk/make-a-complaint/data-protection-complaints/" rel="external noopener">ico.org.uk/make-a-complaint</a>, telephone 0303 123 1113, or write to Information Commissioner’s Office, Wycliffe House, Water Lane, Wilmslow, Cheshire SK9 5AF.</p>
+    </section>
+
+    <section>
+        <h2>10. Security and changes to this notice</h2>
+        <p>We use measures appropriate to the service, including HTTPS, encrypted and HTTP-only cookies, restricted administration access, database access controls and minimisation of affiliate data. No internet service can promise absolute security.</p>
+        <p>We review this notice when the service, law or our suppliers change. Material changes will be highlighted on the site and the date above will be updated. Earlier versions can be requested using the contact details in section 1.</p>
+    </section>
+</article>

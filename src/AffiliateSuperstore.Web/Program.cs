@@ -6,6 +6,7 @@ using AffiliateSuperstore.Application.Orders;
 using AffiliateSuperstore.Application.Reporting;
 using AffiliateSuperstore.Core.Shops;
 using AffiliateSuperstore.Core.Tracking;
+using AffiliateSuperstore.Core.Legal;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Web.Components;
 using AffiliateSuperstore.Web.Hosting;
@@ -69,6 +70,14 @@ var superstoreOptions = builder.Configuration
     .GetSection(AffiliateSuperstoreOptions.SectionName)
     .Get<AffiliateSuperstoreOptions>() ?? new AffiliateSuperstoreOptions();
 builder.Services.AddSingleton(superstoreOptions);
+var legalNoticeOptions = builder.Configuration
+    .GetSection(LegalNoticeOptions.SectionName)
+    .Get<LegalNoticeOptions>() ?? new LegalNoticeOptions();
+if (!builder.Environment.IsDevelopment())
+{
+    legalNoticeOptions.ValidateForProduction();
+}
+builder.Services.AddSingleton(legalNoticeOptions);
 builder.Services.AddSingleton<IShopResolver, ShopResolver>();
 builder.Services.AddSingleton<IClickIdGenerator, GuidClickIdGenerator>();
 builder.Services.AddSingleton<AffiliateTrackingService>();
@@ -215,6 +224,8 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapGet("/TermsAndConditions", () => Results.Redirect("/Terms", permanent: true));
+app.MapGet("/PrivacyPolicy", () => Results.Redirect("/Privacy", permanent: true));
 app.MapRazorPages()
    .WithStaticAssets();
 app.MapRazorComponents<App>()
