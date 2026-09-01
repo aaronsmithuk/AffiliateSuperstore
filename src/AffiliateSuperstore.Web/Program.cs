@@ -78,6 +78,10 @@ if (!builder.Environment.IsDevelopment())
     legalNoticeOptions.ValidateForProduction();
 }
 builder.Services.AddSingleton(legalNoticeOptions);
+var webAnalyticsOptions = builder.Configuration
+    .GetSection(WebAnalyticsOptions.SectionName)
+    .Get<WebAnalyticsOptions>() ?? new WebAnalyticsOptions();
+builder.Services.AddSingleton(webAnalyticsOptions);
 builder.Services.AddSingleton<IShopResolver, ShopResolver>();
 builder.Services.AddSingleton<IClickIdGenerator, GuidClickIdGenerator>();
 builder.Services.AddSingleton<AffiliateTrackingService>();

@@ -71,3 +71,100 @@ document.querySelectorAll("[data-product-gallery]").forEach((gallery) => {
     candidates.forEach((candidate) => observer.observe(candidate));
     window.addEventListener("pagehide", flush);
 })();
+
+(() => {
+    const banner = document.querySelector("[data-cookie-consent]");
+    if (!banner || typeof window.gtag !== "function") return;
+
+    const measurementId = banner.dataset.measurementId;
+    const preferenceButton = document.querySelector("[data-cookie-settings]");
+    const choiceButtons = [...banner.querySelectorAll("[data-cookie-consent-choice]")];
+    const cookieName = "wonderaisle_analytics_consent";
+    const maxAgeSeconds = 60 * 60 * 24 * 180;
+    let analyticsLoaded = false;
+
+    const readChoice = () => document.cookie
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith(`${cookieName}=`))
+        ?.split("=")[1];
+
+    const writeChoice = (choice) => {
+        const secure = window.location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `${cookieName}=${choice}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure}`;
+    };
+
+    const loadAnalytics = () => {
+        if (analyticsLoaded || !measurementId) return;
+        analyticsLoaded = true;
+
+        window.gtag("consent", "update", {
+            analytics_storage: "granted",
+            ad_storage: "denied",
+            ad_user_data: "denied",
+            ad_personalization: "denied"
+        });
+        window.gtag("js", new Date());
+        window.gtag("config", measurementId, {
+            cookie_expires: maxAgeSeconds,
+            cookie_update: false,
+            allow_google_signals: false,
+            allow_ad_personalization_signals: false
+        });
+
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+        document.head.appendChild(script);
+    };
+
+    const rejectAnalytics = () => {
+        window.gtag("consent", "update", {
+            analytics_storage: "denied",
+            ad_storage: "denied",
+            ad_user_data: "denied",
+            ad_personalization: "denied"
+        });
+
+        const secure = window.location.protocol === "https:" ? "; Secure" : "";
+        const cookieNames = ["_ga", `_ga_${measurementId.replace(/^G-/, "")}`];
+        const registrableHost = window.location.hostname.replace(/^www\./, "");
+        cookieNames.forEach((name) => {
+            document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+            if (registrableHost.includes(".")) {
+                document.cookie = `${name}=; Path=/; Domain=.${registrableHost}; Max-Age=0; SameSite=Lax${secure}`;
+            }
+        });
+    };
+
+    const applyChoice = (choice, persist) => {
+        if (persist) writeChoice(choice);
+
+        if (choice === "accepted") loadAnalytics();
+        else rejectAnalytics();
+
+        banner.hidden = true;
+    };
+
+    choiceButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const choice = button.dataset.cookieConsentChoice;
+            const reloadAfterRejecting = choice === "rejected" && analyticsLoaded;
+            applyChoice(choice, true);
+            if (reloadAfterRejecting) window.location.reload();
+            else preferenceButton?.focus();
+        });
+    });
+
+    preferenceButton?.addEventListener("click", () => {
+        banner.hidden = false;
+        choiceButtons[0]?.focus();
+    });
+
+    const savedChoice = readChoice();
+    if (savedChoice === "accepted" || savedChoice === "rejected") {
+        applyChoice(savedChoice, false);
+    } else {
+        banner.hidden = false;
+    }
+})();

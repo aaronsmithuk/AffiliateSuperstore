@@ -78,7 +78,110 @@
   font-size: .82rem;
 }
 
+.cookie-settings-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-color-brand);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cookie-consent {
+  width: min(calc(100% - 2rem), 760px);
+  padding: clamp(1rem, 3vw, 1.5rem);
+  position: fixed;
+  z-index: 100;
+  right: 1rem;
+  bottom: 1rem;
+  border: 1px solid color-mix(in srgb, var(--ds-color-brand) 35%, var(--ds-color-line));
+  border-radius: var(--ds-radius-lg);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ds-space-5);
+  align-items: end;
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-lg);
+}
+
+.cookie-consent[hidden] {
+  display: none;
+}
+
+.cookie-consent-kicker {
+  margin: 0 0 var(--ds-space-1);
+  color: var(--ds-color-brand);
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.cookie-consent h2 {
+  margin: 0;
+  font-family: var(--ds-font-display);
+  font-size: 1.5rem;
+  letter-spacing: -.025em;
+}
+
+.cookie-consent-copy > p:not(.cookie-consent-kicker) {
+  max-width: 560px;
+  margin: var(--ds-space-2) 0;
+  color: var(--ds-color-muted);
+  font-size: .9rem;
+  line-height: 1.55;
+}
+
+.cookie-consent-copy > a {
+  font-size: .82rem;
+  font-weight: 750;
+}
+
+.cookie-consent-actions {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.cookie-consent-actions button {
+  min-width: 10.5rem;
+  min-height: var(--ds-control-height);
+  padding: .7rem 1rem;
+  border: 2px solid var(--ds-color-brand);
+  border-radius: var(--ds-radius-round);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-brand);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.cookie-consent-actions button:last-child {
+  background: var(--ds-color-brand);
+  color: var(--ds-color-on-brand);
+}
+
+.cookie-consent-actions button:hover,
+.cookie-consent-actions button:focus-visible,
+.cookie-settings-link:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ds-color-brand) 24%, transparent);
+  outline-offset: 2px;
+}
+
 @media (max-width: 720px) {
+  .cookie-consent {
+    left: 1rem;
+    grid-template-columns: 1fr;
+    gap: var(--ds-space-4);
+  }
+
+  .cookie-consent-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cookie-consent-actions button {
+    min-width: 0;
+  }
+
   .site-navigation {
     min-height: auto;
     padding-block: var(--ds-space-3);
@@ -102,6 +205,12 @@
 
   .site-brand strong {
     font-size: .92rem;
+  }
+}
+
+@media (max-width: 440px) {
+  .cookie-consent-actions {
+    grid-template-columns: 1fr;
   }
 }
 

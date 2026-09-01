@@ -23,7 +23,8 @@
             <li>A saved list stays in an encrypted cookie in your browser for up to 90 days.</li>
             <li>We keep daily totals of product placements that become visible, without storing an IP address, browser identifier or visitor record for those totals.</li>
             <li>We record affiliate-link clicks and receive limited order-attribution information from AliExpress, but not your name, delivery address, payment details or AliExpress login.</li>
-            <li>We do not use advertising pixels, behavioural profiling or optional analytics cookies on this site.</li>
+            <li>Google Analytics loads only if you actively accept optional analytics; rejecting it does not affect the shop.</li>
+            <li>We do not use advertising pixels, personalised advertising or behavioural profiles.</li>
             <li>You can ask questions, exercise your rights or make a complaint using the contact details below.</li>
         </ul>
     </aside>
@@ -48,6 +49,7 @@
                     <tr><td>Technical request and security information, such as IP address, browser type, requested page, time and server events</td><td>Deliver the site, diagnose faults, prevent abuse and keep it secure</td><td>Our legitimate interests in operating and protecting the service</td></tr>
                     <tr><td>Product references saved in the encrypted saved-list cookie</td><td>Provide the list you expressly ask us to save in this browser</td><td>Our legitimate interests in providing the requested feature; the cookie is exempt from consent under PECR because it is used only for that feature</td></tr>
                     <tr><td>Product reference, shop, placement, UTC date and an aggregate count when at least 25% of a product placement becomes visible. The aggregate does not contain an IP address, user agent, browser identifier, fingerprint or account reference.</td><td>Measure catalogue usefulness and calculate product and placement click-through rates without building visitor profiles</td><td>Our legitimate interests in understanding and improving the service through privacy-minimised measurement</td></tr>
+                    <tr><td>With your permission: page URL and title, referral source, approximate location, device/browser information, session and interaction events collected by Google Analytics</td><td>Understand visits, navigation and which content is useful</td><td>Your consent; Google Analytics does not load unless you accept</td></tr>
                     <tr><td>A randomly generated click ID, product reference, shop, campaign, link placement and click time</td><td>Open the requested AliExpress page, attribute affiliate activity, detect fraud and measure whether the service works</td><td>Our legitimate interests in operating and funding the affiliate service and preventing fraud</td></tr>
                     <tr><td>Limited order-attribution data supplied by AliExpress, such as sub-order reference, product, time, broad destination country, platform, order status, amount and commission</td><td>Reconcile commissions, investigate missing or invalid attribution, keep accounts and meet tax obligations</td><td>Our legitimate interests in administering the affiliate programme and our legal obligations for accounting and tax records</td></tr>
                     <tr><td>Your name, contact details and message if you contact us</td><td>Answer enquiries, rights requests and complaints, and keep an appropriate record</td><td>Our legitimate interests in corresponding with you, steps you ask us to take, and our legal obligations</td></tr>
@@ -58,9 +60,9 @@
         <p>We do not ask AliExpress for buyer names, delivery addresses, email addresses, payment-card details or account credentials. We do not make decisions about you that have legal or similarly significant effects.</p>
     </section>
 
-    <section>
+    <section id="analytics-cookies">
         <h2>3. Cookies and similar technology</h2>
-        <p>We use only the following first-party cookies. Because each is necessary for a feature you request or for security, the law does not require an optional-cookie consent banner for the site in its present form.</p>
+        <p>Necessary storage supports security, saved lists and your cookie preference. Optional Google Analytics storage is off by default and is used only after you choose “Accept analytics”. “Reject analytics” is equally available, and you can change your choice at any time using “Cookie settings” in the footer.</p>
         <div class="legal-table-scroll">
             <table>
                 <thead><tr><th>Cookie</th><th>Purpose</th><th>Duration</th></tr></thead>
@@ -68,9 +70,12 @@
                     <tr><td><code>affiliate-superstore-basket</code></td><td>Stores an encrypted list of product references after you choose “save”. It is not used for advertising or cross-site tracking.</td><td>Up to 90 days; clearing the list deletes it</td></tr>
                     <tr><td><code>.AspNetCore.Antiforgery…</code></td><td>Protects forms against cross-site request forgery.</td><td>Browser session</td></tr>
                     <tr><td><code>AffiliateSuperstore.Admin</code></td><td>Authenticates authorised administrators. Public visitors do not receive this cookie.</td><td>Up to 8 hours, with security-controlled renewal</td></tr>
+                    <tr><td><code>wonderaisle_analytics_consent</code></td><td>Remembers whether you accepted or rejected optional analytics so we can respect that choice.</td><td>Up to 6 months</td></tr>
+                    <tr><td><code>_ga</code> and <code>_ga_8XTS93L155</code></td><td>Google Analytics distinguishes visits and maintains session state. These are set only after you accept; advertising storage and personalisation remain disabled.</td><td>Up to 6 months from your choice; we configure the expiry not to refresh on later visits</td></tr>
                 </tbody>
             </table>
         </div>
+        <p>If you accept, Google acts as our analytics service provider and receives the information described above. Our implementation uses basic consent mode: no Google Analytics tag or data request is made before acceptance. Rejecting or later withdrawing consent stops future Analytics collection; withdrawing after acceptance removes the Analytics cookies we can access and reloads the page without the Analytics tag. See Google’s <a href="https://policies.google.com/privacy" rel="external noopener">Privacy Policy</a>.</p>
         <p>AliExpress uses its own cookies and tracking after you follow an affiliate link. Those technologies are controlled by AliExpress, not by this site. You can review its <a href="https://terms.alicdn.com/legal-agreement/terms/c_platform_service_agreement/20240401172006520/20240401172006520.html" rel="external noopener">Cookie Notice</a> and make choices on the AliExpress platform.</p>
     </section>
 
@@ -80,6 +85,7 @@
         <p>We disclose information only where needed to:</p>
         <ul>
             <li>hosting, database and technical service providers acting for us under appropriate confidentiality and data-protection terms;</li>
+            <li>Google, only after you accept optional analytics, to provide aggregated website measurement;</li>
             <li>AliExpress, when you ask to follow a link, by sending the destination and affiliate-attribution parameters needed for the redirect;</li>
             <li>professional advisers, insurers, courts, regulators or public authorities where necessary to obtain advice, establish or defend legal rights, or comply with law; and</li>
             <li>a buyer or successor if the service or its operator is reorganised, subject to appropriate safeguards.</li>
@@ -99,6 +105,7 @@
             <li>The saved-list cookie expires after 90 days and is deleted sooner if you clear the list.</li>
             <li>Security and server records are kept for the shortest period reasonably needed to investigate faults, abuse or incidents, according to the host’s configured retention schedule.</li>
             <li>Daily product-impression totals do not identify a visitor. They are retained for historical trend comparison and reviewed at least annually for continued usefulness.</li>
+            <li>The analytics consent preference lasts up to six months. Google Analytics cookies are configured for up to six months without extending the expiry on each return visit. Google controls its resulting service records under the applicable Analytics retention settings.</li>
             <li>Click and order-attribution records are kept through the relevant commission validation and dispute period, then deleted or anonymised unless they are still needed for fraud prevention, a legal claim or a legal obligation. We review this data at least annually.</li>
             <li>Accounting and tax records are normally kept for six years after the relevant financial period.</li>
             <li>Enquiries and complaints are kept only while needed to respond and for a reasonable period to show how the matter was handled.</li>

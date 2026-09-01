@@ -1,7 +1,11 @@
 ﻿<!DOCTYPE html>
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject AffiliateSuperstore.Web.Services.WebAnalyticsOptions WebAnalytics
 @{
     var antiforgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+    var googleMeasurementId = WebAnalytics.IsConfigured
+        ? WebAnalytics.NormalizedGoogleMeasurementId
+        : null;
 }
 <html lang="en">
 <head>
@@ -28,6 +32,19 @@
     <link rel="icon" href="~/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#163b34" />
     <meta name="request-verification-token" content="@antiforgeryToken" />
+    @if (googleMeasurementId is not null)
+    {
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('consent', 'default', {
+                'analytics_storage': 'denied',
+                'ad_storage': 'denied',
+                'ad_user_data': 'denied',
+                'ad_personalization': 'denied'
+            });
+        </script>
+    }
     <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AffiliateSuperstore.Web.styles.css" asp-append-version="true" />
@@ -52,7 +69,7 @@
     <footer class="site-footer">
         <div>
             <span>&copy; 2026 @SuperstoreOptions.BrandName</span>
-            <span><a href="/Privacy">Privacy &amp; cookies</a> · <a href="/Terms">Website terms</a></span>
+            <span><a href="/Privacy">Privacy &amp; cookies</a> · <a href="/Terms">Website terms</a>@if (googleMeasurementId is not null) { <text> · <button class="cookie-settings-link" type="button" data-cookie-settings>Cookie settings</button></text> }</span>
             @if (!string.IsNullOrWhiteSpace(LegalNotice.OperatorName))
             {
                 <span>Operated by @LegalNotice.OperatorName@if (!string.IsNullOrWhiteSpace(LegalNotice.CompanyNumber)) { <text> · Company @LegalNotice.CompanyNumber</text> }</span>
@@ -63,6 +80,22 @@
             }
         </div>
     </footer>
+
+    @if (googleMeasurementId is not null)
+    {
+        <section class="cookie-consent" data-cookie-consent data-measurement-id="@googleMeasurementId" aria-labelledby="cookie-consent-title" aria-describedby="cookie-consent-description" hidden>
+            <div class="cookie-consent-copy">
+                <p class="cookie-consent-kicker">Your privacy</p>
+                <h2 id="cookie-consent-title">Optional analytics</h2>
+                <p id="cookie-consent-description">With your permission, Google Analytics helps us understand which pages are useful. We do not load it unless you accept. Rejecting has no effect on the shop.</p>
+                <a href="/Privacy#analytics-cookies">Read our privacy and cookie notice</a>
+            </div>
+            <div class="cookie-consent-actions">
+                <button type="button" data-cookie-consent-choice="rejected">Reject analytics</button>
+                <button type="button" data-cookie-consent-choice="accepted">Accept analytics</button>
+            </div>
+        </section>
+    }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

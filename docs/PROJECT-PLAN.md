@@ -330,6 +330,17 @@ the UI reports impression-to-click CTR as well as click-to-order conversion.
 Impression aggregation stores no IP address, user agent, browser identifier,
 fingerprint or customer account reference.
 
+Consent-based GA4 analytics are implemented for the public site. The Google
+tag is not requested until the visitor accepts optional analytics; rejection
+leaves the shop functional, and a persistent footer control allows the choice
+to be changed. Advertising consent and Google Signals remain disabled, the
+consent choice and GA cookie expiry are limited to six months, and the privacy
+notice documents the processing. The Wonder Aisle GA4 property and stream are
+created. Search Console domain ownership is verified and its sitemap has been
+accepted with 13 discovered URLs. The GA4 link and Bing Webmaster import are
+the remaining external webmaster setup steps;
+see `docs/WEBMASTER-ANALYTICS-SETUP.md`.
+
 The S2S paid-order route has an immutable, duplicate-suppressed inbox and feeds
 the same order/click model, including base commission, CPX incentive and new-
 buyer bonus fields. Because AliExpress documents no callback signature, it is
@@ -359,4 +370,6 @@ shadow foundation is complete locally with audit, cache and hard-budget
 controls, but remains disabled and unconfigured in production. Its first
 owner-authorized local model call is the next gated trial. The catalogue-depth
 and SEO launch gates have been met, and the provider-hosted production release
-is live and indexable over the canonical HTTPS origin.
+is live and indexable over the canonical HTTPS origin. The next release adds
+the completed consent banner and GA4 integration. Search Console verification
+and sitemap submission are complete; GA4 linking and Bing import follow.
