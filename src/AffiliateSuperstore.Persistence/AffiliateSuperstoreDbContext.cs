@@ -23,6 +23,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<CanonicalProductMemberRecord> CanonicalProductMembers => Set<CanonicalProductMemberRecord>();
     public DbSet<AffiliateLinkRecord> AffiliateLinks => Set<AffiliateLinkRecord>();
     public DbSet<OutboundClickRecord> OutboundClicks => Set<OutboundClickRecord>();
+    public DbSet<ProductImpressionDailyRecord> ProductImpressions => Set<ProductImpressionDailyRecord>();
     public DbSet<IngestionJobRecord> IngestionJobs => Set<IngestionJobRecord>();
     public DbSet<AutomationWorkItemRecord> AutomationWorkItems => Set<AutomationWorkItemRecord>();
     public DbSet<AffiliateOrderRecord> AffiliateOrders => Set<AffiliateOrderRecord>();
@@ -42,6 +43,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureProductImageFingerprint(modelBuilder);
         ConfigureAffiliateLink(modelBuilder);
         ConfigureOutboundClick(modelBuilder);
+        ConfigureProductImpression(modelBuilder);
         ConfigureIngestionJob(modelBuilder);
         ConfigureAutomationWorkItem(modelBuilder);
         ConfigureAffiliateOrder(modelBuilder);
@@ -322,6 +324,23 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasIndex(item => item.ClickedUtc);
         entity.HasIndex(item => new { item.ShopId, item.Campaign, item.Placement, item.ClickedUtc });
         entity.HasIndex(item => item.ConvertedUtc);
+    }
+
+    private static void ConfigureProductImpression(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<ProductImpressionDailyRecord>();
+        entity.ToTable("ProductImpressions");
+        entity.HasKey(item => new { item.ShopId, item.ProductId, item.DateUtc, item.Placement });
+        entity.Property(item => item.ProductId).HasMaxLength(64);
+        entity.Property(item => item.DateUtc).HasColumnType("date");
+        entity.Property(item => item.Placement).HasMaxLength(100);
+        entity.Property(item => item.RowVersion).IsRowVersion();
+        entity.HasOne(item => item.Shop).WithMany(shop => shop.ProductImpressions)
+            .HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne(item => item.Product).WithMany(product => product.Impressions)
+            .HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasIndex(item => new { item.DateUtc, item.Placement });
+        entity.HasIndex(item => new { item.ProductId, item.DateUtc });
     }
 
     private static void ConfigureIngestionJob(ModelBuilder modelBuilder)

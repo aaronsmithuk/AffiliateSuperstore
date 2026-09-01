@@ -48,8 +48,8 @@ catalogue review and automation schedule.
   states, open-order refresh, click attribution, monthly recovery backfill and
   commission reporting
 - Spreadsheet-safe development CSV export of the durable SQL order archive
-- Click-to-order reporting by campaign, placement and product, with invalid
-  orders excluded from commission totals
+- Privacy-minimised visible-impression aggregation and CTR reporting by shop,
+  placement and product, alongside click-to-order and commission reporting
 - Guarded, idempotent S2S paid-order inbox, disabled until its production HTTPS
   URL and fixed verification secret are configured
 - Protected 90-day anonymous shopping list with item count and one-by-one
@@ -153,7 +153,8 @@ execution, publication readiness,
 automation timing, deterministic product identity/version supersession,
 reviewed canonical membership, approved-only redirect behaviour and anonymous list state,
 cursor-based order reconciliation, S2S idempotency and click
-attribution, archive export safety and click/link performance aggregation.
+attribution, archive export safety, visible-impression aggregation and CTR/
+click/link performance reporting.
 
 After configuring User Secrets, the live smoke test exercises categories, a
 five-item UK plush search, product details, tracked-link generation, featured

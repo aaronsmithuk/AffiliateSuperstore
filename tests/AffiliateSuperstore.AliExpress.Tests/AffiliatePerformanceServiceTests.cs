@@ -18,23 +18,27 @@ public sealed class AffiliatePerformanceServiceTests
 
         Assert.Equal(2, report.ActiveLinks);
         Assert.Equal(1, report.ActiveLinksClicked);
+        Assert.Equal(120, report.Impressions);
         Assert.Equal(3, report.Clicks);
         Assert.Equal(2, report.ConvertingClicks);
         Assert.Equal(2, report.AttributedOrders);
         Assert.Equal(1, report.InvalidOrders);
         Assert.Equal(1, report.S2sEvents);
         Assert.Equal(2m / 3m, report.ClickToOrderRate);
+        Assert.Equal(3m / 120m, report.ClickThroughRate);
         var commission = Assert.Single(report.Commission);
         Assert.Equal("USD", commission.Currency);
         Assert.Equal(1.50m, commission.EstimatedCommission);
         Assert.Equal(1.35m, commission.SettledCommission);
-        var channel = Assert.Single(report.Channels);
+        var channel = Assert.Single(report.Channels, item => item.Detail == AffiliateImpressionPlacements.ProductCard);
         Assert.Equal("plushies", channel.Name);
+        Assert.Equal(100, channel.Impressions);
         Assert.Equal(3, channel.Clicks);
         Assert.Equal(2, channel.Orders);
         var product = Assert.Single(report.Products);
         Assert.Equal("Small green dragon plush", product.Name);
         Assert.Equal("product-1", product.Detail);
+        Assert.Equal(120, product.Impressions);
     }
 
     private static async Task<InMemoryFactory> CreateDatabaseAsync()
@@ -107,6 +111,10 @@ public sealed class AffiliatePerformanceServiceTests
             ProcessedUtc = Now.AddDays(-2),
             PayloadJson = "{}"
         });
+        context.ProductImpressions.AddRange(
+            Impression(shopId, "product-1", DateOnly.FromDateTime(Now.UtcDateTime.AddDays(-2)), AffiliateImpressionPlacements.ProductCard, 100),
+            Impression(shopId, "product-1", DateOnly.FromDateTime(Now.UtcDateTime.AddDays(-1)), AffiliateImpressionPlacements.ProductPage, 20),
+            Impression(shopId, "product-1", DateOnly.FromDateTime(Now.UtcDateTime.AddDays(-31)), AffiliateImpressionPlacements.ProductCard, 50));
         await context.SaveChangesAsync();
         return factory;
     }
@@ -133,6 +141,22 @@ public sealed class AffiliatePerformanceServiceTests
         Campaign = "plushies",
         Placement = "product-card",
         ClickedUtc = clickedUtc
+    };
+
+    private static ProductImpressionDailyRecord Impression(
+        Guid shopId,
+        string productId,
+        DateOnly dateUtc,
+        string placement,
+        long count) => new()
+    {
+        ShopId = shopId,
+        ProductId = productId,
+        DateUtc = dateUtc,
+        Placement = placement,
+        Count = count,
+        FirstSeenUtc = Now,
+        LastSeenUtc = Now
     };
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider

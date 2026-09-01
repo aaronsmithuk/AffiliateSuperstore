@@ -10,7 +10,7 @@
     <div>
         <p class="eyebrow">Traffic and revenue</p>
         <h1>Affiliate performance</h1>
-        <p class="lede">Click attribution, converting visits and commission performance across shops and products.</p>
+        <p class="lede">Visible product impressions, click-through, order attribution and commission performance across shops and products.</p>
     </div>
     <div class="button-row">
         <select class="performance-window" aria-label="Reporting window" @bind="LookbackDays">
@@ -40,7 +40,9 @@ else
     </section>
 
     <section class="metric-grid" aria-label="Affiliate performance totals">
+        <article class="metric-card"><strong>@Report.Impressions.ToString("N0")</strong><span>Visible impressions</span></article>
         <article class="metric-card"><strong>@Report.Clicks</strong><span>Outbound clicks</span></article>
+        <article class="metric-card"><strong>@FormatPercent(Report.ClickThroughRate)</strong><span>Click-through rate</span></article>
         <article class="metric-card"><strong>@Report.ConvertingClicks</strong><span>Converting clicks</span></article>
         <article class="metric-card"><strong>@FormatPercent(Report.ClickToOrderRate)</strong><span>Click-to-order rate</span></article>
         <article class="metric-card"><strong>@Report.AttributedOrders</strong><span>Attributed orders</span></article>
@@ -71,14 +73,14 @@ else
         <div class="panel-heading"><div><p class="eyebrow">Channels</p><h2>Campaign and placement</h2></div><span class="count-badge">@Report.Channels.Count</span></div>
         @if (Report.Channels.Count == 0)
         {
-            <p class="database-empty">No outbound clicks were recorded in this window.</p>
+            <p class="database-empty">No impressions or outbound clicks were recorded in this window.</p>
         }
         else
         {
-            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Campaign</th><th>Placement</th><th>Clicks</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Campaign</th><th>Placement</th><th>Impressions</th><th>Clicks</th><th>CTR</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
             @foreach (var row in Report.Channels)
             {
-                <tr><td><strong>@row.Name</strong></td><td>@row.Detail</td><td>@row.Clicks</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
+                <tr><td><strong>@row.Name</strong></td><td>@row.Detail</td><td>@row.Impressions.ToString("N0")</td><td>@row.Clicks</td><td>@FormatPercent(row.ClickThroughRate)</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
             }
             </tbody></table></div>
         }
@@ -88,22 +90,22 @@ else
         <div class="panel-heading"><div><p class="eyebrow">Catalogue</p><h2>Product performance</h2></div><span class="count-badge">@Report.Products.Count</span></div>
         @if (Report.Products.Count == 0)
         {
-            <p class="database-empty">No product clicks were recorded in this window.</p>
+            <p class="database-empty">No product impressions or clicks were recorded in this window.</p>
         }
         else
         {
-            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>AliExpress ID</th><th>Clicks</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>AliExpress ID</th><th>Impressions</th><th>Clicks</th><th>CTR</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
             @foreach (var row in Report.Products)
             {
-                <tr><td><strong>@row.Name</strong></td><td><small>@row.Detail</small></td><td>@row.Clicks</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
+                <tr><td><strong>@row.Name</strong></td><td><small>@row.Detail</small></td><td>@row.Impressions.ToString("N0")</td><td>@row.Clicks</td><td>@FormatPercent(row.ClickThroughRate)</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
             }
             </tbody></table></div>
         }
     </section>
 
-    <div class="alert-card warning-card automation-note">
-        <strong>Click-to-order is not click-through rate</strong>
-        <span>Page impressions are not stored yet, so a true impression-to-click CTR cannot be calculated. This report measures recorded outbound clicks and their attributed AliExpress orders.</span>
+    <div class="alert-card automation-note">
+        <strong>Privacy-minimised measurement</strong>
+        <span>An impression is counted when at least 25% of a product placement becomes visible. Only daily aggregate counts are retained; no IP address, user agent, browser identifier, fingerprint or customer account is stored for impression reporting.</span>
     </div>
 }
 

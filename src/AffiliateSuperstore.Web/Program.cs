@@ -180,6 +180,7 @@ builder.Services.AddTransient<AffiliateOrderReconciliationService>();
 builder.Services.AddTransient<AffiliateS2sIngestionService>();
 builder.Services.AddTransient<OrderArchiveExportService>();
 builder.Services.AddTransient<AffiliatePerformanceService>();
+builder.Services.AddTransient<AffiliateImpressionService>();
 builder.Services.AddSingleton<AnonymousBasketCodec>();
 builder.Services.AddSingleton<AnonymousBasketStore>();
 builder.Services.AddSingleton<CatalogueAutomationWakeSignal>();
@@ -232,6 +233,7 @@ app.MapRazorPages()
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapOperationalHealthEndpoints();
+app.MapAffiliateImpressionEndpoint();
 
 app.MapMethods("/integrations/aliexpress/s2s", ["GET", "POST"], async (
     HttpRequest request,

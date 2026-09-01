@@ -37,7 +37,7 @@
                     <div class="basket-item-actions">
                         @if (product.IsAvailable)
                         {
-                            <a href="/go/@Model.Shop.Slug/@product.ProductId?placement=basket" rel="sponsored nofollow noopener">Ad · Check at AliExpress <span aria-hidden="true">↗</span></a>
+                            <a href="/go/@Model.Shop.Slug/@product.ProductId?placement=basket" rel="sponsored nofollow noopener" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@product.ProductId" data-impression-placement="basket">Ad · Check at AliExpress <span aria-hidden="true">↗</span></a>
                         }
                         else
                         {

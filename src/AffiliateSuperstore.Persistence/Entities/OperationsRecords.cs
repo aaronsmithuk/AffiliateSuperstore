@@ -48,6 +48,21 @@ public sealed class OutboundClickRecord
     public ICollection<AffiliateOrderRecord> Orders { get; set; } = [];
 }
 
+public sealed class ProductImpressionDailyRecord
+{
+    public Guid ShopId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
+    public DateOnly DateUtc { get; set; }
+    public string Placement { get; set; } = string.Empty;
+    public long Count { get; set; }
+    public DateTimeOffset FirstSeenUtc { get; set; }
+    public DateTimeOffset LastSeenUtc { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+
+    public ShopRecord Shop { get; set; } = null!;
+    public ProductRecord Product { get; set; } = null!;
+}
+
 public enum IngestionJobType
 {
     CatalogueDiscovery,

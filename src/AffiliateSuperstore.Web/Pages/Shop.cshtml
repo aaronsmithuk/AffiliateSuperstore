@@ -80,7 +80,7 @@
                 <section class="product-grid" aria-label="Plush products">
                     @foreach (var product in Model.Products)
                     {
-                        <article class="product-card @(product.IsSaved ? "is-saved" : null)">
+                        <article class="product-card @(product.IsSaved ? "is-saved" : null)" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@product.ProductId" data-impression-placement="product-card">
                             <div class="product-card-media">
                                 @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
                                 {

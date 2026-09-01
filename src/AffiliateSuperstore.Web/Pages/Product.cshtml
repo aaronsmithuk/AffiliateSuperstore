@@ -56,7 +56,7 @@
             </dl>
             <aside class="listing-data-note"><strong>About this listing data</strong><p>The score shown is AliExpress’s aggregate positive-feedback rate, not reviews collected by this shop. Price may vary by option and exclude delivery, tax, customs or import charges. Check the final total, seller, age guidance and safety warnings on AliExpress before ordering.</p></aside>
             <div class="product-actions">
-                <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
+                <a class="product-primary-cta" href="/go/@Model.Shop.Slug/@Model.Product.ProductId?placement=product-page" rel="sponsored nofollow noopener" data-affiliate-impression data-impression-shop="@Model.Shop.Slug" data-impression-product="@Model.Product.ProductId" data-impression-placement="product-page">Check price &amp; availability at AliExpress <span aria-hidden="true">↗</span></a>
                 @if (Model.IsSaved)
                 {
                     <a class="product-save-button is-saved" href="/basket/@Model.Shop.Slug"><span aria-hidden="true">♥</span> Saved to your list</a>

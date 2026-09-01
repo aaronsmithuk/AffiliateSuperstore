@@ -325,8 +325,10 @@ that exact benign response.
 The performance report joins outbound click IDs to reconciled orders and
 aggregates channels, products and estimated/settled commission by currency.
 Invalid orders are retained for audit but excluded from commission. Because
-page impressions are not yet stored, the UI deliberately reports click-to-order
-conversion rather than claiming an impression-to-click CTR.
+visitor-visible product impressions are stored as daily anonymous aggregates,
+the UI reports impression-to-click CTR as well as click-to-order conversion.
+Impression aggregation stores no IP address, user agent, browser identifier,
+fingerprint or customer account reference.
 
 The S2S paid-order route has an immutable, duplicate-suppressed inbox and feeds
 the same order/click model, including base commission, CPX incentive and new-
@@ -350,6 +352,8 @@ progress toward the 500-label target before any automatic canonical linking can
 be considered. Lifecycle/copy evaluation sets, production S2S setup and later
 hosted/local model trials remain gated follow-on work.
 
-Impression tracking can be added when a real CTR is operationally useful. The
+Privacy-minimised product impression tracking and CTR reporting are locally
+implemented and verified; the additive production migration and deployment
+remain release-gated. The
 catalogue-depth and SEO launch gates have been met. The provider-hosted
 production release is live and indexable over the canonical HTTPS origin.

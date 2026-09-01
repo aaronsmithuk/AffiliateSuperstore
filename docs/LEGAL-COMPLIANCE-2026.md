@@ -8,7 +8,7 @@ This is an engineering and content compliance review, not a solicitor's opinion.
 
 ## What the implementation now does
 
-- Publishes a fact-specific privacy and cookie notice covering server data, the 90-day encrypted saved-list cookie, antiforgery and administrator cookies, click IDs, AliExpress order-attribution reports, external product media, lawful bases, retention criteria, international transfers, rights and complaints.
+- Publishes a fact-specific privacy and cookie notice covering server data, privacy-minimised daily product-impression totals, the 90-day encrypted saved-list cookie, antiforgery and administrator cookies, click IDs, AliExpress order-attribution reports, external product media, lawful bases, retention criteria, international transfers, rights and complaints.
 - Includes a prominent right-to-object notice and the data-protection complaint process required from 19 June 2026.
 - Applies a child-aware, high-privacy description to all visitors: no public accounts, direct marketing, precise location, behavioural profiling, personalised adverts or social features.
 - Publishes website terms that clearly separate the affiliate publisher from AliExpress and each seller, preserve mandatory rights, identify price limitations, address toy safety, and avoid an unlawful blanket liability exclusion.

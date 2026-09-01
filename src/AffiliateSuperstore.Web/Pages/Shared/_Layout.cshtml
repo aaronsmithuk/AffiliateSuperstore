@@ -1,4 +1,8 @@
 ﻿<!DOCTYPE html>
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var antiforgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+}
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -23,6 +27,7 @@
     <script type="importmap"></script>
     <link rel="icon" href="~/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#163b34" />
+    <meta name="request-verification-token" content="@antiforgeryToken" />
     <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AffiliateSuperstore.Web.styles.css" asp-append-version="true" />

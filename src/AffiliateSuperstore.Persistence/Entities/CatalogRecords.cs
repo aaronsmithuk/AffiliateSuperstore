@@ -22,6 +22,7 @@ public sealed class ShopRecord
     public ICollection<ShopProductRecord> Products { get; set; } = [];
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
+    public ICollection<ProductImpressionDailyRecord> ProductImpressions { get; set; } = [];
     public ICollection<IngestionJobRecord> IngestionJobs { get; set; } = [];
 }
 
@@ -67,6 +68,7 @@ public sealed class ProductRecord
     public CanonicalProductMemberRecord? CanonicalMembership { get; set; }
     public ICollection<AffiliateLinkRecord> AffiliateLinks { get; set; } = [];
     public ICollection<OutboundClickRecord> OutboundClicks { get; set; } = [];
+    public ICollection<ProductImpressionDailyRecord> Impressions { get; set; } = [];
 }
 
 public enum ProductAvailabilityState
