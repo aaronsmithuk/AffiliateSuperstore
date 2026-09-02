@@ -6,6 +6,7 @@
 @inject AffiliateOrderReconciliationService ReconciliationService
 @inject OrderReconciliationOptions ReconciliationOptions
 @inject AffiliateS2sIngestionService S2sService
+@inject ConversionReadinessService ConversionReadinessService
 
 <PageTitle>Affiliate orders</PageTitle>
 
@@ -29,6 +30,56 @@
         <strong>Reconciliation @LastRunResult.Status.ToString().ToLowerInvariant()</strong>
         <span>@(LastRunResult.WasFullBackfill ? "Full backfill" : "Incremental run"): @LastRunResult.OrdersRead read, @LastRunResult.OrdersWritten persisted, @LastRunResult.OrdersRejected rejected. @LastRunResult.Error</span>
     </div>
+}
+
+@if (Preflight is not null)
+{
+    <section id="conversion-preflight" class="database-hero @(Preflight.CanStartControlledActivation ? "healthy" : "unhealthy")">
+        <div>
+            <p class="eyebrow">Conversion activation preflight</p>
+            <h2>@(Preflight.CanStartControlledActivation ? "Controlled S2S activation gates pass" : "Keep S2S disabled")</h2>
+            <p>@Preflight.TechnicalBlockingChecks technical gate(s) and @Preflight.ExternalBlockingChecks external evidence gate(s) still block controlled activation. This report is read-only and never displays the callback secret.</p>
+        </div>
+        <span class="database-health">@(Preflight.CanStartControlledActivation ? "Ready for approved window" : "Activation blocked")</span>
+    </section>
+
+    <section class="metric-grid" aria-label="Conversion preflight totals">
+        <article class="metric-card"><strong>@Preflight.PassedChecks</strong><span>Checks passed</span></article>
+        <article class="metric-card"><strong>@Preflight.WarningChecks</strong><span>Non-blocking warnings</span></article>
+        <article class="metric-card"><strong>@Preflight.TechnicalBlockingChecks</strong><span>Technical/manual blockers</span></article>
+        <article class="metric-card"><strong>@Preflight.ExternalBlockingChecks</strong><span>External evidence blockers</span></article>
+        <article class="metric-card"><strong>@Preflight.OutboundClicks</strong><span>Outbound clicks stored</span></article>
+        <article class="metric-card"><strong>@Preflight.AttributedOrders / @Preflight.Orders</strong><span>Orders matched to click</span></article>
+        <article class="metric-card"><strong>@FormatPercent(Preflight.OrderAttributionRate)</strong><span>Order attribution rate</span></article>
+        <article class="metric-card"><strong>@Preflight.UnattributedS2sEvents</strong><span>S2S events missing click ID</span></article>
+        <article class="metric-card"><strong>@Preflight.AwaitingSettlementOrders</strong><span>Orders awaiting terminal state</span></article>
+    </section>
+
+    <section class="panel catalogue-table-panel" aria-labelledby="conversion-preflight-heading">
+        <div class="panel-heading">
+            <div>
+                <p class="eyebrow">Executable checklist</p>
+                <h2 id="conversion-preflight-heading">Safe path to controlled activation</h2>
+                <p>Generated @LocalTime(Preflight.GeneratedUtc). Complete every blocking action, then follow <code>docs/CONVERSION-OPERATIONS-RUNBOOK.md</code> in an approved change window.</p>
+            </div>
+            <span class="count-badge">@Preflight.Checks.Count</span>
+        </div>
+        @foreach (var area in Enum.GetValues<ConversionReadinessArea>())
+        {
+            var checks = Preflight.Checks.Where(check => check.Area == area).ToArray();
+            <h3>@AreaLabel(area)</h3>
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Gate</th><th>Observed evidence</th><th>Required next step</th></tr></thead><tbody>
+            @foreach (var check in checks)
+            {
+                <tr>
+                    <td><strong>@check.Title</strong><span class="validation-state @ReadinessStateClass(check.State)">@ReadinessStateLabel(check.State)@(check.BlocksActivation ? " · blocks activation" : "")</span></td>
+                    <td>@check.Evidence</td>
+                    <td>@check.RequiredAction</td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
 }
 
 <section class="database-hero @(ReconciliationOptions.Enabled ? "healthy" : "unhealthy")">
@@ -150,6 +201,7 @@
     private bool IsRunning;
     private bool IsBusy => IsLoading || IsRunning;
     private OrderReconciliationResult? LastRunResult;
+    private ConversionReadinessReport? Preflight;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -183,6 +235,7 @@
 
     private async Task LoadCoreAsync()
     {
+        Preflight = await ConversionReadinessService.GetAsync();
         await using var context = await ContextFactory.CreateDbContextAsync();
         TotalOrders = await context.AffiliateOrders.CountAsync();
         PaidOrders = await context.AffiliateOrders.CountAsync(order => order.Status == AliExpressOrderStatuses.PaymentCompleted);
@@ -227,8 +280,27 @@
     }
 
     private static string FormatAmount(decimal amount) => amount.ToString("N2");
+    private static string FormatPercent(decimal rate) => rate.ToString("P1");
     private static string LocalTime(DateTimeOffset? value) => value is null ? "—" : value.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
     private static string StatusClass(string status) => status == AliExpressOrderStatuses.CompletedSettlement ? "success" : status == AliExpressOrderStatuses.Invalid ? "failure" : string.Empty;
     private static string JobStatusClass(IngestionJobStatus status) => status is IngestionJobStatus.Succeeded or IngestionJobStatus.PartiallySucceeded ? "success" : status is IngestionJobStatus.Failed or IngestionJobStatus.Cancelled ? "failure" : string.Empty;
+    private static string ReadinessStateClass(ConversionReadinessState state) => state switch
+    {
+        ConversionReadinessState.Passed => "passed",
+        ConversionReadinessState.Blocked => "blocked",
+        ConversionReadinessState.Warning => "warning",
+        _ => "notevaluated"
+    };
+    private static string ReadinessStateLabel(ConversionReadinessState state) => state switch
+    {
+        ConversionReadinessState.NotObserved => "Not observed",
+        _ => state.ToString()
+    };
+    private static string AreaLabel(ConversionReadinessArea area) => area switch
+    {
+        ConversionReadinessArea.CallbackSafety => "Callback safety",
+        ConversionReadinessArea.ExternalEvidence => "External evidence that the application cannot infer",
+        _ => area.ToString()
+    };
     private sealed record CommissionTotal(string Currency, decimal EstimatedPaid, decimal IncentivesAndBonuses, decimal EstimatedSettled, int OrderCount);
 }

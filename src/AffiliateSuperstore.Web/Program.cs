@@ -116,6 +116,11 @@ builder.Services
     .Bind(builder.Configuration.GetSection(AffiliateS2sOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
     serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AffiliateS2sOptions>>().Value);
+builder.Services
+    .AddOptions<ConversionEvidenceOptions>()
+    .Bind(builder.Configuration.GetSection(ConversionEvidenceOptions.SectionName));
+builder.Services.AddSingleton(serviceProvider =>
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ConversionEvidenceOptions>>().Value);
 var databaseConnection = builder.Configuration.GetConnectionString("AffiliateSuperstore");
 if (string.IsNullOrWhiteSpace(databaseConnection))
 {
@@ -218,6 +223,7 @@ builder.Services.AddTransient<CatalogueCollectionDiscoveryService>();
 builder.Services.AddTransient<OutboundRedirectService>();
 builder.Services.AddTransient<AffiliateOrderReconciliationService>();
 builder.Services.AddTransient<AffiliateS2sIngestionService>();
+builder.Services.AddTransient<ConversionReadinessService>();
 builder.Services.AddTransient<OrderArchiveExportService>();
 builder.Services.AddTransient<AffiliatePerformanceService>();
 builder.Services.AddTransient<AffiliateImpressionService>();

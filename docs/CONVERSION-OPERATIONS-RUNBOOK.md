@@ -35,6 +35,80 @@ items remain open:
 Record the evidence using
 [`aliexpress/affiliate-program/EVIDENCE-STATUS.md`](aliexpress/affiliate-program/EVIDENCE-STATUS.md).
 
+## Admin preflight
+
+The authenticated `/admin/orders` page begins with a read-only **Conversion
+activation preflight**. Refresh it immediately before planning an activation
+window. It evaluates protected configuration without displaying the fixed
+secret, and reads existing click, S2S, order and reconciliation-job evidence.
+
+The preflight blocks activation when it finds any of these conditions:
+
+- S2S is already enabled before the change window;
+- signed-API credentials are absent, provider gateways are not HTTPS or
+  process-wide pacing is below the observed safe 1,100 ms interval;
+- the fixed token or payload bound is not production-shaped;
+- automatic signed reconciliation is disabled or invalid;
+- the configured recovery policy is shorter than 180 days, overlaps by less
+  than 48 hours or runs full recovery less often than monthly;
+- the latest reconciliation did not succeed within two configured intervals;
+- no successful 180-day full backfill exists inside its configured interval;
+- outbound-click, order or S2S attribution gaps exist;
+- no attributed order has reached Completed Settlement;
+- the controlled synthetic canary has not been confirmed outside the database;
+- any current agreement, quota, cache, API-lifecycle, commission, Portals or
+  legitimate-order evidence gate remains open.
+
+`Not observed` never means passed. Synthetic canary rows are removed after the
+test, and stored data cannot prove that an order was a legitimate
+unrelated-customer event, so those gates deliberately require reviewed manual
+evidence. Update the evidence record and the preflight's explicit blocker only
+after the source has been captured; never infer completion from an empty scan
+or the mere presence of an S2S row.
+
+### Evidence acknowledgements
+
+Manual and provider evidence is acknowledged through protected hosting
+configuration so a reviewed gate can clear without a code or schema change.
+Only these exact keys are recognised; unknown or misspelled keys are ignored:
+
+| Key | Gate | Maximum age |
+|---|---|---:|
+| `agreement-2025` | Complete current agreement captured and compared | 365 days |
+| `api-quota` | App-specific Affiliate API limits confirmed | 365 days |
+| `cache-policy` | Field-specific cache/deletion rules confirmed | 365 days |
+| `api-lifecycle` | Supported successor/lifetime confirmed | 180 days |
+| `commission-model` | Signed-in model, rates and overrides recaptured | 30 days |
+| `portals-mapping` | HTTPS callback, units and fields reviewed in Portals | 30 days |
+| `legitimate-order` | Unrelated-customer event observed through terminal API state | 365 days |
+| `synthetic-canary` | Wrong-token, accepted and duplicate callback checks passed | 30 days |
+
+Each acknowledgement requires all four values:
+
+```text
+ConversionEvidence__Acknowledgements__<key>__Confirmed=true
+ConversionEvidence__Acknowledgements__<key>__EvidenceReference=<non-secret-provenance-or-ticket-reference>
+ConversionEvidence__Acknowledgements__<key>__ConfirmedUtc=2026-09-02T14:00:00Z
+ConversionEvidence__Acknowledgements__<key>__ConfirmedBy=<non-secret-operator-identifier>
+```
+
+The reference must contain 8–500 characters, the confirmer 2–200 characters,
+neither may contain control characters, and the timestamp must be UTC with a
+`Z` suffix. Future, expired, incomplete or `Confirmed=false` acknowledgements
+fail closed. The admin displays the bounded metadata, never evidence contents,
+API credentials or callback secrets.
+
+Set an acknowledgement only after the redacted source and hash are recorded in
+the evidence archive or the synthetic change ticket is closed. Restart the
+application and refresh `/admin/orders`; confirm only the intended gate moves
+to Passed. The `legitimate-order` acknowledgement does not replace the separate
+technical requirement for a locally attributed Completed Settlement row.
+
+To revoke a gate, set `Confirmed=false` or remove the acknowledgement, restart
+and verify that the preflight immediately blocks activation again. Revoke on
+source changes, correction, suspected misclassification, secret exposure or a
+failed repeat check; do not wait for the maximum age.
+
 ## Pre-deployment checks
 
 - The release contains the S2S configuration validation and endpoint tests.

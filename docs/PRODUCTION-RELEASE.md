@@ -71,6 +71,7 @@ repository, publish archive or command history.
 | `OrderReconciliation__Enabled` | `false` for first release |
 | `Seo__IndexingEnabled` | `false` for first release |
 | `AliExpressS2s__Enabled` | `false` until the callback verification checklist passes |
+| `ConversionEvidence__Acknowledgements__*` | unset until each exact gate is evidenced and acknowledged under `CONVERSION-OPERATIONS-RUNBOOK.md`; no evidence content or secret belongs here |
 
 Both admin bootstrap settings are required together. Startup creates the role
 and owner idempotently and never resets an existing password. Remove the
