@@ -104,7 +104,7 @@ The MVP is complete when:
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
 | 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 17 approved products now have original validated editorial copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Eight collections exist and two are published at their 12-product thresholds; deeper collection content is the active growth milestone. Filtered pages and the umbrella home remain `noindex,follow` until their quality gates are met. |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP at application release `1cd4992`; all 20 migrations, protected recurring catalogue automation, the owner account, relevance-hardened 17-product approved catalogue, search indexing, consented analytics, pilot scorecard, reviewed bulk collection assignment, diverse draft-collection AI preparation, conversion preflight and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all neighbouring-site checks pass; production S2S remains fail-closed and is still a conversion-operations follow-on. |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP at application release `5cb18c9`; all 20 migrations, protected recurring catalogue automation, the owner account, relevance-hardened 17-product approved catalogue, bounded automatic publication and reversible permanent-scope retirement, the live growth dashboard, search indexing, consented analytics, pilot scorecard, reviewed bulk collection assignment, diverse draft-collection AI preparation, conversion preflight and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all neighbouring-site checks pass; production S2S remains fail-closed and is still a conversion-operations follow-on. |
 
 ## AI-assisted catalogue and content integration
 
@@ -236,24 +236,27 @@ and architecture are in
 - The expanded live discovery pool still includes pet toys, variant-price
   listings and likely third-party-character merchandise. Those products are
   held from publication by persisted flags, duplicate evidence, editorial
-  validation or manual review; the live approved set is 19 products.
+  validation or manual review; the live approved set is 17 products.
 - Production Data Protection persistence, dedicated-pool isolation and target-
   scoped release/rollback behaviour are verified. These controls must be
   rechecked whenever the hosting plan or site mapping changes.
 
 ## Current implementation snapshot
 
-As of 2 September 2026, the production SQL Server database contains one enabled
-shop, 562 source offers, 1,346 immutable price/commission snapshots, 1,329
-affiliate-link records and all 20 migrations. The latest full relevance
-reassessment persisted deterministic flags on 295 products and left 17 approved
-products in the public catalogue, with 17 AI-assisted drafts awaiting human
-review. Eight collections exist, two are published at their 12-product targets,
-35 approved collection assignments are present and one evidence-backed AI
-collection suggestion remains a review-only draft. No queued, leased or dead-
-letter automation item was present in the audit. The month-to-date AI ledger
-contains 33 charged calls at an estimated USD 0.0190 with no budget block. The
-restricted automatic pilot has published two fully gated products.
+As of the verified `5cb18c9` production release on 2 September 2026, the SQL
+Server database contains one enabled shop, 562 source offers, 1,346 immutable
+price/commission snapshots, 1,329 affiliate-link records and all 20 migrations.
+The latest full relevance reassessment persisted deterministic flags on 295
+products and left 17 approved products in the public catalogue. The live growth
+pipeline shows 19 AI-assisted drafts awaiting a decision: four permanent scope
+failures, five repair-or-human-review candidates and ten deferred until the next
+UTC publication day. Two earlier permanent failures have already been retired
+automatically with reversible audit reasons. Eight collections exist, two are
+published at their 12-product targets, 35 approved collection assignments are
+present and one evidence-backed AI collection suggestion remains a review-only
+draft. The month-to-date AI ledger contains 39 charged calls at an estimated USD
+0.0225 with no failure or budget block. The restricted automatic pilot has made
+25 decisions, held 23 and published two fully gated products.
 
 Implemented operational surfaces:
 
@@ -263,6 +266,9 @@ Implemented operational surfaces:
   readiness totals, persisted automated quality flags, prioritised filters,
   guarded approval actions and a curation drawer for public titles,
   descriptions, featuring and display order.
+- `/admin/growth` — the path from the current public total to 50 products,
+  explainable candidate dispositions, automatic-retirement audit count,
+  next-day deferrals, blocker distribution and per-collection indexable gaps.
 - `/admin/automation` — schedule, retry policy, next-run and due-state visibility,
   autonomous policy/caps, AI budget, decisions, failure history and safety-pause
   re-arm guidance.
@@ -295,7 +301,7 @@ Editorial approval is enforced below the UI: inactive or ineligible products,
 products with automated quality flags, and products without an active affiliate
 link cannot be approved. Quality reassessment always includes the original
 AliExpress title as well as any editorial title, so rewriting visible copy
-cannot hide a source-listing risk. The 19 production-approved products now
+cannot hide a source-listing risk. The 17 production-approved products now
 provide a meaningful end-to-end curated catalogue on both the catalogue and
 product-detail pages. Approval followed source-title screening, offer-shape
 checks and individual image review; source risks and misleading images were not

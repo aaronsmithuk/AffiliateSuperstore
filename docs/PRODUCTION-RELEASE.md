@@ -796,6 +796,48 @@ disabled with HTTP 404. `circlesofstone.co.uk`, `www.iloveplushies.co.uk`,
 `www.animesuperstore.co.uk` and `propertiesandhomes.co.uk` all returned HTTP
 200 after the release and reassessment.
 
+## Nineteenth production release and autonomous growth controls
+
+Application commit `5cb18c9` was deployed on 2 September 2026. The release adds
+the authenticated `/admin/growth` operating dashboard, collection-aware and
+distinct-title candidate prioritisation, next-UTC-day handling for candidates
+blocked only by the daily publication cap, and reversible automatic retirement
+for permanent non-plush, pet, missing-plush-evidence and tobacco-scope failures.
+Ambiguous quantity, licensing, baby-safety, variant-price and duplicate concerns
+remain held for repair or human review.
+
+The clean Release build passed all 235 tests. Both the project and published
+root `web.config` validated as OutOfProcess. The release contains no database
+migration, package/runtime change or policy-cap increase. The site-only archive
+`wonderaisle-site-5cb18c9.zip` had SHA-256
+`A364CCE2D605A405186034E5F2EEB35CBA83FD95AF4464D66F9A25FEDB43FE20`.
+
+The archive was uploaded and expanded only in `/wonderaisle` while a target-
+scoped `app_offline.htm` marker held Wonder Aisle offline. `App_Data` and its
+persistent Data Protection key ring were preserved. Provider decompression
+completed successfully, after which the marker was renamed to the inactive
+audit record `app_offline-20260902-5cb18c9.done.htm`. The uploaded archive was
+retained for recovery. No application-pool restart or account-wide action was
+performed.
+
+Authenticated production verification showed Automatic mode running hourly at
+five candidates per run, readiness 1.00, duplicate hold 0.75, a two-publication
+UTC-day cap, USD 0.25 daily product-copy allowance and the shared USD 5.00
+monthly hard cap. The growth dashboard reported 17 of 50 public products, 19 AI
+drafts awaiting a decision, four current permanent-scope failures, five repair-
+or-human-review candidates, ten next-day deferrals and two previously auto-
+retired products with reversible audit records. The pilot showed 25 automatic
+decisions, two publications, 23 holds, no AI failure or budget block, and USD
+0.0225 month-to-date AI spend across 39 charged calls.
+
+`/health/live`, `/health/ready`, `/`, `/plushies`, a representative product,
+`/robots.txt` and `/sitemap.xml` returned HTTP 200. Anonymous access to
+`/admin/growth` redirected to the administrator login, and unauthenticated S2S
+remained disabled with HTTP 404. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after the release.
+
 ## Build a release bundle
 
 From the repository root:

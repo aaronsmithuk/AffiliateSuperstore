@@ -18,6 +18,9 @@ silently create a larger public risk.
 - Automatic publication remains limited by readiness 1.00, duplicate holds
   from confidence 0.75, the automatic safety circuit and the daily publication
   cap stored in the shop policy.
+- `/admin/growth` is the daily operating view. It explains the 50-product gap,
+  candidate disposition, blocker mix, next-day deferrals, reversible automatic
+  retirements and each collection's indexable-product shortfall.
 
 ## Safe acceleration order
 
@@ -34,10 +37,16 @@ silently create a larger public risk.
 4. Keep autonomous preparation restricted to products assigned to a published
    collection. Keep all readiness, duplicate, availability, price, link,
    provenance and source-change checks unchanged.
-5. Prefer raising candidates considered per automatic run before raising the
+5. In Automatic mode, retire only permanent catalogue-scope failures with a
+   reversible audit reason: non-plush products, pet products/categories,
+   missing plush evidence and tobacco-themed products. Ambiguous quantities,
+   licensing, baby-safety, variant-price and duplicate questions remain held.
+   Returning an automatically retired item to review clears the retirement
+   reason and restores the normal approval workflow.
+6. Prefer raising candidates considered per automatic run before raising the
    number that may publish per day. More consideration prevents held candidates
    from wasting capacity without increasing the daily public-change ceiling.
-6. Publish a draft collection only through the explicit owner action after it
+7. Publish a draft collection only through the explicit owner action after it
    reaches its configured minimum of indexable products and passes the existing
    SEO assessment.
 
@@ -79,6 +88,8 @@ Suggested order after the two live collections is `ocean-friends`,
 
 During acceleration, review:
 
+- `/admin/growth` totals, permanent-retirement candidates and reversible audit
+  count;
 - public product total and change since the previous UTC day;
 - candidates prepared, held and published;
 - hold reason distribution, especially probable duplicates and source changes;
@@ -88,6 +99,11 @@ During acceleration, review:
 - products assigned to no collection;
 - each draft collection's assigned, approved and indexable counts;
 - any automatic safety downgrade to Shadow mode.
+
+The daily publication limit is a deferral, not an editorial failure. Clear
+candidates blocked only by `publication.daily-limit` are retried no earlier than
+the next UTC day. Other repairable holds are reconsidered no sooner than 24
+hours later so the worker does not repeatedly spend on unchanged evidence.
 
 Stop automatic publication and investigate if a wrong product publishes, a
 confirmed/probable duplicate passes, unsupported copy reaches public view, the
