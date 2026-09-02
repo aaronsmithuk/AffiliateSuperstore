@@ -6,6 +6,10 @@ backed by the AliExpress Affiliate API.
 The persistent delivery roadmap and current decisions are in
 [`docs/PROJECT-PLAN.md`](docs/PROJECT-PLAN.md).
 
+The standing publication rules for AI-assisted, affiliate and search-facing
+content are in
+[`docs/SEARCH-CONTENT-GOVERNANCE.md`](docs/SEARCH-CONTENT-GOVERNANCE.md).
+
 The public application uses Razor Pages. Interactive operational tooling lives
 in a Blazor Server admin area, including the API workbench, SQL status,
 catalogue review and automation schedule.

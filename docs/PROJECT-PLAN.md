@@ -114,6 +114,9 @@ evaluation thresholds and complete backlog are maintained in
 implementation authority for AI-assisted catalogue work; this section fixes its
 place in the main delivery sequence.
 
+All search-facing publication and indexing decisions must also satisfy the
+standing [`SEARCH-CONTENT-GOVERNANCE.md`](SEARCH-CONTENT-GOVERNANCE.md) policy.
+
 ### Integration decisions
 
 - Do not create a separate AI service for the MVP. Extend the current
