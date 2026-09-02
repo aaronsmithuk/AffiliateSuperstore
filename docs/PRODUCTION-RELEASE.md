@@ -476,6 +476,36 @@ draft version 1 and current version 1, with five edit, reject and approve
 controls. Starting an approval opened the required confirmation dialog;
 cancelling it closed the dialog without publishing or changing a draft.
 
+## Twelfth production release and autonomous-shadow record
+
+Commit `38349d8` is the active production application release as verified on
+2 September 2026. Its target-root deployment archive is present in
+`\wonderaisle`, the new plush size guide and editorial media render publicly,
+and the protected `/admin/automation` route is available behind the existing
+administrator login. Follow-up commit `f2dcfd6` adds repository governance
+documentation only and does not change the web application source.
+
+The latest clean revision passed all 163 tests. The project and generated
+`web.config` again validated as OutOfProcess. Production migration history has
+all 19 migrations, including additive migrations
+`20260901175412_AddAutonomousCatalogueShadowMode` and
+`20260901175718_AddVerifiedEditorialFacts`; the database reports 33 tables.
+The `plushies` autonomous policy exists in `Shadow` mode with a 24-hour cadence,
+five candidates per run, a USD 0.10 daily AI budget, 0.98 readiness threshold
+and 0.85 duplicate-hold threshold. It has recorded zero autonomous decisions so
+far and has not published anything.
+
+A fresh Wonder Aisle database backup completed successfully in the provider
+work queue at 9:52 AM on 2 September 2026. `/health/live`, `/health/ready`, the
+home page, `/plushies`, `/plushies/size-guide` and the sitemap returned HTTP
+200; the sitemap includes the new guide. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after canonical redirects.
+No active `app_offline.htm` remained, no additional file extraction was needed,
+and no application-pool or account-wide restart was performed during this
+verification.
+
 ## Build a release bundle
 
 From the repository root:
