@@ -15,6 +15,7 @@ public sealed class CatalogueCollectionService(
     public const int MinimumIndexingTarget = 8;
     public const int MaximumIndexingTarget = 48;
     public const int CandidateScoringPoolLimit = 2000;
+    public const int MaximumBatchAssignments = 50;
 
     private static readonly string[] RestrictedBrandTerms =
     [
@@ -207,7 +208,7 @@ public sealed class CatalogueCollectionService(
         {
             CollectionCandidateFilter.Assigned or CollectionCandidateFilter.NeedsAttention => query.Where(item =>
                 item.Product.Collections.Any(membership => membership.CollectionId == collectionId)),
-            CollectionCandidateFilter.Unassigned or CollectionCandidateFilter.Suggested => query.Where(item =>
+            CollectionCandidateFilter.Unassigned or CollectionCandidateFilter.Suggested or CollectionCandidateFilter.ReadySuggested => query.Where(item =>
                 !item.Product.Collections.Any(membership => membership.CollectionId == collectionId)),
             _ => query
         };
@@ -255,6 +256,11 @@ public sealed class CatalogueCollectionService(
         var candidates = candidateRows.Select(item => ToProductCandidate(item, collection, discoveryQueries));
         candidates = filter switch
         {
+            CollectionCandidateFilter.ReadySuggested => candidates
+                .Where(item => !item.IsAssigned && item.IsSuggested && item.IsIndexable)
+                .OrderByDescending(item => item.CollectionMatchScore)
+                .ThenByDescending(item => item.RecentSalesVolume)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
             CollectionCandidateFilter.Suggested => candidates
                 .Where(item => !item.IsAssigned && item.IsSuggested)
                 .OrderByDescending(item => item.CollectionMatchScore)
@@ -462,6 +468,77 @@ public sealed class CatalogueCollectionService(
         membership.DisplayOrder = displayOrder;
         await context.SaveChangesAsync(cancellationToken);
         return CollectionCommandResult.Success("Collection membership saved.", collectionId);
+    }
+
+    public async Task<CollectionCommandResult> AddMembershipsAsync(
+        string shopSlug,
+        Guid collectionId,
+        IReadOnlyCollection<string> productIds,
+        string actor,
+        CancellationToken cancellationToken = default)
+    {
+        var requestedIds = productIds
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (requestedIds.Length == 0)
+        {
+            return CollectionCommandResult.Failure("Select at least one product to add.");
+        }
+        if (requestedIds.Length > MaximumBatchAssignments)
+        {
+            return CollectionCommandResult.Failure(
+                $"Add no more than {MaximumBatchAssignments} products in one reviewed batch.");
+        }
+
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var collection = await context.Collections.SingleOrDefaultAsync(item =>
+            item.Id == collectionId && item.Shop.Slug == shopSlug, cancellationToken);
+        if (collection is null) return CollectionCommandResult.Failure("The collection was not found.");
+
+        var eligibleIds = await context.ShopProducts
+            .Where(item =>
+                item.ShopId == collection.ShopId &&
+                requestedIds.Contains(item.ProductId) &&
+                item.IsActive &&
+                item.Product.IsEligible)
+            .Select(item => item.ProductId)
+            .ToListAsync(cancellationToken);
+        var existingIds = await context.CollectionProducts
+            .Where(item => item.CollectionId == collectionId && eligibleIds.Contains(item.ProductId))
+            .Select(item => item.ProductId)
+            .ToListAsync(cancellationToken);
+        var existingSet = existingIds.ToHashSet(StringComparer.Ordinal);
+        var now = timeProvider.GetUtcNow();
+        var assignedBy = string.IsNullOrWhiteSpace(actor) ? "administrator" : actor.Trim();
+        var additions = eligibleIds
+            .Where(item => !existingSet.Contains(item))
+            .Select(item => new CollectionProductRecord
+            {
+                CollectionId = collectionId,
+                ProductId = item,
+                AssignedUtc = now,
+                AssignedBy = assignedBy
+            })
+            .ToArray();
+        if (additions.Length > 0)
+        {
+            context.CollectionProducts.AddRange(additions);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        var skipped = requestedIds.Length - eligibleIds.Count;
+        var alreadyAssigned = existingIds.Count;
+        var details = new List<string>();
+        if (alreadyAssigned > 0) details.Add($"{alreadyAssigned} already assigned");
+        if (skipped > 0) details.Add($"{skipped} inactive, ineligible or unavailable");
+        var suffix = details.Count == 0 ? "." : $" ({string.Join("; ", details)}).";
+        return CollectionCommandResult.Success(
+            additions.Length == 0
+                ? $"No new products were added{suffix}"
+                : $"Added {additions.Length} reviewed product{(additions.Length == 1 ? string.Empty : "s")} to the collection{suffix} Nothing was approved or published.",
+            collectionId);
     }
 
     public static IReadOnlyList<string> ReadQueries(string? json)
@@ -679,7 +756,8 @@ public enum CollectionCandidateFilter
     Assigned,
     Unassigned,
     NeedsAttention,
-    Suggested
+    Suggested,
+    ReadySuggested
 }
 
 public sealed record CollectionUpdate(

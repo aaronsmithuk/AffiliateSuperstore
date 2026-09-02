@@ -111,6 +111,76 @@ public sealed class CatalogueCollectionServiceTests
     }
 
     [Fact]
+    public async Task AddMembershipsAsync_AddsReviewedBatchWithoutApprovingOrPublishing()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddPendingProduct(context, shopId, "frog-product", "Sleepy green frog plush");
+            AddPendingProduct(context, shopId, "capybara-product", "Round capybara cushion");
+            await context.SaveChangesAsync();
+        }
+
+        var result = await service.AddMembershipsAsync(
+            "plushies",
+            saved.CollectionId!.Value,
+            ["frog-product", "capybara-product", "frog-product"],
+            "owner@example.test");
+        var summary = Assert.Single(await service.GetCollectionsAsync("plushies"));
+
+        Assert.True(result.Succeeded);
+        Assert.Contains("Added 2 reviewed products", result.Message, StringComparison.Ordinal);
+        Assert.Contains("Nothing was approved or published", result.Message, StringComparison.Ordinal);
+        Assert.Equal(2, summary.AssignedProducts);
+        Assert.Equal(0, summary.ApprovedProducts);
+        Assert.False(summary.IsPublished);
+        await using var verification = factory.CreateDbContext();
+        Assert.All(verification.CollectionProducts, item => Assert.Equal("owner@example.test", item.AssignedBy));
+    }
+
+    [Fact]
+    public async Task AddMembershipsAsync_FailsClosedAboveBoundAndSkipsIneligibleProducts()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddPendingProduct(context, shopId, "eligible-product");
+            AddPendingProduct(context, shopId, "ineligible-product");
+            await context.SaveChangesAsync();
+            var ineligible = await context.Products.SingleAsync(item => item.AliExpressProductId == "ineligible-product");
+            ineligible.IsEligible = false;
+            await context.SaveChangesAsync();
+        }
+
+        var partial = await service.AddMembershipsAsync(
+            "plushies",
+            saved.CollectionId!.Value,
+            ["eligible-product", "ineligible-product", "missing-product"],
+            "owner@example.test");
+        var oversized = await service.AddMembershipsAsync(
+            "plushies",
+            saved.CollectionId.Value,
+            Enumerable.Range(1, CatalogueCollectionService.MaximumBatchAssignments + 1)
+                .Select(index => $"product-{index}")
+                .ToArray(),
+            "owner@example.test");
+
+        Assert.True(partial.Succeeded);
+        Assert.Contains("Added 1 reviewed product", partial.Message, StringComparison.Ordinal);
+        Assert.Contains("2 inactive, ineligible or unavailable", partial.Message, StringComparison.Ordinal);
+        Assert.False(oversized.Succeeded);
+        Assert.Contains(CatalogueCollectionService.MaximumBatchAssignments.ToString(), oversized.Message, StringComparison.Ordinal);
+        await using var verification = factory.CreateDbContext();
+        Assert.Equal("eligible-product", (await verification.CollectionProducts.SingleAsync()).ProductId);
+    }
+
+    [Fact]
     public async Task GetProductCandidatesAsync_SearchesProductIdAndExplainsReadiness()
     {
         var factory = await CreateDatabaseAsync();
@@ -171,6 +241,35 @@ public sealed class CatalogueCollectionServiceTests
             reason.Contains("frog plush toy", StringComparison.OrdinalIgnoreCase));
         await using var verification = factory.CreateDbContext();
         Assert.Empty(verification.CollectionProducts);
+    }
+
+    [Fact]
+    public async Task GetProductCandidatesAsync_ReadySuggestedReturnsOnlyIndexableUnassignedMatches()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddIndexableProduct(context, shopId, saved.CollectionId!.Value, "ready-animal-product", 10);
+            context.CollectionProducts.Remove(context.CollectionProducts.Local.Single());
+            var readyProduct = context.Products.Local.Single(item => item.AliExpressProductId == "ready-animal-product");
+            readyProduct.Title = "Woodland animal fox plush";
+            AddPendingProduct(context, shopId, "pending-animal-product", "Woodland animal rabbit plush");
+            await context.SaveChangesAsync();
+        }
+
+        var products = await service.GetProductCandidatesAsync(
+            "plushies",
+            saved.CollectionId!.Value,
+            filter: CollectionCandidateFilter.ReadySuggested);
+
+        var product = Assert.Single(products);
+        Assert.Equal("ready-animal-product", product.ProductId);
+        Assert.True(product.IsSuggested);
+        Assert.True(product.IsIndexable);
+        Assert.False(product.IsAssigned);
     }
 
     [Fact]

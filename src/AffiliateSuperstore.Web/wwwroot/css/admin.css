@@ -73,6 +73,25 @@
   max-width: 42rem;
 }
 
+.collection-batch-actions {
+  align-items: center;
+  padding: 0 0 1rem;
+}
+
+.collection-batch-actions p {
+  display: grid;
+  gap: .2rem;
+  margin: 0 auto 0 0;
+}
+
+.collection-batch-actions small {
+  color: var(--muted);
+}
+
+.collection-candidate-check {
+  margin: 0 0 .5rem;
+}
+
 @media (max-width: 760px) {
   .collection-admin-card {
     grid-template-columns: 1fr auto;

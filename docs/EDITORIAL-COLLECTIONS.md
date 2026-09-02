@@ -32,10 +32,14 @@ gate. Selecting a collection adds the publicly eligible stage and separates the
 remaining blockers into approval, catalogue/link eligibility, editorial copy,
 image, current price and snapshot freshness counts.
 
-Use the membership filters to focus on assigned, unassigned or assigned products
-that still need work. Assigned products are kept visible even if they later
-become inactive or ineligible so an editor can remove stale memberships. Product
-search accepts either title text or any part of the AliExpress product ID.
+Use the membership filters to focus on ready suggestions, all suggestions,
+assigned, unassigned or assigned products that still need work. **Ready
+suggestions** are strong deterministic matches that already pass the full
+product indexability gate, so assigning them immediately advances a draft
+collection's product target. Assigned products are kept visible even if they
+later become inactive or ineligible so an editor can remove stale memberships.
+Product search accepts either title text or any part of the AliExpress product
+ID.
 
 ### Suggested matches from the existing catalogue
 
@@ -56,12 +60,17 @@ The deterministic matcher:
 
 Each row shows a relevance score and the query, scope or category terms that
 contributed to it. The score is a lexical shortlist signal, not a probability or
-approval decision. A score of 65 or more enters the suggested view. The operator
-must still inspect the product and choose **Add**; recommendations create no
-membership, approval or publication records by themselves. Editing the
-collection wording changes the next ranking, so keep discovery queries specific
-and generic-brand-safe. If no strong existing match is available, use **All
-candidates** or run **Discover products**.
+approval decision. A score of 65 or more enters the suggested views. The
+operator can add one product or tick reviewed rows and use **Add selected** for a
+bounded batch of up to 50 products. **Select visible suggestions** selects only
+strong matches in the current result set; it does not save anything until the
+operator uses **Add selected**. Batch assignment rechecks that every product is
+active and eligible, skips missing or held products, and creates membership
+records only. It never changes product review status or collection publication.
+
+Editing the collection wording changes the next ranking, so keep discovery
+queries specific and generic-brand-safe. If no strong existing match is
+available, use **All candidates** or run **Discover products**.
 
 Discovery stops on an API failure and reports the completed work. Successful results found before the failure remain non-public candidates so they are not lost. Running discovery again is safe: existing product and collection memberships are reused rather than duplicated.
 
