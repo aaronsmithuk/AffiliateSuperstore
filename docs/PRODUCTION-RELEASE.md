@@ -717,6 +717,41 @@ validated review drafts were saved, two were blocked, none failed and nothing
 was approved or published. The batch used 5,346 input and 4,002 output tokens
 at an estimated cost of USD 0.005872.
 
+## Seventeenth production release and draft-coverage prioritisation
+
+Application commit `f65612a` was deployed on 2 September 2026. The release
+keeps administrator-triggered AI preparation review-only while prioritising
+eligible products assigned solely to unpublished collections. A paid batch also
+skips later candidates whose normalised source title repeats one already
+processed in that batch. This improves useful collection coverage without
+changing autonomous selection, product approval, collection publication,
+duplicate/readiness controls, AI budgets or the daily publication ceiling.
+
+A clean detached Release build passed all 230 tests. Both the project and the
+published root `web.config` validated as OutOfProcess. The release contains no
+database migration, package/runtime change, configuration change or production
+policy change. The deployed site-only archive had SHA-256
+`9A8DC019ADC65A585D564CB2289607269711C7C42B57A6C482DAE6C2F3A0B86C`.
+
+The archive was uploaded and expanded only in `/wonderaisle` while a target-
+scoped `app_offline.htm` marker held Wonder Aisle offline. `App_Data` and its
+persistent Data Protection key ring were preserved. Provider decompression
+completed successfully, after which the marker was renamed to the inactive
+recovery record `app_offline-20260902-f65612a.done.htm`. The uploaded archive
+was retained for recovery. No application-pool restart or account-wide action
+was performed.
+
+`/health/live`, `/health/ready`, `/`, `/plushies`, a representative product,
+`/robots.txt`, `/sitemap.xml` and both published collection pages returned HTTP
+200. All 29 sitemap URLs returned HTTP 200 with matching canonical URLs.
+Anonymous access to `/admin/automation` redirected to the administrator login,
+and unauthenticated S2S remained disabled with HTTP 404. Authenticated
+production verification found the revised distinct-draft control and its
+unpublished-collection prioritisation explanation. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after the release.
+
 ## Build a release bundle
 
 From the repository root:
