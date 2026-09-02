@@ -55,6 +55,54 @@ public sealed class AliExpressClientTests
     }
 
     [Fact]
+    public async Task AdvancedDiscovery_UsesFixedApplicationDeviceWithoutVisitorIdentifiers()
+    {
+        var handler = new RecordingHandler("{}");
+        var client = CreateClient(handler);
+
+        await client.QueryHotProductsAsync(new AliExpressProductSearchRequest
+        {
+            Keywords = "plush toy",
+            PageNumber = 1,
+            PageSize = 5
+        });
+
+        Assert.Equal("aliexpress.affiliate.hotproduct.query", handler.FormValues!["method"]);
+        Assert.Equal("GB", handler.FormValues["ship_to_country"]);
+
+        await client.SmartMatchAsync(new AliExpressSmartMatchRequest
+        {
+            ProductId = "1005001",
+            Keywords = "plush toy",
+            PageNumber = 1
+        });
+
+        Assert.Equal("aliexpress.affiliate.product.smartmatch", handler.FormValues["method"]);
+        Assert.Equal("1005001", handler.FormValues["product_id"]);
+        Assert.Equal("wonderaisle-catalogue", handler.FormValues["device_id"]);
+        Assert.False(handler.FormValues.ContainsKey("user"));
+    }
+
+    [Fact]
+    public async Task SmartMatch_WithoutFixedDeviceId_FailsBeforeSending()
+    {
+        var handler = new RecordingHandler("{}");
+        var options = CreateOptions();
+        options.SmartMatchDeviceId = string.Empty;
+        var client = new AliExpressClient(
+            new HttpClient(handler),
+            options,
+            new AliExpressRequestSigner(),
+            new FixedTimeProvider());
+
+        var exception = await Assert.ThrowsAsync<AliExpressConfigurationException>(() =>
+            client.SmartMatchAsync(new AliExpressSmartMatchRequest { Keywords = "plush toy" }));
+
+        Assert.Contains("SmartMatchDeviceId", exception.Message, StringComparison.Ordinal);
+        Assert.Null(handler.RawBody);
+    }
+
+    [Fact]
     public async Task CallWithoutSecret_FailsBeforeSendingARequest()
     {
         var handler = new RecordingHandler("{}");
@@ -110,12 +158,28 @@ public sealed class AliExpressClientTests
     }
 
     [Fact]
+    public async Task GenerateLinks_TypeTwo_IsSentForVerifiedHotProducts()
+    {
+        var handler = new RecordingHandler("{}");
+        var client = CreateClient(handler);
+
+        await client.GenerateAffiliateLinksAsync(new AliExpressLinkGenerateRequest
+        {
+            SourceUrls = ["https://www.aliexpress.com/item/1005001.html"],
+            PromotionLinkType = 2
+        });
+
+        Assert.Equal("2", handler.FormValues!["promotion_link_type"]);
+    }
+
+    [Fact]
     public void MethodCatalog_CoversEveryPublishedWrapperMethod()
     {
         var client = CreateClient(new RecordingHandler("{}"));
 
         Assert.Equal(16, client.Methods.Count);
         Assert.Equal(9, client.Methods.Count(item => item.Permission == AliExpressApiPermission.Standard));
+        Assert.Equal(4, client.Methods.Count(item => item.Permission == AliExpressApiPermission.Advanced));
         Assert.Single(client.Methods, item => item.Permission == AliExpressApiPermission.AdditionalApproval);
         Assert.Contains(client.Methods, item => item.IsSystemMethod);
     }
@@ -135,7 +199,8 @@ public sealed class AliExpressClientTests
         Gateway = new Uri("https://api-sg.aliexpress.com/sync"),
         ShipToCountry = "GB",
         TargetCurrency = "GBP",
-        TargetLanguage = "EN"
+        TargetLanguage = "EN",
+        SmartMatchDeviceId = "wonderaisle-catalogue"
     };
 
     private sealed class FixedTimeProvider : TimeProvider

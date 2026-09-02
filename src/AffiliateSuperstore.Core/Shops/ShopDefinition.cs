@@ -22,6 +22,12 @@ public sealed class ShopDefinition
 
     public int DiscoveryPagesPerQuery { get; set; } = 1;
 
+    public bool HotProductDiscoveryEnabled { get; set; }
+
+    public bool SmartMatchDiscoveryEnabled { get; set; }
+
+    public int AdvancedDiscoveryPagesPerQuery { get; set; } = 1;
+
     public string SeoTitle { get; set; } = string.Empty;
 
     public string SeoDescription { get; set; } = string.Empty;

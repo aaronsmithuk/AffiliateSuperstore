@@ -6,6 +6,8 @@ namespace AffiliateSuperstore.AliExpress;
 
 public sealed class AliExpressClient : IAliExpressClient
 {
+    private static readonly SemaphoreSlim RequestGate = new(1, 1);
+    private static DateTimeOffset _lastRequestCompletedUtc = DateTimeOffset.MinValue;
     private const string CategoryMethod = "aliexpress.affiliate.category.get";
     private const string FeaturedPromotionsMethod = "aliexpress.affiliate.featuredpromo.get";
     private const string FeaturedPromotionProductsMethod = "aliexpress.affiliate.featuredpromo.products.get";
@@ -232,18 +234,23 @@ public sealed class AliExpressClient : IAliExpressClient
             throw new ArgumentOutOfRangeException(nameof(request), "Page number must be at least 1.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.DeviceId) &&
-            string.IsNullOrWhiteSpace(request.ProductId) &&
-            string.IsNullOrWhiteSpace(request.Keywords))
+        var deviceId = NullIfWhiteSpace(request.DeviceId) ?? NullIfWhiteSpace(_options.SmartMatchDeviceId);
+        if (deviceId is null)
+        {
+            throw new AliExpressConfigurationException(
+                "A fixed, non-personal AliExpress:SmartMatchDeviceId is required for smart match.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ProductId) && string.IsNullOrWhiteSpace(request.Keywords))
         {
             throw new ArgumentException(
-                "Smart match requires a device ID, product ID or keywords.",
+                "Smart match requires a product ID or keywords.",
                 nameof(request));
         }
 
         var parameters = CreateMarketParameters(useCountryParameter: true);
         parameters["page_no"] = Invariant(request.PageNumber);
-        parameters["device_id"] = NullIfWhiteSpace(request.DeviceId);
+        parameters["device_id"] = deviceId;
         parameters["product_id"] = NullIfWhiteSpace(request.ProductId);
         parameters["keywords"] = NullIfWhiteSpace(request.Keywords);
         parameters["site"] = NullIfWhiteSpace(request.Site);
@@ -378,12 +385,15 @@ public sealed class AliExpressClient : IAliExpressClient
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
-        var startedAt = _timeProvider.GetUtcNow();
-        var parameters = AddCommonParameters(businessParameters, startedAt);
-        parameters["method"] = method;
-        parameters["sign"] = _signer.Sign(parameters, _options.AppSecret);
+        return await ExecutePacedAsync(async () =>
+        {
+            var startedAt = _timeProvider.GetUtcNow();
+            var parameters = AddCommonParameters(businessParameters, startedAt);
+            parameters["method"] = method;
+            parameters["sign"] = _signer.Sign(parameters, _options.AppSecret);
 
-        return await SendAsync(method, _options.Gateway, parameters, startedAt, cancellationToken);
+            return await SendAsync(method, _options.Gateway, parameters, startedAt, cancellationToken);
+        }, cancellationToken);
     }
 
     private async Task<AliExpressApiCallResult> ExecuteSystemAsync(
@@ -392,12 +402,44 @@ public sealed class AliExpressClient : IAliExpressClient
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
-        var startedAt = _timeProvider.GetUtcNow();
-        var parameters = AddCommonParameters(businessParameters, startedAt);
-        parameters["sign"] = _signer.SignSystemRequest(apiPath, parameters, _options.AppSecret);
-        var endpoint = new Uri(_options.SystemGateway.ToString().TrimEnd('/') + apiPath);
+        return await ExecutePacedAsync(async () =>
+        {
+            var startedAt = _timeProvider.GetUtcNow();
+            var parameters = AddCommonParameters(businessParameters, startedAt);
+            parameters["sign"] = _signer.SignSystemRequest(apiPath, parameters, _options.AppSecret);
+            var endpoint = new Uri(_options.SystemGateway.ToString().TrimEnd('/') + apiPath);
 
-        return await SendAsync(apiPath, endpoint, parameters, startedAt, cancellationToken);
+            return await SendAsync(apiPath, endpoint, parameters, startedAt, cancellationToken);
+        }, cancellationToken);
+    }
+
+    private async Task<AliExpressApiCallResult> ExecutePacedAsync(
+        Func<Task<AliExpressApiCallResult>> operation,
+        CancellationToken cancellationToken)
+    {
+        var intervalMilliseconds = _options.MinimumRequestIntervalMilliseconds;
+        if (intervalMilliseconds <= 0)
+        {
+            return await operation();
+        }
+
+        await RequestGate.WaitAsync(cancellationToken);
+        try
+        {
+            var earliestStart = _lastRequestCompletedUtc.AddMilliseconds(intervalMilliseconds);
+            var delay = earliestStart - _timeProvider.GetUtcNow();
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, _timeProvider, cancellationToken);
+            }
+
+            return await operation();
+        }
+        finally
+        {
+            _lastRequestCompletedUtc = _timeProvider.GetUtcNow();
+            RequestGate.Release();
+        }
     }
 
     private async Task<AliExpressApiCallResult> SendAsync(
@@ -478,6 +520,12 @@ public sealed class AliExpressClient : IAliExpressClient
 
     private void EnsureConfigured()
     {
+        if (_options.MinimumRequestIntervalMilliseconds is < 0 or > 10_000)
+        {
+            throw new AliExpressConfigurationException(
+                "AliExpress:MinimumRequestIntervalMilliseconds must be between 0 and 10000.");
+        }
+
         if (!_options.HasAppKey)
         {
             throw new AliExpressConfigurationException("AliExpress:AppKey is not configured.");

@@ -6,11 +6,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AffiliateSuperstore.Application.Catalogue;
 
+public enum CatalogueDiscoverySource
+{
+    StandardSearch,
+    HotProductQuery,
+    SmartMatch
+}
+
 public sealed record CatalogueIngestionRequest(
     string ShopSlug,
     string? Keywords = null,
     int PageNumber = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    CatalogueDiscoverySource Source = CatalogueDiscoverySource.StandardSearch,
+    string? SeedProductId = null);
 
 public sealed record CatalogueIngestionResult(
     Guid JobId,
@@ -62,26 +71,27 @@ public sealed class CatalogueIngestionService(
                 QueuedUtc = timeProvider.GetUtcNow(),
                 StartedUtc = timeProvider.GetUtcNow(),
                 CorrelationId = jobId.ToString("N"),
-                Checkpoint = $"page={request.PageNumber};keywords={keywords}"
+                Checkpoint = BuildCheckpoint(request, keywords, complete: false)
             });
             await setup.SaveChangesAsync(cancellationToken);
         }
 
         try
         {
-            var page = await source.SearchAsync(
-                keywords,
-                request.PageNumber,
-                request.PageSize,
-                cancellationToken);
-            var eligible = page.Items.Where(IsMinimallyEligible).ToArray();
+            var page = await FetchPageAsync(request, keywords, cancellationToken);
+            var eligible = page.Items.Where(CatalogueProductEligibility.IsMinimallyEligible).ToArray();
             var sourceUrls = eligible
                 .Select(product => product.ProductDetailUrl)
                 .Where(url => !string.IsNullOrWhiteSpace(url))
                 .Cast<string>()
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
-            var links = await source.GenerateLinksAsync(sourceUrls, trackingId, cancellationToken);
+            var promotionLinkType = PromotionLinkType(request.Source);
+            var links = await source.GenerateLinksAsync(
+                sourceUrls,
+                trackingId,
+                promotionLinkType,
+                cancellationToken);
             var linksBySource = links
                 .Where(link => !string.IsNullOrWhiteSpace(link.SourceUrl))
                 .GroupBy(link => NormaliseUrl(link.SourceUrl), StringComparer.OrdinalIgnoreCase)
@@ -92,6 +102,8 @@ public sealed class CatalogueIngestionService(
                 shopId,
                 trackingId,
                 request,
+                keywords,
+                promotionLinkType,
                 page.Items,
                 eligible,
                 linksBySource,
@@ -121,6 +133,8 @@ public sealed class CatalogueIngestionService(
         Guid shopId,
         string trackingId,
         CatalogueIngestionRequest request,
+        string keywords,
+        int promotionLinkType,
         IReadOnlyList<AliExpressProduct> allProducts,
         IReadOnlyList<AliExpressProduct> eligible,
         IReadOnlyDictionary<string, AliExpressPromotionLink> linksBySource,
@@ -156,7 +170,7 @@ public sealed class CatalogueIngestionService(
                 context,
                 product,
                 apiProduct,
-                "aliexpress.affiliate.product.query",
+                SourceEndpoint(request.Source),
                 correlationId,
                 now);
             if (observation.ContentChanged) observationsChanged++;
@@ -190,14 +204,28 @@ public sealed class CatalogueIngestionService(
             if (apiProduct.ProductDetailUrl is not null &&
                 linksBySource.TryGetValue(NormaliseUrl(apiProduct.ProductDetailUrl), out var generated))
             {
-                var current = existingLinks.FirstOrDefault(link => link.ProductId == apiProduct.ProductId);
-                if (current is not null && string.Equals(current.PromotionUrl, generated.PromotionUrl, StringComparison.Ordinal))
+                var productLinks = existingLinks.Where(link => link.ProductId == apiProduct.ProductId).ToArray();
+                var current = productLinks
+                    .OrderByDescending(link => link.PromotionLinkType)
+                    .ThenByDescending(link => link.GeneratedUtc)
+                    .FirstOrDefault();
+                var preserveHotLink = promotionLinkType == 0 && current?.PromotionLinkType == 2;
+                var linkHandled = true;
+                if (preserveHotLink)
+                {
+                    // A standard discovery response is not evidence that the existing type-2 link
+                    // was revalidated. Keep the higher-value active link unchanged.
+                    linkHandled = false;
+                }
+                else if (current is not null &&
+                         current.PromotionLinkType == promotionLinkType &&
+                         string.Equals(current.PromotionUrl, generated.PromotionUrl, StringComparison.Ordinal))
                 {
                     current.LastValidatedUtc = now;
                 }
                 else
                 {
-                    foreach (var stale in existingLinks.Where(link => link.ProductId == apiProduct.ProductId))
+                    foreach (var stale in productLinks)
                     {
                         stale.Status = AffiliateLinkStatus.Expired;
                     }
@@ -210,14 +238,14 @@ public sealed class CatalogueIngestionService(
                         SourceUrl = generated.SourceUrl,
                         PromotionUrl = generated.PromotionUrl,
                         TrackingId = trackingId,
-                        PromotionLinkType = 0,
+                        PromotionLinkType = promotionLinkType,
                         Status = AffiliateLinkStatus.Active,
                         GeneratedUtc = now,
                         LastValidatedUtc = now
                     });
                 }
 
-                linksWritten++;
+                if (linkHandled) linksWritten++;
             }
         }
 
@@ -228,7 +256,7 @@ public sealed class CatalogueIngestionService(
         job.LinksCreatedOrRefreshed = linksWritten;
         job.Status = job.ItemsRejected == 0 ? IngestionJobStatus.Succeeded : IngestionJobStatus.PartiallySucceeded;
         job.CompletedUtc = now;
-        job.Checkpoint = $"page={request.PageNumber};keywords={request.Keywords};changed={observationsChanged};complete=true";
+        job.Checkpoint = $"{BuildCheckpoint(request, keywords, complete: true)};changed={observationsChanged}";
         await context.SaveChangesAsync(cancellationToken);
         return linksWritten;
     }
@@ -242,14 +270,6 @@ public sealed class CatalogueIngestionService(
         job.ErrorSummary = $"{exception.GetType().Name}: {exception.Message}";
         await context.SaveChangesAsync(cancellationToken);
     }
-
-    private static bool IsMinimallyEligible(AliExpressProduct product) =>
-        !string.IsNullOrWhiteSpace(product.ProductId) &&
-        !string.IsNullOrWhiteSpace(product.Title) &&
-        !string.IsNullOrWhiteSpace(product.ProductDetailUrl) &&
-        !string.IsNullOrWhiteSpace(product.MainImageUrl) &&
-        ParseDecimal(product.TargetSalePrice) is > 0 &&
-        string.Equals(product.Currency, "GBP", StringComparison.OrdinalIgnoreCase);
 
     private static void UpdateProduct(ProductRecord product, AliExpressProduct source, DateTimeOffset now)
     {
@@ -270,6 +290,40 @@ public sealed class CatalogueIngestionService(
         decimal.TryParse(value?.Trim().TrimEnd('%'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : null;
+
+    private Task<AliExpressPage<AliExpressProduct>> FetchPageAsync(
+        CatalogueIngestionRequest request,
+        string keywords,
+        CancellationToken cancellationToken) => request.Source switch
+    {
+        CatalogueDiscoverySource.StandardSearch => source.SearchAsync(
+            keywords, request.PageNumber, request.PageSize, cancellationToken),
+        CatalogueDiscoverySource.HotProductQuery => source.SearchHotProductsAsync(
+            keywords, request.PageNumber, request.PageSize, cancellationToken),
+        CatalogueDiscoverySource.SmartMatch => source.SmartMatchAsync(
+            NullIfWhiteSpace(request.SeedProductId), keywords, request.PageNumber, cancellationToken),
+        _ => throw new ArgumentOutOfRangeException(nameof(request), request.Source, "Unsupported catalogue discovery source.")
+    };
+
+    private static int PromotionLinkType(CatalogueDiscoverySource source) =>
+        source == CatalogueDiscoverySource.HotProductQuery ? 2 : 0;
+
+    private static string SourceEndpoint(CatalogueDiscoverySource source) => source switch
+    {
+        CatalogueDiscoverySource.StandardSearch => "aliexpress.affiliate.product.query",
+        CatalogueDiscoverySource.HotProductQuery => "aliexpress.affiliate.hotproduct.query",
+        CatalogueDiscoverySource.SmartMatch => "aliexpress.affiliate.product.smartmatch",
+        _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported catalogue discovery source.")
+    };
+
+    private static string BuildCheckpoint(
+        CatalogueIngestionRequest request,
+        string? keywords,
+        bool complete) =>
+        $"source={request.Source};page={request.PageNumber};keywords={keywords};seedProduct={request.SeedProductId};complete={complete.ToString().ToLowerInvariant()}";
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string NormaliseUrl(string value)
     {

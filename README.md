@@ -29,6 +29,8 @@ catalogue review and automation schedule.
   video media, immutable snapshots, review state, links, clicks, jobs and
   affiliate orders
 - Live catalogue ingestion through the API with tracked-link generation
+- Provenance-aware Standard, hot-product and Smart Match ingestion adapters;
+  Advanced automation remains independently gated per shop
 - A guarded 12-request full-discovery plan and publication-readiness report,
   with a single-run lock and stop-on-failure behaviour
 - Restart-safe multi-query discovery with normal refresh, failure retry,
@@ -162,8 +164,10 @@ click/link performance reporting.
 
 After configuring User Secrets, the live smoke test exercises categories, a
 five-item UK plush search, product details, tracked-link generation, featured
-promotions, promotion products and recent orders without printing the App
-Secret or request signature:
+promotions, promotion products and recent orders. When Advanced permission is
+enabled it also verifies hot-product query/download, Smart Match and type-2 link
+generation. Calls are paced and the App Secret and request signature are never
+printed:
 
 ```powershell
 dotnet run --project ./tools/AffiliateSuperstore.ApiSmokeTest
@@ -171,6 +175,8 @@ dotnet run --project ./tools/AffiliateSuperstore.ApiSmokeTest
 
 Research and captured AliExpress source material is indexed in
 [`docs/aliexpress/README.md`](docs/aliexpress/README.md).
+The verified Advanced integration and controlled activation sequence are in
+[`docs/ADVANCED-API-ROLLOUT.md`](docs/ADVANCED-API-ROLLOUT.md).
 
 The production configuration, release, sibling-site verification and rollback
 procedure is in [`docs/PRODUCTION-RELEASE.md`](docs/PRODUCTION-RELEASE.md). Build

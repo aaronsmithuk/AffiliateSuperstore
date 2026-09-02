@@ -2,7 +2,7 @@
 
 Status: standing product policy
 
-Effective: 1 September 2026
+Effective: 2 September 2026
 
 Owner: the product owner is accountable for this policy and for naming any
 editor or reviewer who may approve public content.
@@ -23,7 +23,31 @@ transparent, and has received proportionate editorial care.
 
 This is both a Google-policy requirement and the product standard for Wonder
 Aisle. Passing a mechanical validator only makes a page eligible for editorial
-review; it never creates an entitlement to indexing or publication.
+review or the restricted product-listing pilot below; it never creates an
+entitlement to indexing or publication.
+
+## Owner-approved restricted product pilot
+
+On 2 September 2026 the owner approved a narrowly bounded automatic-publication
+pilot for individual product listings in the `plushies` shop. This does not
+permit automatic shops, collections, guides, comparisons, recommendations or
+keyword pages.
+
+During the initial live pilot the system may publish at most one product per UTC
+day and evaluate at most one candidate per autonomous run. A candidate must pass
+every deterministic gate: active and eligible; directly checked within the
+freshness window; currently available with positive source price; working
+affiliate link; usable product URL and image; membership of a published
+collection; no quality or suitability flags; no known or probable duplicate;
+the current audited prompt and a successful, validator-passed invocation; an
+unchanged immutable AI draft; and no source content or availability change after
+that draft. Any uncertainty fails closed to the review queue.
+
+Every decision remains auditable and reversible. The product owner is the named
+accountable reviewer for the pilot, samples all initial publications, and may
+return the shop to Shadow or Off immediately. A production unsupported claim,
+broken destination, wrong product scope, duplicate, or unexplained decision
+pauses automatic publication pending correction and regression coverage.
 
 ## Assessment of the video
 
@@ -51,8 +75,10 @@ its explanations are speculation or unsafe if treated as tactics.
 3. Wonder Aisle must add a meaningful benefit such as original selection,
    current normalization, useful comparison, clear category navigation,
    documented evaluation, or first-party analysis.
-4. AI output is an untrusted suggestion. A named human remains accountable for
-   every public title, description, guide, comparison and recommendation.
+4. AI output is untrusted. A named human remains accountable for every public
+   item. Only individual product titles and descriptions may use the restricted
+   automatic pilot above; guides, collections, comparisons and recommendations
+   always require explicit human approval.
 5. AI must never invent or infer price, stock, delivery, dimensions, pack size,
    material, safety, authenticity, licensing, ratings, popularity, testing,
    ownership or first-hand experience. Dynamic facts come from the authorized
@@ -148,9 +174,11 @@ Every new indexable content unit follows this sequence:
    merchant text as untrusted data and prohibit unsupported claims.
 5. **Mechanical validation:** run claim, freshness, link, eligibility, metadata,
    canonical, structured-data and duplication checks. A failure blocks review.
-6. **Human review:** a named reviewer answers the checklist below and either
-   rejects, revises or approves an immutable version. Approval cannot be inferred
-   from absence of warnings.
+6. **Approval:** a named reviewer answers the checklist below and either rejects,
+   revises or approves an immutable version. The sole exception is a product in
+   the restricted pilot, where the version must pass every explicit autonomous
+   gate and produce a durable decision record; absence of warnings alone is not
+   approval.
 7. **Publish:** update internal links and the sitemap only after approval. The
    public request path never waits for or calls a model.
 8. **Observe:** verify rendering, destination, canonical, robots directive and
@@ -185,7 +213,8 @@ and generating review-only briefs. Models and prompts must be versioned, outputs
 cached by stable input hash, costs capped, and every invocation auditable as set
 out in the AI automation plan.
 
-Forbidden uses include autonomous publication, bulk keyword-page generation,
+Forbidden uses include autonomous publication outside the restricted individual
+product pilot, bulk keyword-page generation,
 synthetic first-hand accounts, fabricated local detail, unsourced product claims,
 automated date refreshing, content spinning, or using multiple sites to disguise
 common generation. Making each draft semantically different is not a defence if

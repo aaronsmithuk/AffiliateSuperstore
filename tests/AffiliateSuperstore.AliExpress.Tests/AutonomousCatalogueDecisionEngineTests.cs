@@ -14,7 +14,7 @@ public sealed class AutonomousCatalogueDecisionEngineTests
     {
         var assessment = AutonomousCatalogueDecisionEngine.Assess(
             ValidItem(),
-            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-1), null, false, Guid.CreateVersion7()),
+            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-1), true, false, null, false, Guid.CreateVersion7()),
             Policy(),
             Now,
             30);
@@ -29,7 +29,7 @@ public sealed class AutonomousCatalogueDecisionEngineTests
     {
         var assessment = AutonomousCatalogueDecisionEngine.Assess(
             ValidItem(),
-            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-1), .92m, false, Guid.CreateVersion7()),
+            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-1), true, false, .92m, false, Guid.CreateVersion7()),
             Policy(),
             Now,
             30);
@@ -49,7 +49,7 @@ public sealed class AutonomousCatalogueDecisionEngineTests
         };
         var assessment = AutonomousCatalogueDecisionEngine.Assess(
             item,
-            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-40), null, false, Guid.CreateVersion7()),
+            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-40), true, false, null, false, Guid.CreateVersion7()),
             Policy(),
             Now,
             30);
@@ -58,6 +58,38 @@ public sealed class AutonomousCatalogueDecisionEngineTests
         Assert.Contains("product.unavailable", assessment.ReasonCodes);
         Assert.Contains("source.stale", assessment.ReasonCodes);
         Assert.Contains("editorial.human-edited", assessment.ReasonCodes);
+    }
+
+    [Fact]
+    public void Assess_SourceChangedAfterDraft_HoldsOtherwiseValidProduct()
+    {
+        var assessment = AutonomousCatalogueDecisionEngine.Assess(
+            ValidItem(),
+            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-1), true, true, null, false, Guid.CreateVersion7()),
+            Policy(),
+            Now,
+            30);
+
+        Assert.Equal(AutonomousCatalogueDecision.Hold, assessment.Decision);
+        Assert.Contains("editorial.source-changed", assessment.ReasonCodes);
+    }
+
+    [Fact]
+    public void Assess_MissingStorefrontEvidence_HoldsOtherwiseValidProduct()
+    {
+        var item = ValidItem() with { ProductDetailUrl = null, ImageUrl = null };
+        var assessment = AutonomousCatalogueDecisionEngine.Assess(
+            item,
+            new AutonomousCatalogueCandidateEvidence(Now.AddHours(-1), false, false, null, false, null),
+            Policy(),
+            Now,
+            30);
+
+        Assert.Equal(AutonomousCatalogueDecision.Hold, assessment.Decision);
+        Assert.Contains("product-url.missing", assessment.ReasonCodes);
+        Assert.Contains("media.missing", assessment.ReasonCodes);
+        Assert.Contains("published-collection.missing", assessment.ReasonCodes);
+        Assert.Contains("editorial.version-missing", assessment.ReasonCodes);
     }
 
     [Fact]

@@ -14,6 +14,28 @@ public interface IAffiliateCatalogueSource
         IReadOnlyCollection<string> sourceUrls,
         string trackingId,
         CancellationToken cancellationToken = default);
+
+    Task<AliExpressPage<AliExpressProduct>> SearchHotProductsAsync(
+        string keywords,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This catalogue source does not support hot-product discovery.");
+
+    Task<AliExpressPage<AliExpressProduct>> SmartMatchAsync(
+        string? productId,
+        string? keywords,
+        int pageNumber,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This catalogue source does not support smart-match discovery.");
+
+    Task<IReadOnlyList<AliExpressPromotionLink>> GenerateLinksAsync(
+        IReadOnlyCollection<string> sourceUrls,
+        string trackingId,
+        int promotionLinkType,
+        CancellationToken cancellationToken = default) => promotionLinkType == 0
+            ? GenerateLinksAsync(sourceUrls, trackingId, cancellationToken)
+            : throw new NotSupportedException("This catalogue source does not support hot-product links.");
 }
 
 public interface IAffiliateProductDetailSource
@@ -45,9 +67,55 @@ public sealed class AliExpressCatalogueSource(IAliExpressClient client) : IAffil
         return AliExpressResponseReader.ReadProducts(result.RawResponse);
     }
 
+    public async Task<AliExpressPage<AliExpressProduct>> SearchHotProductsAsync(
+        string keywords,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await client.QueryHotProductsAsync(
+            new AliExpressProductSearchRequest
+            {
+                Keywords = keywords,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                Sort = "LAST_VOLUME_DESC"
+            },
+            cancellationToken);
+
+        EnsureSuccess(result, "hot-product search");
+        return AliExpressResponseReader.ReadProducts(result.RawResponse);
+    }
+
+    public async Task<AliExpressPage<AliExpressProduct>> SmartMatchAsync(
+        string? productId,
+        string? keywords,
+        int pageNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await client.SmartMatchAsync(
+            new AliExpressSmartMatchRequest
+            {
+                ProductId = productId,
+                Keywords = keywords,
+                PageNumber = pageNumber
+            },
+            cancellationToken);
+
+        EnsureSuccess(result, "smart-match discovery");
+        return AliExpressResponseReader.ReadProducts(result.RawResponse);
+    }
+
     public async Task<IReadOnlyList<AliExpressPromotionLink>> GenerateLinksAsync(
         IReadOnlyCollection<string> sourceUrls,
         string trackingId,
+        CancellationToken cancellationToken = default)
+        => await GenerateLinksAsync(sourceUrls, trackingId, 0, cancellationToken);
+
+    public async Task<IReadOnlyList<AliExpressPromotionLink>> GenerateLinksAsync(
+        IReadOnlyCollection<string> sourceUrls,
+        string trackingId,
+        int promotionLinkType,
         CancellationToken cancellationToken = default)
     {
         if (sourceUrls.Count == 0) return [];
@@ -57,7 +125,7 @@ public sealed class AliExpressCatalogueSource(IAliExpressClient client) : IAffil
             {
                 SourceUrls = sourceUrls,
                 TrackingId = trackingId,
-                PromotionLinkType = 0
+                PromotionLinkType = promotionLinkType
             },
             cancellationToken);
 

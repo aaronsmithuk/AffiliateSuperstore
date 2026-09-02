@@ -144,7 +144,7 @@ standing [`SEARCH-CONTENT-GOVERNANCE.md`](SEARCH-CONTENT-GOVERNANCE.md) policy.
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Live in production from release `0ad6ba8`: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, SmarterASP signals it every 15 minutes, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
-| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters in shadow/review-only mode | AI-3 gold set, admin authentication, data-handling review and budget controls | Product-copy shadow foundation complete locally 1 September 2026: provider-neutral contracts, strict OpenAI Responses schema, stable source-packet/cache hashes, additive invocation audit, transactional $1 monthly cap, token/cost/latency/validation evidence and admin preview are implemented; global configuration is off and the repository contains no API key, so the first owner-authorized local shadow call remains pending |
+| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters with controlled product-copy publication | AI-3 gold set, admin authentication, data-handling review and budget controls | Product-copy audit, strict structured output, stable source-packet/cache hashes, transactional spend caps and production shadow evidence are complete. On 2 September 2026 the owner approved a `plushies`-only restricted automatic pilot capped at one candidate/run and one publication/UTC day; categories, guides, recommendations, identity merges and expiry remain review-only. |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
 
 ### Main-build acceptance gates
@@ -178,8 +178,8 @@ reviewer-labelled catalogue records before matching code enters the application.
   typed request object where it accepts business parameters.
 - Standard operations can be exercised from the Blazor workbench without
   displaying secrets or live signatures.
-- Advanced/SKU operations are visible and clearly identified as unavailable
-  until permission is granted.
+- Advanced/SKU operations are visible and permission-aware. Advanced access is
+  now granted and live-verified; SKU Dimension remains unavailable.
 - Order operations require deliberate date/status/order input and never run
   broad accidental queries.
 - AliExpress method-specific response envelopes and platform errors are
@@ -215,7 +215,12 @@ and architecture are in
   not yet been captured; the full local copy is the 2022 agreement.
 - Cookie duration and the attribution tie-break rule remain unpublished.
 - The account's precise API quota is not displayed.
-- Advanced API and SKU Dimension permission groups are inactive.
+- Advanced API is active and live-verified for hot-product query/download,
+  Smart Match and type-2 link generation. SKU Dimension remains pending, so no
+  variant-level price, stock or delivery facts may be assumed.
+- The live account returned a one-second `ApiCallLimit` during a rapid mixed
+  method sequence. All calls are now process-wide serial and paced at 1100 ms;
+  the precise daily quota remains unpublished.
 - Coupon/promotion-info returned `InsufficientPermission` in a live test even
   though the method appears in the published affiliate surface; treat it as a
   separate unavailable capability until AliExpress confirms or grants access.

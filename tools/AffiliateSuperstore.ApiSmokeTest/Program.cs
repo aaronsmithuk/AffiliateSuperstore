@@ -51,6 +51,58 @@ if (search.Result is not null)
     Console.WriteLine($"  First product: {firstProduct?.Title ?? "[none]"}");
 }
 
+AliExpressProduct? firstHotProduct = null;
+if (options.AdvancedApiEnabled)
+{
+    var hotProducts = await RunAsync(
+        "Advanced hot-product search",
+        () => client.QueryHotProductsAsync(new AliExpressProductSearchRequest
+        {
+            Keywords = "plush toy",
+            PageNumber = 1,
+            PageSize = 5,
+            Sort = "LAST_VOLUME_DESC"
+        }),
+        required: true);
+    requiredPassed &= hotProducts.Passed;
+    if (hotProducts.Result is not null)
+    {
+        var page = AliExpressResponseReader.ReadProducts(hotProducts.Result.RawResponse);
+        firstHotProduct = page.Items.FirstOrDefault();
+        Console.WriteLine($"  Parsed hot products: {page.Items.Count:N0}; first: {firstHotProduct?.Title ?? "[none]"}");
+    }
+
+    var smartMatch = await RunAsync(
+        "Advanced smart match",
+        () => client.SmartMatchAsync(new AliExpressSmartMatchRequest
+        {
+            ProductId = firstProduct?.ProductId,
+            Keywords = "plush toy",
+            PageNumber = 1
+        }),
+        required: true);
+    requiredPassed &= smartMatch.Passed;
+    if (smartMatch.Result is not null)
+    {
+        var page = AliExpressResponseReader.ReadProducts(smartMatch.Result.RawResponse);
+        Console.WriteLine($"  Parsed smart matches: {page.Items.Count:N0}; first: {page.Items.FirstOrDefault()?.Title ?? "[none]"}");
+    }
+
+    var categoryId = firstHotProduct?.FirstLevelCategoryId ?? firstProduct?.FirstLevelCategoryId;
+    if (!string.IsNullOrWhiteSpace(categoryId))
+    {
+        await RunAsync(
+            "Advanced hot-product download",
+            () => client.DownloadHotProductsAsync(new AliExpressHotProductDownloadRequest
+            {
+                CategoryId = categoryId,
+                PageNumber = 1,
+                PageSize = 5
+            }),
+            required: false);
+    }
+}
+
 if (firstProduct is not null)
 {
     var detail = await RunAsync(
@@ -81,6 +133,21 @@ if (firstProduct is not null)
             ProductIds = [firstProduct.ProductId]
         }),
         required: false);
+}
+
+
+if (options.AdvancedApiEnabled && firstHotProduct?.ProductDetailUrl is { } hotProductUrl)
+{
+    var hotLink = await RunAsync(
+        "Hot-product type-2 link generation",
+        () => client.GenerateAffiliateLinksAsync(new AliExpressLinkGenerateRequest
+        {
+            SourceUrls = [hotProductUrl],
+            TrackingId = options.TrackingId,
+            PromotionLinkType = 2
+        }),
+        required: true);
+    requiredPassed &= hotLink.Passed;
 }
 
 var promotions = await RunAsync(

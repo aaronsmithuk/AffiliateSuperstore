@@ -63,6 +63,70 @@ public sealed class AutonomousCatalogueEvaluationServiceTests
         Assert.Equal(1m, decision.ReadinessScore);
     }
 
+    [Fact]
+    public async Task RunAsync_RestrictedAutomaticModePublishesOneFullyQualifiedProductOnce()
+    {
+        var now = new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, now);
+        await using (var context = factory.CreateDbContext())
+        {
+            var policyRow = await context.AutonomousCataloguePolicies.SingleAsync();
+            policyRow.Mode = AutonomousCatalogueMode.Automatic;
+            policyRow.MaximumCandidatesPerRun = 1;
+            policyRow.MaximumAutoPublishesPerDay = 1;
+            await context.SaveChangesAsync();
+        }
+
+        var aiOptions = new AiAutomationOptions
+        {
+            Enabled = true,
+            ProductCopyEnabled = true,
+            ApiKey = "test-key",
+            MaximumReservedCostPerCallUsd = .01m
+        };
+        var autonomousOptions = new AutonomousCatalogueOptions
+        {
+            Enabled = true,
+            AutomaticPublishingEnabled = true
+        };
+        var clock = new FixedTimeProvider(now);
+        var validator = new EditorialContentValidator();
+        var quality = new ProductQualityAssessmentService(factory, clock);
+        var editorial = new CatalogueEditorialService(factory, quality, validator, clock);
+        var suggestions = new CatalogueAiSuggestionService(
+            factory,
+            new FailingProvider(),
+            validator,
+            new AiInvocationAuditService(factory, aiOptions, clock),
+            aiOptions);
+        var service = new AutonomousCatalogueEvaluationService(
+            factory,
+            new AutonomousCataloguePolicyService(factory, autonomousOptions, clock),
+            new CatalogueAiQueuePreparationService(factory, suggestions, editorial, quality, aiOptions),
+            new CatalogueAiReviewService(factory),
+            editorial,
+            autonomousOptions,
+            new CatalogueAutomationOptions { ProductStaleAfterHours = 30 },
+            aiOptions,
+            clock);
+
+        var first = await service.RunAsync("plushies");
+        await using (var firstVerification = factory.CreateDbContext())
+        {
+            var firstDecision = await firstVerification.AutonomousCatalogueDecisions.SingleAsync();
+            Assert.True(first.Published == 1,
+                $"{first.Message} {firstDecision.Summary} {firstDecision.ReasonCodesJson}");
+        }
+
+        var second = await service.RunAsync("plushies");
+        Assert.Equal(0, second.Published);
+        await using var verification = factory.CreateDbContext();
+        Assert.Equal(ProductReviewStatus.Approved, (await verification.ShopProducts.SingleAsync()).ReviewStatus);
+        var decision = await verification.AutonomousCatalogueDecisions.SingleAsync();
+        Assert.Equal(AutonomousCatalogueAction.Published, decision.Action);
+    }
+
     private static async Task SeedAsync(InMemoryFactory factory, DateTimeOffset now)
     {
         await using var context = factory.CreateDbContext();
@@ -120,7 +184,7 @@ public sealed class AutonomousCatalogueEvaluationServiceTests
             ShopId = shopId,
             ProductId = "shadow-product",
             EditorialTitle = "Highland Cow Plush",
-            EditorialDescription = "A Highland cow plush with a softly rounded design.",
+            EditorialDescription = "A Highland cow plush toy presented as an animal figure for collectors who prefer cattle-themed characters.",
             CurrentEditorialVersionNumber = 1,
             EditorialValidationState = EditorialValidationState.Passed,
             AutomatedReviewFlags = "[]",
@@ -175,7 +239,7 @@ public sealed class AutonomousCatalogueEvaluationServiceTests
             ProductId = "shadow-product",
             VersionNumber = 1,
             EditorialTitle = "Highland Cow Plush",
-            EditorialDescription = "A Highland cow plush with a softly rounded design.",
+            EditorialDescription = "A Highland cow plush toy presented as an animal figure for collectors who prefer cattle-themed characters.",
             ChangeKind = EditorialVersionChangeKind.Edit,
             ChangeReason = $"AI-assisted review draft (openai/test, product-editorial-v2, invocation {invocationId}); requires administrator approval.",
             CreatedBy = "autonomous shadow via AI queue",

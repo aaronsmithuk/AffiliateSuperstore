@@ -22,6 +22,10 @@ public sealed class AliExpressOptions
 
     public bool AdvancedApiEnabled { get; set; }
 
+    public string SmartMatchDeviceId { get; set; } = string.Empty;
+
+    public int MinimumRequestIntervalMilliseconds { get; set; }
+
     public bool PromotionInfoApiEnabled { get; set; }
 
     public bool SkuDimensionApiEnabled { get; set; }

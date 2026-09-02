@@ -75,9 +75,31 @@ public static class CatalogueDiscoveryPlanner
             .ToArray();
         if (queries.Length == 0) queries = [shop.DefaultSearchQuery.Trim()];
 
-        return queries
+        if (shop.DiscoveryPagesPerQuery is < 1 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(shop), "Discovery pages per query must be between 1 and 100.");
+        }
+
+        if (shop.AdvancedDiscoveryPagesPerQuery is < 1 or > 10)
+        {
+            throw new ArgumentOutOfRangeException(nameof(shop), "Advanced discovery pages per query must be between 1 and 10.");
+        }
+
+        var standard = queries
             .SelectMany(query => Enumerable.Range(1, shop.DiscoveryPagesPerQuery)
                 .Select(page => new CatalogueIngestionRequest(shop.Slug, query, page, pageSize)))
             .ToArray();
+        var hotProducts = shop.HotProductDiscoveryEnabled
+            ? queries.SelectMany(query => Enumerable.Range(1, shop.AdvancedDiscoveryPagesPerQuery)
+                .Select(page => new CatalogueIngestionRequest(
+                    shop.Slug, query, page, pageSize, CatalogueDiscoverySource.HotProductQuery)))
+            : [];
+        var smartMatches = shop.SmartMatchDiscoveryEnabled
+            ? queries.SelectMany(query => Enumerable.Range(1, shop.AdvancedDiscoveryPagesPerQuery)
+                .Select(page => new CatalogueIngestionRequest(
+                    shop.Slug, query, page, pageSize, CatalogueDiscoverySource.SmartMatch)))
+            : [];
+
+        return standard.Concat(hotProducts).Concat(smartMatches).ToArray();
     }
 }

@@ -159,7 +159,8 @@ public sealed class CatalogueAiQueuePreparationService(
                     link.Status == AffiliateLinkStatus.Active) &&
                 context.CollectionProducts.Any(membership =>
                     membership.ProductId == item.ProductId &&
-                    membership.Collection.ShopId == item.ShopId))
+                    membership.Collection.ShopId == item.ShopId &&
+                    membership.Collection.IsPublished))
             .OrderBy(item => item.ReviewStatus == ProductReviewStatus.Pending ? 0 : 1)
             .ThenByDescending(item => context.CollectionProducts.Count(membership =>
                 membership.ProductId == item.ProductId &&
@@ -172,18 +173,43 @@ public sealed class CatalogueAiQueuePreparationService(
                 item.Product.Title,
                 item.Product.FirstLevelCategoryName,
                 item.Product.SecondLevelCategoryName,
+                item.Product.SellerName,
+                item.Product.SkuId,
+                item.Product.EanCode,
                 item.ReviewStatus,
                 item.IsFeatured,
                 item.DisplayOrder,
                 item.RowVersion))
             .ToListAsync(cancellationToken);
 
-        return pool
+        var qualityClear = pool
             .Where(candidate => !qualityAssessmentService.AssessForPublication(
                 candidate.SourceTitle,
                 null,
                 candidate.FirstLevelCategoryName,
                 candidate.SecondLevelCategoryName).RequiresReview)
+            .ToArray();
+        if (qualityClear.Length == 0) return [];
+
+        var productIds = qualityClear.Select(candidate => candidate.ProductId).ToArray();
+        var rejectedInputs = await context.AiInvocations.AsNoTracking()
+            .Where(invocation => productIds.Contains(invocation.ProductId) &&
+                invocation.Purpose == AiInvocationAuditService.ProductCopyPurpose &&
+                invocation.PromptVersion == CatalogueAiSuggestionService.PromptVersion &&
+                (invocation.Status == AiInvocationStatus.Succeeded || invocation.Status == AiInvocationStatus.CacheHit) &&
+                invocation.EditorialValidationState != EditorialValidationState.Passed)
+            .Select(invocation => new { invocation.ProductId, invocation.InputHash })
+            .ToArrayAsync(cancellationToken);
+        var rejectedHashesByProduct = rejectedInputs
+            .GroupBy(invocation => invocation.ProductId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(invocation => invocation.InputHash).ToHashSet(StringComparer.Ordinal),
+                StringComparer.Ordinal);
+
+        return qualityClear
+            .Where(candidate => !rejectedHashesByProduct.TryGetValue(candidate.ProductId, out var hashes) ||
+                !hashes.Contains(candidate.InputHash))
             .Take(batchSize)
             .ToArray();
     }
@@ -246,11 +272,26 @@ public sealed class CatalogueAiQueuePreparationService(
         string SourceTitle,
         string? FirstLevelCategoryName,
         string? SecondLevelCategoryName,
+        string? SellerName,
+        string? SkuId,
+        string? EanCode,
         ProductReviewStatus ReviewStatus,
         bool IsFeatured,
         int DisplayOrder,
         byte[] RowVersion)
     {
         public string ExpectedRowVersion => Convert.ToBase64String(RowVersion);
+        public string InputHash => CatalogueAiSuggestionService.ComputeInputHash(
+            ProductId,
+            SourceTitle,
+            null,
+            null,
+            CatalogueAiSuggestionService.BuildFacts(
+                SourceTitle,
+                FirstLevelCategoryName,
+                SecondLevelCategoryName,
+                SellerName,
+                SkuId,
+                EanCode));
     }
 }

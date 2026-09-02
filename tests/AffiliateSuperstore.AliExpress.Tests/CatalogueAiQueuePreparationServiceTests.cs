@@ -76,6 +76,44 @@ public sealed class CatalogueAiQueuePreparationServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_SkipsUnchangedRejectedInputAndAdvancesToNextCandidate()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedQueueAsync(factory, 2);
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Official Cotton Highland Cow Plush",
+            "An officially licensed, child-safe cotton plush with next-day delivery and guaranteed quality.",
+            [], [], [], "en-GB", "fake", "test-model", Hash("blocked-advance"), 80, 20));
+        var service = CreateService(factory, provider);
+
+        var first = await service.RunAsync("plushies", 1, "queue tester");
+        await using (var context = factory.CreateDbContext())
+        {
+            context.AiInvocations.Add(new AiInvocationRecord
+            {
+                Id = Guid.CreateVersion7(),
+                Purpose = AiInvocationAuditService.ProductCopyPurpose,
+                ProductId = provider.Requests[0].ProductId,
+                Provider = "fake",
+                Model = "test-model",
+                PromptVersion = CatalogueAiSuggestionService.PromptVersion,
+                InputHash = provider.Requests[0].InputHash,
+                CacheKey = "rejected-input",
+                Status = AiInvocationStatus.Succeeded,
+                RequestedUtc = DateTimeOffset.UtcNow,
+                CompletedUtc = DateTimeOffset.UtcNow,
+                EditorialValidationState = EditorialValidationState.Blocked
+            });
+            await context.SaveChangesAsync();
+        }
+        var second = await service.RunAsync("plushies", 1, "queue tester");
+
+        Assert.Equal(1, first.BlockedCount);
+        Assert.Equal(1, second.BlockedCount);
+        Assert.Equal(["queue-01", "queue-02"], provider.Requests.Select(request => request.ProductId));
+    }
+
+    [Fact]
     public async Task RunAsync_TruncatesLongAuditIdentityWithoutLosingTheDraft()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
@@ -155,6 +193,7 @@ public sealed class CatalogueAiQueuePreparationServiceTests
             SeoTitle = "Animal Plush Toys and Soft Companions",
             SeoDescription = "Browse an editorially reviewed collection of animal plush toys and soft companions from active marketplace sellers.",
             DiscoveryQueriesJson = "[]",
+            IsPublished = true,
             CreatedUtc = now,
             UpdatedUtc = now
         });

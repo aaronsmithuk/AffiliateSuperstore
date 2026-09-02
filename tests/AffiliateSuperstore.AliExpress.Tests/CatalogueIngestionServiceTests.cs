@@ -113,6 +113,78 @@ public sealed class CatalogueIngestionServiceTests
             .ToListAsync());
     }
 
+    [Fact]
+    public async Task RunAsync_HotProductDiscovery_StoresProvenanceAndTypeTwoLinkWithoutPublishing()
+    {
+        var factory = await CreateDatabaseAsync();
+        var source = new FakeSource
+        {
+            Products = [Product("hot-1", "Popular highland cow plush", "11.99", "GBP") with
+            {
+                HotProductCommissionRate = "12%"
+            }]
+        };
+
+        var result = await CreateService(source, factory).RunAsync(new CatalogueIngestionRequest(
+            "plushies",
+            "highland cow plush",
+            1,
+            20,
+            CatalogueDiscoverySource.HotProductQuery));
+
+        Assert.Equal(IngestionJobStatus.Succeeded, result.Status);
+        Assert.Equal([2], source.GeneratedLinkTypes);
+        await using var context = factory.CreateDbContext();
+        Assert.Equal("aliexpress.affiliate.hotproduct.query", (await context.ProductSnapshots.SingleAsync()).SourceEndpoint);
+        Assert.Equal(.12m, (await context.ProductSnapshots.SingleAsync()).HotProductCommissionRate);
+        Assert.Equal(2, (await context.AffiliateLinks.SingleAsync()).PromotionLinkType);
+        Assert.Equal(ProductReviewStatus.Pending, (await context.ShopProducts.SingleAsync()).ReviewStatus);
+        Assert.Contains("source=HotProductQuery", (await context.IngestionJobs.SingleAsync()).Checkpoint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsync_StandardRediscovery_DoesNotDowngradeAnActiveHotProductLink()
+    {
+        var factory = await CreateDatabaseAsync();
+        var source = new FakeSource
+        {
+            Products = [Product("hot-2", "Popular otter plush", "9.99", "GBP")]
+        };
+        var service = CreateService(source, factory);
+        await service.RunAsync(new CatalogueIngestionRequest(
+            "plushies", "otter plush", Source: CatalogueDiscoverySource.HotProductQuery));
+
+        var standardResult = await service.RunAsync(new CatalogueIngestionRequest("plushies", "otter plush"));
+
+        await using var context = factory.CreateDbContext();
+        var links = await context.AffiliateLinks.ToArrayAsync();
+        var link = Assert.Single(links);
+        Assert.Equal(AffiliateLinkStatus.Active, link.Status);
+        Assert.Equal(2, link.PromotionLinkType);
+        Assert.Equal(0, standardResult.LinksCreatedOrRefreshed);
+    }
+
+    [Fact]
+    public async Task RunAsync_SmartMatch_UsesServerSideSeedAndPersistsSourceEndpoint()
+    {
+        var factory = await CreateDatabaseAsync();
+        var source = new FakeSource
+        {
+            Products = [Product("match-1", "Suggested capybara plush", "7.99", "GBP")]
+        };
+
+        await CreateService(source, factory).RunAsync(new CatalogueIngestionRequest(
+            "plushies",
+            "capybara plush",
+            Source: CatalogueDiscoverySource.SmartMatch,
+            SeedProductId: "approved-seed"));
+
+        Assert.Equal([("approved-seed", "capybara plush", 1)], source.SmartMatchRequests);
+        await using var context = factory.CreateDbContext();
+        Assert.Equal("aliexpress.affiliate.product.smartmatch", (await context.ProductSnapshots.SingleAsync()).SourceEndpoint);
+        Assert.Contains("seedProduct=approved-seed", (await context.IngestionJobs.SingleAsync()).Checkpoint, StringComparison.Ordinal);
+    }
+
     private static CatalogueIngestionService CreateService(
         IAffiliateCatalogueSource source,
         IDbContextFactory<AffiliateSuperstoreDbContext> factory) =>
@@ -168,13 +240,31 @@ public sealed class CatalogueIngestionServiceTests
     private sealed class FakeSource : IAffiliateCatalogueSource
     {
         public IReadOnlyList<AliExpressProduct> Products { get; set; } = [];
+        public List<int> GeneratedLinkTypes { get; } = [];
+        public List<(string? ProductId, string? Keywords, int Page)> SmartMatchRequests { get; } = [];
 
         public Task<AliExpressPage<AliExpressProduct>> SearchAsync(string keywords, int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AliExpressPage<AliExpressProduct>(Products, pageNumber, 1, Products.Count));
 
+        public Task<AliExpressPage<AliExpressProduct>> SearchHotProductsAsync(string keywords, int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AliExpressPage<AliExpressProduct>(Products, pageNumber, 1, Products.Count));
+
+        public Task<AliExpressPage<AliExpressProduct>> SmartMatchAsync(string? productId, string? keywords, int pageNumber, CancellationToken cancellationToken = default)
+        {
+            SmartMatchRequests.Add((productId, keywords, pageNumber));
+            return Task.FromResult(new AliExpressPage<AliExpressProduct>(Products, pageNumber, 1, Products.Count));
+        }
+
         public Task<IReadOnlyList<AliExpressPromotionLink>> GenerateLinksAsync(IReadOnlyCollection<string> sourceUrls, string trackingId, CancellationToken cancellationToken = default) =>
+            GenerateLinksAsync(sourceUrls, trackingId, 0, cancellationToken);
+
+        public Task<IReadOnlyList<AliExpressPromotionLink>> GenerateLinksAsync(IReadOnlyCollection<string> sourceUrls, string trackingId, int promotionLinkType, CancellationToken cancellationToken = default)
+        {
+            GeneratedLinkTypes.Add(promotionLinkType);
+            return
             Task.FromResult<IReadOnlyList<AliExpressPromotionLink>>(
-                sourceUrls.Select(url => new AliExpressPromotionLink(url, $"https://s.click.aliexpress.com/e/{Math.Abs(url.GetHashCode())}", null)).ToArray());
+                sourceUrls.Select(url => new AliExpressPromotionLink(url, $"https://s.click.aliexpress.com/e/{promotionLinkType}-{Math.Abs(url.GetHashCode())}", null)).ToArray());
+        }
     }
 
     private sealed class ThrowingSource : IAffiliateCatalogueSource

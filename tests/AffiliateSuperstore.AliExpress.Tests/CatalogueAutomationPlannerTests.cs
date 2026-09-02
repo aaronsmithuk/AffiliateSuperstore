@@ -104,4 +104,28 @@ public sealed class CatalogueAutomationPlannerTests
             request => Assert.Equal(("stuffed animal", 1), (request.Keywords, request.PageNumber)),
             request => Assert.Equal(("stuffed animal", 2), (request.Keywords, request.PageNumber)));
     }
+
+    [Fact]
+    public void DiscoveryPlan_AppendsBoundedAdvancedSourcesAfterStandardSearches()
+    {
+        var shop = new ShopDefinition
+        {
+            Slug = "plushies",
+            DefaultSearchQuery = "plush toy",
+            DiscoveryQueries = ["plush toy"],
+            DiscoveryPagesPerQuery = 2,
+            HotProductDiscoveryEnabled = true,
+            SmartMatchDiscoveryEnabled = true,
+            AdvancedDiscoveryPagesPerQuery = 1
+        };
+
+        var plan = CatalogueDiscoveryPlanner.Build(shop, 20);
+
+        Assert.Collection(
+            plan,
+            request => Assert.Equal((CatalogueDiscoverySource.StandardSearch, 1), (request.Source, request.PageNumber)),
+            request => Assert.Equal((CatalogueDiscoverySource.StandardSearch, 2), (request.Source, request.PageNumber)),
+            request => Assert.Equal((CatalogueDiscoverySource.HotProductQuery, 1), (request.Source, request.PageNumber)),
+            request => Assert.Equal((CatalogueDiscoverySource.SmartMatch, 1), (request.Source, request.PageNumber)));
+    }
 }

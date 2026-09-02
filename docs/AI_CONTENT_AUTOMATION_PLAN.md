@@ -671,6 +671,14 @@ quality. Do not optimize for raw word count or publication volume.
 
 ### Staged rollout
 
+Owner decision, 2 September 2026: the individual product-copy workflow may move
+from shadow to a tightly capped production pilot before the broader four-week
+identity/replacement rollout completes. The exception is limited to one
+`plushies` product per UTC day, one candidate per run, the current audited prompt,
+and all gates recorded in `SEARCH-CONTENT-GOVERNANCE.md`. New categories,
+collections, articles, comparisons, recommendations, canonical merges and
+expiry actions remain outside this exception.
+
 1. Offline POC and gold-set baselines.
 2. Shadow mode: compute flags/matches/lifecycle actions but change nothing.
 3. Review-only mode for one shop and 10% sample.

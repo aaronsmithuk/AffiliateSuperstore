@@ -7,6 +7,8 @@ namespace AffiliateSuperstore.Application.Catalogue;
 
 public sealed record AutonomousCatalogueCandidateEvidence(
     DateTimeOffset? SourceCheckedUtc,
+    bool HasPublishedCollection,
+    bool HasSourceChangeAfterDraft,
     decimal? DuplicateCandidateConfidence,
     bool IsKnownDuplicate,
     Guid? EditorialVersionId);
@@ -42,15 +44,20 @@ public static class AutonomousCatalogueDecisionEngine
         if (!item.IsEligible) reasons.Add("product.ineligible");
         if (item.AvailabilityState != ProductAvailabilityState.Available) reasons.Add("product.unavailable");
         if (evidence.SourceCheckedUtc is null || evidence.SourceCheckedUtc < now.AddHours(-sourceStaleAfterHours)) reasons.Add("source.stale");
+        if (string.IsNullOrWhiteSpace(item.ProductDetailUrl)) reasons.Add("product-url.missing");
+        if (string.IsNullOrWhiteSpace(item.ImageUrl)) reasons.Add("media.missing");
         if (!item.HasActiveLink) reasons.Add("affiliate-link.missing");
-        if (item.Collections.Count == 0) reasons.Add("collection.missing");
+        if (!evidence.HasPublishedCollection) reasons.Add("published-collection.missing");
         if (item.SalePrice is null or <= 0m) reasons.Add("price.missing");
         if (item.QualityFlags.Count > 0) reasons.Add("quality.flags");
         if (item.ValidationState != EditorialValidationState.Passed || item.ValidationFindings.Count > 0) reasons.Add("editorial.validation");
         if (item.WasHumanEdited) reasons.Add("editorial.human-edited");
+        if (evidence.EditorialVersionId is null) reasons.Add("editorial.version-missing");
+        if (evidence.HasSourceChangeAfterDraft) reasons.Add("editorial.source-changed");
         if (item.Invocation is null ||
             item.Invocation.Status is not (AiInvocationStatus.Succeeded or AiInvocationStatus.CacheHit) ||
-            item.Invocation.ValidationState != EditorialValidationState.Passed)
+            item.Invocation.ValidationState != EditorialValidationState.Passed ||
+            !string.Equals(item.Invocation.PromptVersion, CatalogueAiSuggestionService.PromptVersion, StringComparison.Ordinal))
         {
             reasons.Add("ai.provenance");
         }
@@ -139,6 +146,19 @@ public sealed class AutonomousCatalogueEvaluationService(
             var sourceChecks = await context.Products.AsNoTracking()
                 .Where(item => productIds.Contains(item.AliExpressProductId))
                 .ToDictionaryAsync(item => item.AliExpressProductId, item => item.LastCheckedUtc, cancellationToken);
+            var productsWithPublishedCollections = (await context.CollectionProducts.AsNoTracking()
+                .Where(item => productIds.Contains(item.ProductId) &&
+                    item.Collection.ShopId == shopId &&
+                    item.Collection.IsPublished)
+                .Select(item => item.ProductId)
+                .Distinct()
+                .ToArrayAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+            var sourceChanges = await context.ProductChangeEvents.AsNoTracking()
+                .Where(item => productIds.Contains(item.ProductId) &&
+                    (item.Kind == ProductChangeEventKind.ContentChanged ||
+                     item.Kind == ProductChangeEventKind.AvailabilityChanged))
+                .Select(item => new { item.ProductId, item.OccurredUtc })
+                .ToArrayAsync(cancellationToken);
             var duplicateRows = await context.ProductMatchCandidates.AsNoTracking()
                 .Where(item => item.IsCurrent && item.ReviewStatus == ProductMatchReviewStatus.Pending &&
                     item.SuggestedRelationship == ProductRelationship.Duplicate &&
@@ -188,6 +208,8 @@ public sealed class AutonomousCatalogueEvaluationService(
                     .SingleOrDefault();
                 var evidence = new AutonomousCatalogueCandidateEvidence(
                     sourceChecks.GetValueOrDefault(item.ProductId),
+                    productsWithPublishedCollections.Contains(item.ProductId),
+                    sourceChanges.Any(change => change.ProductId == item.ProductId && change.OccurredUtc > item.AiCreatedUtc),
                     duplicateConfidence.GetValueOrDefault(item.ProductId),
                     knownDuplicates.Contains(item.ProductId),
                     versionId);
@@ -307,6 +329,8 @@ public sealed class AutonomousCatalogueEvaluationService(
             InvocationId = item.Invocation?.Id,
             InvocationStatus = item.Invocation?.Status,
             evidence.SourceCheckedUtc,
+            evidence.HasPublishedCollection,
+            evidence.HasSourceChangeAfterDraft,
             evidence.DuplicateCandidateConfidence,
             evidence.IsKnownDuplicate
         }),

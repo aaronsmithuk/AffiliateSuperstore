@@ -256,17 +256,32 @@ public sealed class CatalogueAiSuggestionService(
             "Shadow run complete. No catalogue copy was saved, approved or published.");
     }
 
-    private static IReadOnlyList<ProductSuggestionFact> BuildFacts(Persistence.Entities.ProductRecord product)
+    internal static IReadOnlyList<ProductSuggestionFact> BuildFacts(Persistence.Entities.ProductRecord product) =>
+        BuildFacts(
+            product.Title,
+            product.FirstLevelCategoryName,
+            product.SecondLevelCategoryName,
+            product.SellerName,
+            product.SkuId,
+            product.EanCode);
+
+    internal static IReadOnlyList<ProductSuggestionFact> BuildFacts(
+        string sourceTitle,
+        string? firstLevelCategoryName,
+        string? secondLevelCategoryName,
+        string? sellerName,
+        string? skuId,
+        string? eanCode)
     {
         var facts = new List<ProductSuggestionFact>
         {
-            new("sourceTitle", product.Title, "AliExpress product record")
+            new("sourceTitle", sourceTitle, "AliExpress product record")
         };
-        AddFact(facts, "firstCategory", product.FirstLevelCategoryName);
-        AddFact(facts, "secondCategory", product.SecondLevelCategoryName);
-        AddFact(facts, "sellerName", product.SellerName);
-        AddFact(facts, "sku", product.SkuId);
-        AddFact(facts, "ean", product.EanCode);
+        AddFact(facts, "firstCategory", firstLevelCategoryName);
+        AddFact(facts, "secondCategory", secondLevelCategoryName);
+        AddFact(facts, "sellerName", sellerName);
+        AddFact(facts, "sku", skuId);
+        AddFact(facts, "ean", eanCode);
         return facts;
     }
 
@@ -276,7 +291,7 @@ public sealed class CatalogueAiSuggestionService(
         if (!string.IsNullOrWhiteSpace(value)) facts.Add(new(field, value, "AliExpress product record"));
     }
 
-    private static string ComputeInputHash(
+    internal static string ComputeInputHash(
         string productId,
         string sourceTitle,
         string? editorialTitle,
