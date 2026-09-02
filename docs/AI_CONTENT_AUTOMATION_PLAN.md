@@ -6,9 +6,10 @@ Prepared: 30 August 2026
 
 Scope: catalogue freshness, product identity, editorial repair and reviewed content creation
 
-Implementation status (1 September 2026): the MVP observation/lifecycle foundation
-is complete locally. Product observations now carry raw/content hashes and source
-correlation, unchanged content creates no duplicate snapshot/change event,
+Implementation status (2 September 2026): the MVP observation/lifecycle
+foundation is deployed in production. Product observations now carry raw/content
+hashes and source correlation; unchanged content creates no duplicate snapshot
+or change event,
 direct-detail misses require repeated evidence spanning at least 24 hours before
 withdrawal, positive evidence restores availability, and discovery-query absence
 does not count as lifecycle evidence. The admin catalogue exposes lifecycle
@@ -22,7 +23,8 @@ evidence, non-destructive canonical membership and a filtered 25-row admin
 review queue now run as a fourth durable work type. A live 230-offer SQL run
 reduced an over-broad first pass from 1,753 variant suggestions to four after
 title-evidence and multi-size safeguards; all older matcher evidence remained
-auditable but was superseded. Production automation remains disabled. Exact
+auditable but was superseded. Production automation is live behind the protected
+15-minute wake schedule and durable SQL due-state. Exact
 main-image byte hashing is now implemented as bounded, CDN-allow-listed,
 versioned review evidence. The AI-3 calibration workflow now stores immutable
 reviewer labels and rationale in protected tuning, threshold-selection and
@@ -40,12 +42,12 @@ The provider-neutral structured product-copy contract builds stable source
 packets, validates every returned draft and feeds an authenticated admin preview.
 An additive `AiInvocations` ledger reserves spend in a serializable transaction,
 records provider/model/prompt/hash/token/cost/latency/validation outcomes, blocks
-before the $1 monthly application cap can be exceeded and reuses successful
+before the shared $5 monthly application cap can be exceeded and reuses successful
 unchanged responses at zero cost. The OpenAI Responses adapter requests strict
-JSON Schema output with `store: false`; global configuration remains disabled,
-development enables only the feature switches, and no API key is stored in the
-repository. The owner has added a local User Secrets key and funded the API
-account. A first review-only Luna request against a real Highland Cow product
+JSON Schema output with `store: false`; checked-in defaults keep product-copy
+provider calls off while protected production configuration enables the approved
+purposes, and no API key is stored in the repository. The owner has funded the
+API account. A first review-only Luna request against a real Highland Cow product
 completed locally on 1 September 2026 using 411 input and 281 output tokens at
 an estimated USD 0.0004194; it made no catalogue changes. That result exposed
 promotional merchant wording and source-title narration, so prompt
@@ -81,6 +83,15 @@ fully gated product publications per UTC day, a USD 5 shared monthly cap, and
 an automatic downgrade to Shadow after an autonomous dead letter or three
 consecutive product-copy AI failures. Collections, replacements, identity
 merges, expiry and articles remain review-only.
+
+The 2 September production audit contains 562 source offers, 19 approved active
+products, eight collections, two published collections and one review-only AI
+collection draft. Fifteen durable work items have all succeeded. The calendar-
+month AI ledger contains 22 calls at USD 0.009517 estimated spend with no budget
+block; two products have been published through the restricted automatic path.
+The active growth target is 50–100 approved products across 8–10 useful
+collections while retaining the current two-candidate/two-publication caps for
+at least seven days of observation.
 
 ## Executive decision
 
@@ -136,7 +147,7 @@ This plan covers suggestions and workflow changes only. It does not authorize:
 | Ingestion searches AliExpress, rejects minimally invalid rows, creates a snapshot, updates the current record, generates a link and runs deterministic quality rules. | [`CatalogueIngestionService.cs`](../src/AffiliateSuperstore.Application/Catalogue/CatalogueIngestionService.cs#L69) | Split fetch/normalize/evaluate/persist into restart-safe item stages, retaining the existing source adapter. |
 | Every ingested snapshot currently sets `IsAvailable = true`; disappearance from a discovery query is not processed. | [`CatalogueIngestionService.cs`](../src/AffiliateSuperstore.Application/Catalogue/CatalogueIngestionService.cs#L258) | Availability and expiry need explicit evidence and grace periods. A search miss must never be treated as proof of unavailability. |
 | The worker polls persisted job history, runs configured discovery requests sequentially, stops after a failed request, and then renews links. | [`CatalogueAutomationWorker.cs`](../src/AffiliateSuperstore.Web/Services/CatalogueAutomationWorker.cs#L37) | Preserve due-state semantics, but add leases, per-item checkpoints, backoff and independent job types so one query cannot block all maintenance. |
-| Development is 24-hour refresh / 15-minute poll / 60-minute failure retry / two-hour stale recovery / 120-hour link revalidation; production automation is disabled. | [`appsettings.json`](../src/AffiliateSuperstore.Web/appsettings.json#L49), [`appsettings.Development.json`](../src/AffiliateSuperstore.Web/appsettings.Development.json#L6) | These are safe starting defaults, not a complete freshness policy. Production remains off until authentication, wake scheduling and migration/rollback are proven. |
+| Checked-in defaults remain conservative; production uses a protected 15-minute wake, durable SQL due-state, bounded retry/dead-letter recovery, 120-hour link revalidation and a separately capped automatic product policy. | [`appsettings.json`](../src/AffiliateSuperstore.Web/appsettings.json#L49), [`appsettings.Development.json`](../src/AffiliateSuperstore.Web/appsettings.Development.json#L6), [`docs/PRODUCTION-RELEASE.md`](PRODUCTION-RELEASE.md) | Authentication, wake scheduling, persistent keys, migrations and target-safe rollback are proven. Keep provider-purpose switches and shop publication policy independent so source maintenance survives an AI pause. |
 | Link renewal batches at 50, asks the official API to regenerate links, records missing responses and expires replaced links. | [`AffiliateLinkRenewalService.cs`](../src/AffiliateSuperstore.Application/Catalogue/AffiliateLinkRenewalService.cs#L21) | Use this as the broken-link authority. Do not crawl or probe AliExpress pages as a substitute for the affiliate API. |
 | Rules already identify off-scope, safety, IP, ambiguous quantity and excessive-title issues; flagged approved items are demoted but clean items are never auto-approved. | [`ProductQualityAssessmentService.cs`](../src/AffiliateSuperstore.Application/Catalogue/ProductQualityAssessmentService.cs#L23) | This is the right safety pattern. Add content-quality rules and model suggestions behind the same one-way demotion/human approval gate. |
 | Admin has a review queue with Approve/Needs review/Reject actions, but only loads 50 active plushies records and cannot edit/version copy or inspect match evidence. | [`Catalogue.razor`](../src/AffiliateSuperstore.Web/Components/Pages/Catalogue.razor#L65) | Extend this screen into work-item queues with filters, diffs, evidence, bulk-safe actions and optimistic concurrency. |
@@ -717,17 +728,17 @@ answers and legal review.
 
 1. Confirm SmarterASP .NET 10/SQL version/task entitlement; capture the current
    AliExpress agreement and ask support for quota/cache/permission answers.
-2. **Complete locally:** source observation/content hashes, `LastCheckedUtc`,
+2. **Deployed:** source observation/content hashes, `LastCheckedUtc`,
    lifecycle evidence/state, consecutive misses, change events and safe backfill.
-3. **Complete locally:** SQL automation items, unique idempotency keys, leases,
+3. **Deployed:** SQL automation items, unique idempotency keys, leases,
    checkpoints, bounded runs, retry/dead-letter handling and harmless wake
-   endpoint; production remains disabled.
+   endpoint and protected production wake.
 4. Implement direct refresh cohorts, expiry grace rules, feed-health metrics and
    link-health dashboard using the official adapters.
-5. **Core complete locally:** add versioned normalizers, GTIN/model/pack/size/unit
+5. **Core deployed:** add versioned normalizers, GTIN/model/pack/size/unit
    parsing, bounded match evidence tables and paged deterministic review. Image
    hashes and expanded labelled calibration remain follow-on work.
-6. **Core complete locally:** content mechanical rules, immutable named content
+6. **Core deployed:** content mechanical rules, immutable named content
    versions, field diffs, approval validation and restore-as-new-revision admin
    workflow.
 7. Create identity/lifecycle/copy gold sets and shadow-mode reports.

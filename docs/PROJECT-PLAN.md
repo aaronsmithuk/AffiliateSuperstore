@@ -99,12 +99,12 @@ The MVP is complete when:
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, ordered product media, links, clicks, jobs and order state | Complete; additive freshness/lifecycle evidence and change history are included |
-| 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Operational in production; a protected 15-minute wake schedule, durable due-state, lease renewal, retry/dead-letter recovery, freshness alerts and guarded manual publication are working |
-| 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete for the current product slice; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working |
+| 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Operational in production; a protected 15-minute wake schedule, durable due-state, lease renewal, retry/dead-letter recovery, freshness alerts, supervised discovery, weekly collection suggestions and a restricted fail-closed automatic product-publication pilot are working |
+| 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete and live with 19 approved active products; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working. Catalogue depth is the next commercial milestone. |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
-| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 12 distinct products have original reviewed copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Filtered pages and the thin umbrella home remain `noindex,follow`; broader visual/content work can continue without blocking the plushies launch. |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP; release `652eb04`, a fresh isolated backup, all 15 migrations, protected recurring catalogue automation, the owner account, 12-product reviewed catalogue, search indexing and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all applicable neighbouring-site checks pass; production S2S enablement remains a later conversion-operations task. |
+| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 19 approved products now have original validated editorial copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Eight collections exist and two are published; deeper collection content is the active growth milestone. Filtered pages and the umbrella home remain `noindex,follow` until their quality gates are met. |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP at application release `b647bf8`; all 20 migrations, protected recurring catalogue automation, the owner account, 19-product approved catalogue, search indexing, consented analytics and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all neighbouring-site checks pass; production S2S enablement remains a conversion-operations follow-on. |
 
 ## AI-assisted catalogue and content integration
 
@@ -131,19 +131,20 @@ standing [`SEARCH-CONTENT-GOVERNANCE.md`](SEARCH-CONTENT-GOVERNANCE.md) policy.
   field-level provenance, diffs, validation results, reviewer and rollback.
 - Keep AI out of public requests. Source refresh and deterministic safety rules
   continue when a model provider is unavailable or its budget is exhausted.
-- Keep production automation and every model provider disabled until admin
-  authentication, host capability, migrations, rollback and evaluation gates
-  are verified.
+- Production model use is permitted only through the deployed purpose switches,
+  transactional budget ledger, immutable audit, deterministic validators and
+  shop-specific policy. Product publication is the sole automatic model action;
+  collections, identity, expiry, replacements and articles remain review-only.
 
 ### Coordinated implementation sequence
 
 | Workstream | Main-build outcome | Dependencies | Status |
 |---|---|---|---|
-| AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Planned; blocks production enablement, not offline development |
-| AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Complete locally; migration, admin visibility and lifecycle regression coverage added 31 August 2026 |
+| AI-0. Evidence and controls | Capture the current affiliate agreement and API quota/cache answers; verify SmarterASP .NET 10, SQL version and scheduled-task entitlement; define feature flags and budgets | Existing phase 0 and phase 9 work | Partially complete: .NET 10, SQL Server 2022, scheduled wake, feature flags and the $5 budget cap are production-verified. The complete 2025 agreement, precise quota/cache rules and final commission classification remain external evidence tasks. |
+| AI-1. Freshness foundation | Add source-observation hashes, `LastCheckedUtc`, lifecycle evidence, consecutive misses, change events and reversible availability state | Persistence migrations and existing ingestion/link adapters | Live in production; migration, admin visibility, lifecycle regression coverage, repeated-evidence withdrawal and restoration are deployed |
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Live in production from release `0ad6ba8`: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, SmarterASP signals it every 15 minutes, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
-| AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
+| AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Live in production; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
 | AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters with controlled product-copy publication | AI-3 gold set, admin authentication, data-handling review and budget controls | Restricted product-copy automation is live for `plushies`: two candidates/hourly run, two publications/UTC day, readiness 1.00 and duplicate holds at 0.75. Production trials proved thin-copy, source-change, duplicate and daily-limit holds, and two fully gated automatic publications. A shared transactional $5 calendar-month cap covers product and collection calls. The automatic safety circuit downgrades faulting publication to Shadow after an autonomous dead letter or three consecutive product-copy AI failures. Weekly collection suggestions use catalogue evidence and remain a separate review queue; acceptance creates an unpublished collection draft only. Guides, recommendations, identity merges and expiry remain review-only. |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
 
@@ -234,22 +235,24 @@ and architecture are in
   database only and production uses temporary protected bootstrap settings.
 - The expanded live discovery pool still includes pet toys, variant-price
   listings and likely third-party-character merchandise. Those products are
-  held from publication by persisted flags or manual review; the local launch
-  set contains only 12 individually checked and edited products.
-- Production now fails fast unless ASP.NET Core Data Protection keys are sent
-  to a configured persistent private directory outside `wwwroot`; the host
-  path and backup behavior still require verification.
+  held from publication by persisted flags, duplicate evidence, editorial
+  validation or manual review; the live approved set is 19 products.
+- Production Data Protection persistence, dedicated-pool isolation and target-
+  scoped release/rollback behaviour are verified. These controls must be
+  rechecked whenever the hosting plan or site mapping changes.
 
 ## Current implementation snapshot
 
-As of 31 August 2026, the local SQL Server database contains one configured
-shop, 211 products, 232 immutable price/commission snapshots, 211 active
-affiliate links and 18 successful ingestion jobs. The guarded full-discovery
-run completed all 12 planned API requests, reading and writing 196 products and
-refreshing 196 links. Automated reassessment leaves 119 products quality-clear
-and flags 92 for persisted review reasons. Human review has produced a
-12-product editorially complete, approved and indexable local launch set; 93
-products need review, 102 remain pending and four have been rejected.
+As of 2 September 2026, the production SQL Server database contains one enabled
+shop, 562 source offers, 1,346 immutable price/commission snapshots, 562 active
+affiliate links, 86 successful ingestion jobs and all 20 migrations. The
+`plushies` review state contains 19 approved products, 266 needing review and
+277 pending. Eight collections exist, two are published and one evidence-backed
+AI collection suggestion remains a review-only draft. All 15 durable automation
+work items have succeeded; no queued, leased or dead-letter item was present in
+the audit. The month-to-date AI ledger contains 22 calls at an estimated
+USD 0.009517 with no budget-blocked call. The restricted automatic pilot has
+published two fully gated products.
 
 Implemented operational surfaces:
 
@@ -259,7 +262,9 @@ Implemented operational surfaces:
   readiness totals, persisted automated quality flags, prioritised filters,
   guarded approval actions and a curation drawer for public titles,
   descriptions, featuring and display order.
-- `/admin/automation` — schedule, retry policy, next-run and due-state visibility.
+- `/admin/automation` — schedule, retry policy, next-run and due-state visibility,
+  autonomous policy/caps, AI budget, decisions, failure history and safety-pause
+  re-arm guidance.
 - `/admin/orders` — paid/confirmed/settled/invalid lifecycle totals, base and
   incentive commission reporting, click attribution, S2S readiness, safe
   development CSV export and incremental/full reconciliation actions.
@@ -289,18 +294,19 @@ Editorial approval is enforced below the UI: inactive or ineligible products,
 products with automated quality flags, and products without an active affiliate
 link cannot be approved. Quality reassessment always includes the original
 AliExpress title as well as any editorial title, so rewriting visible copy
-cannot hide a source-listing risk. The 12 locally approved products now provide
-a meaningful end-to-end curated catalogue on both the catalogue and
+cannot hide a source-listing risk. The 19 production-approved products now
+provide a meaningful end-to-end curated catalogue on both the catalogue and
 product-detail pages. Approval followed source-title screening, offer-shape
 checks and individual image review; source risks and misleading images were not
 papered over with editorial copy.
 
-Development catalogue automation is enabled with a 24-hour refresh, 15-minute
-poll, 60-minute failure retry and two-hour stale-job recovery. The plushies
-shop currently expands six controlled discovery queries across two pages into
-12 sequential API requests per refresh. A process-wide guard prevents
-overlapping manual and scheduled plans, and a failed request stops the
-remaining plan. Every result still passes the persisted quality gate.
+Catalogue automation uses a protected 15-minute production wake, durable SQL
+due-state, bounded retries and lease recovery. The plushies discovery plan can
+run 12 standard searches plus supervised Advanced hot-product and seeded Smart
+Match discovery; every provider call remains process-wide serial and paced.
+Overlapping manual and scheduled plans are rejected, failed requests resume
+through durable work state, and every result still passes the persisted quality
+gate before it can enter any publication workflow.
 Active product links older than 120 hours are revalidated in batches of 50;
 changed URLs replace and expire the previous link through an audited
 `LinkRefresh` job. The worker reads SQL job history on startup, so restarting
@@ -311,11 +317,11 @@ restricted product-publication policy remains independently bounded in SQL.
 Canonical URLs collapse all search, price, category and sort variants back to
 the unfiltered shop URL; filtered variants remain `noindex,follow`. Product
 pages require original editorial copy, an image, a positive price and a fresh
-snapshot before they can be indexed. Production indexing is additionally
-disabled by default through `Seo:IndexingEnabled`; it must be deliberately
-enabled only after domain, content, privacy and release review. Local
-development enables the switch so the eligible and ineligible paths can be
-verified.
+snapshot before they can be indexed. Production indexing is deliberately
+enabled after domain, content, privacy and release review.
+`Seo:IndexingEnabled` remains an emergency release control, and the per-page
+quality rules still decide which URLs may enter the sitemap or use
+`index,follow`.
 
 Development order reconciliation is enabled on a 60-minute schedule. The first
 run walks all four documented order states through the index cursor over the
@@ -344,42 +350,60 @@ leaves the shop functional, and a persistent footer control allows the choice
 to be changed. Advertising consent and Google Signals remain disabled, the
 consent choice and GA cookie expiry are limited to six months, and the privacy
 notice documents the processing. The Wonder Aisle GA4 property and stream are
-created. Search Console domain ownership is verified and its sitemap has been
-accepted with 13 discovered URLs. The GA4 link and Bing Webmaster import are
-the remaining external webmaster setup steps;
+created, Search Console ownership is verified and linked to GA4, and the sitemap
+is submitted. Wonder Aisle is imported into Bing Webmaster Tools with the
+sitemap submitted and an initial bounded scan queued. Sitemap processing and
+search-performance observation are ongoing operations rather than setup gaps;
 see `docs/WEBMASTER-ANALYTICS-SETUP.md`.
 
 The S2S paid-order route has an immutable, duplicate-suppressed inbox and feeds
 the same order/click model, including base commission, CPX incentive and new-
 buyer bonus fields. Because AliExpress documents no callback signature, it is
 disabled by default and additionally requires a fixed secret parameter. Admin
-authentication is complete; S2S must remain disabled until a public HTTPS
-endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
+authentication and the public HTTPS route are complete; S2S remains disabled
+until its production secret, Portals callback registration and a controlled
+end-to-end live test are confirmed. See `docs/S2S-SETUP.md`.
 
 ## Next milestone
 
-Managed custom-domain TLS, HTTP-to-HTTPS redirection and HSTS are now verified.
-AI-1 freshness, AI-2 durable work leasing, AI-3 deterministic identity/review,
-AI-4 versioned editorial quality and the restricted AI-5 product-copy pilot are
-deployed. Protected recurring production automation wakes every 15 minutes.
-The current policy considers at most two candidates per hourly autonomous run
-and publishes at most two fully gated products per UTC day. Live trials have
-correctly held probable duplicates, changed source evidence and daily-limit
-overflow while publishing two qualified products. Search indexing is enabled
-for the quality-gated shop and product URLs. The automatic safety circuit now
-downgrades Automatic mode to Shadow after an autonomous dead letter or three
-consecutive product-copy AI failures since the latest owner acknowledgement.
-The identity gold set still needs an independent second reviewer, adjudication
-and progress toward 500 labels before automatic canonical linking is considered.
-Production S2S setup and broader identity/replacement automation remain gated.
+The technical MVP and public launch gate are complete. The active commercial
+milestone is **catalogue depth and collection usefulness**: grow from 19 to
+50–100 approved active products distributed across 8–10 recognisable plushie
+collections, without relaxing the current product publication, duplicate,
+quality, indexability or AI budget gates. A collection must have original useful
+copy and enough approved products before it is published or indexed. The second
+shop remains deferred until this milestone demonstrates stable discovery,
+editorial throughput and useful click behaviour.
 
-Privacy-minimised product impression tracking and CTR reporting are deployed;
-live antiforgery-protected recording, SQL aggregation and the authenticated
-performance dashboard are verified. The AI-5 product-copy pipeline is live
-with audit, cache, strict validation, a USD 5 transactional monthly cap and the
-fail-safe Shadow downgrade. Weekly collection suggestions remain review-only
-and cannot create a published collection. The catalogue-depth and SEO launch
-gates have been met, and the provider-hosted production release is live and
-indexable over the canonical HTTPS origin. Search Console verification and
-sitemap submission are complete; production S2S and later evidence-led
-editorial work remain follow-ons.
+The automatic product pilot remains capped at two candidates per hourly run and
+two publications per UTC day. Operate it for at least seven days before any cap
+increase. Review daily publications, holds, dead letters, provider failures,
+spend and unexpected source changes. Any safety downgrade stays in Shadow until
+the cause is reviewed and the owner deliberately re-arms Automatic mode.
+
+Production S2S activation is the parallel conversion milestone. Identity gold-
+set growth, automatic canonical linking, replacement automation and evidence-led
+articles remain later work; they do not block catalogue-depth delivery.
+
+## Active parallel execution lanes
+
+From 2 September 2026, work is split into three coordinated lanes. Each lane
+uses its own Codex project worktree. The main task owns integration decisions,
+reviews cross-lane contracts, resolves conflicts, runs the complete regression
+suite and controls production releases.
+
+| Lane | Scope | Immediate acceptance gate | Exclusions |
+|---|---|---|---|
+| Main integration and autonomous operations | Monitor the restricted product pilot, improve cross-cutting automation reliability, keep roadmap/release evidence current, review both parallel branches and integrate verified work | Seven-day pilot evidence is queryable; failures and cap use are obvious; all merged work passes the full suite and a target-safe release review | Does not silently raise production caps or publish review-only content |
+| Parallel A — catalogue depth and collections | Collection-aware discovery and assignment, admin collection readiness, useful public collection pages, minimum-product/indexing gates and the path from 19 toward 50–100 approved products | Eight to ten coherent collections can show candidate, approved and indexable counts; collection publication remains an explicit owner action; thin collections stay out of the sitemap | No S2S/order work, no automatic collection publication and no production deployment without main-lane review |
+| Parallel B — conversion and evidence operations | Production S2S readiness, order reconciliation validation, commission/click observability, current affiliate agreement/quota/cache/commission evidence and operational runbooks | A controlled checklist proves paid-event ingestion and settlement reconciliation can be enabled safely, or records the precise external blocker; no callback can bypass the fixed-secret and duplicate controls | No collection/public catalogue UI changes, no new customer identity and no production enablement without explicit confirmation |
+
+Coordination rules:
+
+1. Parallel tasks commit and push their own branches; they do not deploy.
+2. Shared entities, migrations, configuration contracts and public routes require
+   a message to the main lane before implementation if another lane may overlap.
+3. The main lane inspects progress, redirects scope when needed and integrates
+   only after targeted tests, full regression and migration/release review.
+4. Production mutations, secrets, external callback registration and releases
+   still require the normal explicit confirmation and documented verification.
