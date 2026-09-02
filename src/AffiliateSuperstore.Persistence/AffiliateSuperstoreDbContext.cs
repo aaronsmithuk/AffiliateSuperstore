@@ -31,6 +31,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<AutonomousCataloguePolicyRecord> AutonomousCataloguePolicies => Set<AutonomousCataloguePolicyRecord>();
     public DbSet<AutonomousCatalogueDecisionRecord> AutonomousCatalogueDecisions => Set<AutonomousCatalogueDecisionRecord>();
     public DbSet<AiInvocationRecord> AiInvocations => Set<AiInvocationRecord>();
+    public DbSet<CollectionSuggestionRecord> CollectionSuggestions => Set<CollectionSuggestionRecord>();
     public DbSet<AffiliateOrderRecord> AffiliateOrders => Set<AffiliateOrderRecord>();
     public DbSet<AffiliateS2sEventRecord> AffiliateS2sEvents => Set<AffiliateS2sEventRecord>();
 
@@ -55,6 +56,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         ConfigureAutonomousCataloguePolicy(modelBuilder);
         ConfigureAutonomousCatalogueDecision(modelBuilder);
         ConfigureAiInvocation(modelBuilder);
+        ConfigureCollectionSuggestion(modelBuilder);
         ConfigureAffiliateOrder(modelBuilder);
         ConfigureAffiliateS2sEvent(modelBuilder);
     }
@@ -84,6 +86,33 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
         entity.HasIndex(item => new { item.Purpose, item.RequestedUtc });
         entity.HasIndex(item => new { item.CacheKey, item.Status, item.CompletedUtc });
         entity.HasIndex(item => new { item.ProductId, item.RequestedUtc });
+    }
+
+    private static void ConfigureCollectionSuggestion(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<CollectionSuggestionRecord>();
+        entity.ToTable("CollectionSuggestions");
+        entity.HasKey(item => item.Id);
+        entity.Property(item => item.DisplayName).HasMaxLength(160).IsRequired();
+        entity.Property(item => item.Slug).HasMaxLength(80).IsRequired();
+        entity.Property(item => item.ShortDescription).HasMaxLength(500).IsRequired();
+        entity.Property(item => item.IntroductoryCopy).HasMaxLength(4000).IsRequired();
+        entity.Property(item => item.SeoTitle).HasMaxLength(200).IsRequired();
+        entity.Property(item => item.SeoDescription).HasMaxLength(500).IsRequired();
+        entity.Property(item => item.DiscoveryQueriesJson).HasMaxLength(2000).IsRequired();
+        entity.Property(item => item.Rationale).HasMaxLength(2000).IsRequired();
+        entity.Property(item => item.EvidenceProductIdsJson).HasMaxLength(2000).IsRequired();
+        entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(30);
+        entity.Property(item => item.PromptVersion).HasMaxLength(50).IsRequired();
+        entity.Property(item => item.InputHash).HasMaxLength(64).IsRequired();
+        entity.Property(item => item.ReviewedBy).HasMaxLength(256);
+        entity.Property(item => item.ReviewNote).HasMaxLength(1000);
+        entity.Property(item => item.RowVersion).IsRowVersion();
+        entity.HasOne(item => item.Shop).WithMany().HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne(item => item.AiInvocation).WithMany().HasForeignKey(item => item.AiInvocationId).OnDelete(DeleteBehavior.SetNull);
+        entity.HasIndex(item => new { item.ShopId, item.Status, item.CreatedUtc });
+        entity.HasIndex(item => new { item.ShopId, item.Slug, item.Status });
+        entity.HasIndex(item => item.AiInvocationId);
     }
 
     private static void ConfigureShop(ModelBuilder modelBuilder)

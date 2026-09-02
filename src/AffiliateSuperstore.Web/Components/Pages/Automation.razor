@@ -11,6 +11,7 @@
 @inject AffiliateSuperstore.Web.Services.CatalogueAutomationWakeSignal WakeSignal
 @inject AutonomousCataloguePolicyService PolicyService
 @inject AutonomousCatalogueOptions AutonomousOptions
+@inject AiAutomationOptions AiOptions
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Catalogue automation</PageTitle>
@@ -138,6 +139,13 @@
     <article class="metric-card"><strong>@RecentDecisionRows.Count(item => item.Decision == AutonomousCatalogueDecision.WouldPublish)</strong><span>Would publish</span></article>
     <article class="metric-card"><strong>@RecentDecisionRows.Count(item => item.Decision == AutonomousCatalogueDecision.Hold)</strong><span>Held for review</span></article>
     <article class="metric-card"><strong>@RecentDecisionRows.Count(item => item.Action == AutonomousCatalogueAction.Published)</strong><span>Actually published</span></article>
+</section>
+
+<section class="metric-grid" aria-label="AI budget">
+    <article class="metric-card"><strong>$@AiMonthSpend.ToString("0.0000")</strong><span>AI spend this UTC month</span></article>
+    <article class="metric-card"><strong>$@AiOptions.MonthlyBudgetUsd.ToString("0.00")</strong><span>Hard monthly AI cap</span></article>
+    <article class="metric-card"><strong>$@Math.Max(0m, AiOptions.MonthlyBudgetUsd - AiMonthSpend).ToString("0.0000")</strong><span>Remaining AI budget</span></article>
+    <article class="metric-card"><strong>@AiCallsThisMonth</strong><span>Charged AI calls this month</span></article>
 </section>
 
 <section class="panel catalogue-table-panel">
@@ -304,6 +312,8 @@
     private bool IsBusy => IsLoading || IsActing;
     private string? ActionMessage;
     private bool ActionFailed;
+    private decimal AiMonthSpend;
+    private int AiCallsThisMonth;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -314,6 +324,16 @@
         {
             await using var context = await ContextFactory.CreateDbContextAsync();
             var now = TimeProvider.GetUtcNow();
+            var monthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+            var monthEnd = monthStart.AddMonths(1);
+            var chargedInvocations = context.AiInvocations.AsNoTracking()
+                .Where(item => item.RequestedUtc >= monthStart &&
+                               item.RequestedUtc < monthEnd &&
+                               item.Status != AiInvocationStatus.BudgetBlocked &&
+                               item.Status != AiInvocationStatus.CacheHit);
+            AiMonthSpend = await chargedInvocations.SumAsync(item =>
+                item.Status == AiInvocationStatus.Reserved ? item.ReservedCostUsd : item.EstimatedCostUsd);
+            AiCallsThisMonth = await chargedInvocations.CountAsync();
             var shops = await context.Shops.AsNoTracking().Where(shop => shop.IsEnabled).OrderBy(shop => shop.DisplayName).ToListAsync();
             var rows = new List<ShopScheduleRow>();
             foreach (var shop in shops)

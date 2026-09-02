@@ -6,6 +6,7 @@ public sealed record AiAutomationOptions
 
     public bool Enabled { get; set; }
     public bool ProductCopyEnabled { get; set; }
+    public bool CollectionSuggestionsEnabled { get; set; }
     public string Provider { get; set; } = "OpenAI";
     public string Model { get; set; } = "gpt-5.6-luna";
     public string Endpoint { get; set; } = "https://api.openai.com/";
@@ -57,6 +58,30 @@ public sealed record AiAutomationOptions
     }
 
     public bool IsAvailable => AvailabilityMessage.StartsWith("AI product-copy suggestions are available", StringComparison.Ordinal);
+
+    public string CollectionSuggestionAvailabilityMessage
+    {
+        get
+        {
+            if (!Enabled) return "AI suggestions are disabled by configuration.";
+            if (!CollectionSuggestionsEnabled) return "AI collection suggestions are disabled by configuration.";
+            if (!IsOpenAi) return "The configured AI provider is not supported.";
+            if (string.IsNullOrWhiteSpace(ApiKey)) return "The OpenAI API key is not configured.";
+            if (!Uri.TryCreate(Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme != Uri.UriSchemeHttps)
+                return "The OpenAI endpoint must be an absolute HTTPS URL.";
+            if (string.IsNullOrWhiteSpace(Model)) return "The OpenAI model is not configured.";
+            if (MonthlyBudgetUsd <= 0 || MaximumReservedCostPerCallUsd <= 0)
+                return "The AI spend cap and per-call reservation must both be positive.";
+            if (MaximumOutputTokens <= 0 || MaximumInputCharacters <= 0 || MaximumInputTokensForBudget <= 0)
+                return "The AI input and output limits must all be positive.";
+            if (MaximumReservedCostPerCallUsd < EstimateCostUsd(MaximumInputTokensForBudget, MaximumOutputTokens))
+                return "The per-call AI reservation is below the configured maximum token cost.";
+            return "AI collection suggestions are available in draft-only mode.";
+        }
+    }
+
+    public bool AreCollectionSuggestionsAvailable =>
+        CollectionSuggestionAvailabilityMessage.StartsWith("AI collection suggestions are available", StringComparison.Ordinal);
 
     public decimal EstimateCostUsd(int inputTokens, int outputTokens) =>
         decimal.Round(

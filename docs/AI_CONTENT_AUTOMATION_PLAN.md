@@ -613,7 +613,10 @@ The primary cost risk is a broken candidate gate, not token price. Enforce the
 2%/1% escalation ceilings; when exceeded, defer to review instead of spending.
 Any web-search tool calls, taxes, regional-processing uplift, exchange rate,
 hosting and human review are additional. The first production month should be
-shadow mode with a $1 absolute AI cap regardless of catalogue size.
+shadow mode with an absolute AI cap regardless of catalogue size. The current
+pilot cap is **$5 per UTC calendar month**, enforced transactionally across
+product-copy and collection-suggestion calls; unchanged successful inputs are
+served from the audit cache at zero API cost.
 
 ## Build versus buy / hosted versus local
 

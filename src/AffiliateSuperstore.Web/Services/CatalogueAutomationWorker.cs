@@ -226,6 +226,28 @@ public sealed class CatalogueAutomationWorker(
                     result.Published);
                 return null;
             }
+            case AutomationWorkType.CollectionSuggestions:
+            {
+                var service = scope.ServiceProvider.GetRequiredService<CollectionAiSuggestionService>();
+                var result = await service.GenerateAsync(
+                    lease.ShopSlug,
+                    Math.Clamp(
+                        scope.ServiceProvider.GetRequiredService<AutonomousCatalogueOptions>().MaximumCollectionSuggestionsPerRun,
+                        1,
+                        5),
+                    cancellationToken);
+                if (!result.Succeeded)
+                {
+                    throw new InvalidOperationException(result.Message);
+                }
+
+                logger.LogInformation(
+                    "Durable AI collection review for {ShopSlug} considered {Products} products and saved {Drafts} review-only drafts.",
+                    lease.ShopSlug,
+                    result.ProductsConsidered,
+                    result.DraftsSaved);
+                return null;
+            }
             default:
                 throw new ArgumentOutOfRangeException(nameof(lease), lease.Type, "Unsupported automation work type.");
         }

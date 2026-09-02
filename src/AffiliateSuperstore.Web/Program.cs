@@ -195,11 +195,17 @@ builder.Services.AddTransient<AiInvocationAuditService>();
 builder.Services.AddHttpClient<OpenAiStructuredSuggestionProvider>(client =>
     client.Timeout = TimeSpan.FromSeconds(Math.Clamp(aiAutomationOptions.TimeoutSeconds, 10, 120)));
 builder.Services.AddSingleton<UnavailableStructuredSuggestionProvider>();
+builder.Services.AddSingleton<UnavailableCollectionSuggestionProvider>();
 builder.Services.AddTransient<IStructuredSuggestionProvider>(serviceProvider =>
     aiAutomationOptions.IsOpenAi
         ? serviceProvider.GetRequiredService<OpenAiStructuredSuggestionProvider>()
         : serviceProvider.GetRequiredService<UnavailableStructuredSuggestionProvider>());
+builder.Services.AddTransient<ICollectionSuggestionProvider>(serviceProvider =>
+    aiAutomationOptions.IsOpenAi
+        ? serviceProvider.GetRequiredService<OpenAiStructuredSuggestionProvider>()
+        : serviceProvider.GetRequiredService<UnavailableCollectionSuggestionProvider>());
 builder.Services.AddTransient<CatalogueAiSuggestionService>();
+builder.Services.AddTransient<CollectionAiSuggestionService>();
 builder.Services.AddTransient<CatalogueAiQueuePreparationService>();
 builder.Services.AddTransient<CatalogueAiReviewService>();
 builder.Services.AddTransient<AutonomousCataloguePolicyService>();

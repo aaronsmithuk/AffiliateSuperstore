@@ -1,0 +1,134 @@
+@page "/admin/collection-suggestions"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
+@rendermode InteractiveServer
+@inject CollectionAiSuggestionService SuggestionService
+@inject ICollectionSuggestionProvider Provider
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>AI collection drafts</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Merchandising assistant</p>
+        <h1>AI collection drafts</h1>
+        <p class="lede">Evidence-backed category ideas enter a review queue. AI cannot create a live collection from this page or from the scheduler.</p>
+    </div>
+    <div class="button-row">
+        <button class="button" type="button" @onclick="LoadAsync" disabled="@IsBusy">Refresh</button>
+        <button class="button button-primary" type="button" @onclick="GenerateAsync" disabled="@(!Provider.IsAvailable || IsBusy)">@(IsBusy ? "Working…" : "Generate up to 3 drafts")</button>
+    </div>
+</header>
+
+<div class="alert-card warning-card" role="note">
+    <strong>Draft-only safety boundary</strong>
+    <span>Generation saves suggestions for review. “Create collection draft” still creates an unpublished collection; publication remains a separate administrator action with the normal product-count and SEO gates.</span>
+</div>
+
+@if (!Provider.IsAvailable)
+{
+    <div class="alert-card error-card"><strong>AI unavailable</strong><span>@Provider.AvailabilityMessage</span></div>
+}
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert-card @(ActionFailed ? "error-card" : "success-card")" role="status"><strong>@(ActionFailed ? "Action blocked" : "Queue updated")</strong><span>@Message</span></div>
+}
+
+<section class="metric-grid" aria-label="Collection suggestion queue">
+    <article class="metric-card"><strong>@Rows.Count(item => item.Status == CollectionSuggestionStatus.Draft)</strong><span>Awaiting review</span></article>
+    <article class="metric-card"><strong>@Rows.Count(item => item.Status == CollectionSuggestionStatus.Accepted)</strong><span>Made into unpublished drafts</span></article>
+    <article class="metric-card"><strong>@Rows.Count(item => item.Status == CollectionSuggestionStatus.Rejected)</strong><span>Rejected</span></article>
+</section>
+
+<section class="panel catalogue-table-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Review queue</p><h2>Suggested collections</h2></div><span class="count-badge">@Rows.Count</span></div>
+    @if (Rows.Count == 0)
+    {
+        <div class="empty-response compact"><h3>No suggestions yet</h3><p>The scheduled worker runs weekly, or an administrator can request a bounded batch now.</p></div>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="admin-table"><thead><tr><th>Suggestion</th><th>Evidence</th><th>Discovery queries</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        @foreach (var row in Rows)
+        {
+            <tr>
+                <td><strong>@row.DisplayName</strong><small>/plushies/@row.Slug</small><span>@row.ShortDescription</span><small>@row.Rationale</small></td>
+                <td>@string.Join(", ", row.EvidenceProductIds)</td>
+                <td>@string.Join(" · ", row.DiscoveryQueries)</td>
+                <td><span class="result-badge @(row.Status == CollectionSuggestionStatus.Draft ? "" : row.Status == CollectionSuggestionStatus.Accepted ? "success" : "failure")">@row.Status</span><small>@row.CreatedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</small></td>
+                <td>
+                    @if (row.Status == CollectionSuggestionStatus.Draft)
+                    {
+                        <div class="button-row">
+                            <button class="button button-primary" type="button" @onclick="() => AcceptAsync(row.Id)" disabled="@IsBusy">Create unpublished draft</button>
+                            <button class="button" type="button" @onclick="() => RejectAsync(row.Id)" disabled="@IsBusy">Reject</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <span>@(row.ReviewedBy ?? "Reviewed")</span>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+@code {
+    private const string ShopSlug = "plushies";
+    private IReadOnlyList<CollectionSuggestionDraftView> Rows = [];
+    private bool IsBusy;
+    private bool ActionFailed;
+    private string? Message;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => Rows = await SuggestionService.GetAsync(ShopSlug);
+
+    private async Task GenerateAsync()
+    {
+        await ActAsync(async () =>
+        {
+            var result = await SuggestionService.GenerateAsync(ShopSlug, 3);
+            ActionFailed = !result.Succeeded;
+            Message = result.Message;
+        });
+    }
+
+    private async Task AcceptAsync(Guid id)
+    {
+        await ActAsync(async () =>
+        {
+            var result = await SuggestionService.CreateCollectionDraftAsync(ShopSlug, id, await CurrentActorAsync());
+            ActionFailed = !result.Succeeded;
+            Message = result.Message;
+        });
+    }
+
+    private async Task RejectAsync(Guid id)
+    {
+        await ActAsync(async () =>
+        {
+            var rejected = await SuggestionService.RejectAsync(ShopSlug, id, await CurrentActorAsync());
+            ActionFailed = !rejected;
+            Message = rejected ? "The suggestion was rejected." : "The suggestion is no longer awaiting review.";
+        });
+    }
+
+    private async Task ActAsync(Func<Task> action)
+    {
+        IsBusy = true;
+        ActionFailed = false;
+        Message = null;
+        try { await action(); }
+        catch (Exception exception) { ActionFailed = true; Message = exception.Message; }
+        finally { await LoadAsync(); IsBusy = false; }
+    }
+
+    private async Task<string> CurrentActorAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        return state.User.Identity?.Name ?? "administrator";
+    }
+}

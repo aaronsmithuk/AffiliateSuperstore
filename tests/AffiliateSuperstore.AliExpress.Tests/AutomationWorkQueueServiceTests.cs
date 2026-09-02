@@ -52,6 +52,23 @@ public sealed class AutomationWorkQueueServiceTests
     }
 
     [Fact]
+    public async Task PlanDueAsync_AddsWeeklyCollectionSuggestionWorkWhenEnabled()
+    {
+        var (factory, clock, _) = await CreateDatabaseAsync();
+        var service = Service(factory, clock, new AutonomousCatalogueOptions
+        {
+            CollectionSuggestionsEnabled = true,
+            CollectionSuggestionEveryDays = 7,
+            MaximumCollectionSuggestionsPerRun = 3
+        });
+
+        Assert.Equal(5, await service.PlanDueAsync(Options()));
+        await using var context = factory.CreateDbContext();
+        var work = await context.AutomationWorkItems.SingleAsync(item => item.Type == AutomationWorkType.CollectionSuggestions);
+        Assert.Equal(40, work.Priority);
+    }
+
+    [Fact]
     public async Task ClaimNextAsync_ConcurrentClaimersLeaseOneItemOnce()
     {
         var (factory, clock, shopId) = await CreateDatabaseAsync();
@@ -161,8 +178,11 @@ public sealed class AutomationWorkQueueServiceTests
         RetryMaximumMinutes = 60
     };
 
-    private static AutomationWorkQueueService Service(InMemoryFactory factory, MutableTimeProvider clock) =>
-        new(factory, clock, new AutonomousCatalogueOptions());
+    private static AutomationWorkQueueService Service(
+        InMemoryFactory factory,
+        MutableTimeProvider clock,
+        AutonomousCatalogueOptions? options = null) =>
+        new(factory, clock, options ?? new AutonomousCatalogueOptions());
 
     private static async Task<(InMemoryFactory Factory, MutableTimeProvider Clock, Guid ShopId)> CreateDatabaseAsync()
     {

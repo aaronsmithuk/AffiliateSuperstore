@@ -23,38 +23,94 @@ public sealed record AiInvocationStart(
     string Message,
     ProductEditorialSuggestionOutput? CachedOutput = null);
 
+public sealed record AiInvocationRequest(
+    string Purpose,
+    string SubjectId,
+    string PromptVersion,
+    string InputHash);
+
+public sealed record AiInvocationReservation(
+    AiInvocationStartDisposition Disposition,
+    Guid InvocationId,
+    string Message,
+    string? CachedResponseJson = null);
+
 public sealed class AiInvocationAuditService(
     IDbContextFactory<AffiliateSuperstoreDbContext> contextFactory,
     AiAutomationOptions options,
     TimeProvider timeProvider)
 {
     public const string ProductCopyPurpose = "product-copy";
+    public const string CollectionSuggestionPurpose = "collection-suggestions";
 
     public async Task<AiInvocationStart> BeginProductCopyAsync(
         ProductEditorialSuggestionRequest request,
         CancellationToken cancellationToken = default)
     {
+        var reservation = await BeginAsync(
+            new AiInvocationRequest(
+                ProductCopyPurpose,
+                request.ProductId,
+                request.PromptVersion,
+                request.InputHash),
+            requireValidatedCache: true,
+            cancellationToken);
+        ProductEditorialSuggestionOutput? output = null;
+        if (reservation.Disposition == AiInvocationStartDisposition.CacheHit)
+        {
+            output = JsonSerializer.Deserialize<ProductEditorialSuggestionOutput>(reservation.CachedResponseJson!)
+                ?? throw new InvalidOperationException("The cached AI response could not be read.");
+            output = output with
+            {
+                InvocationId = reservation.InvocationId,
+                WasCached = true,
+                InputTokens = 0,
+                OutputTokens = 0
+            };
+        }
+        return new AiInvocationStart(
+            reservation.Disposition,
+            reservation.InvocationId,
+            reservation.Message,
+            output);
+    }
+
+    public async Task<AiInvocationReservation> BeginAsync(
+        AiInvocationRequest request,
+        bool requireValidatedCache,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Purpose);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SubjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.PromptVersion);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.InputHash);
         await using var strategyContext = await contextFactory.CreateDbContextAsync(cancellationToken);
         var executionStrategy = strategyContext.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteAsync(
-            () => BeginProductCopyCoreAsync(request, cancellationToken));
+            () => BeginCoreAsync(request, requireValidatedCache, cancellationToken));
     }
 
-    private async Task<AiInvocationStart> BeginProductCopyCoreAsync(
-        ProductEditorialSuggestionRequest request,
+    private async Task<AiInvocationReservation> BeginCoreAsync(
+        AiInvocationRequest request,
+        bool requireValidatedCache,
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
-        var cacheKey = CacheKey(ProductCopyPurpose, options.Provider, options.Model, request.PromptVersion, request.InputHash);
+        var cacheKey = CacheKey(request.Purpose, options.Provider, options.Model, request.PromptVersion, request.InputHash);
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await BeginSerializableTransactionAsync(context, cancellationToken);
 
-        var cached = await context.AiInvocations
+        var cachedQuery = context.AiInvocations
             .AsNoTracking()
             .Where(item => item.CacheKey == cacheKey &&
                            item.Status == AiInvocationStatus.Succeeded &&
-                           item.EditorialValidationState != EditorialValidationState.NotEvaluated &&
-                           item.ResponseJson != null)
+                           item.ResponseJson != null);
+        if (requireValidatedCache)
+        {
+            cachedQuery = cachedQuery.Where(item =>
+                item.EditorialValidationState != EditorialValidationState.NotEvaluated);
+        }
+        var cached = await cachedQuery
             .OrderByDescending(item => item.CompletedUtc)
             .FirstOrDefaultAsync(cancellationToken);
         if (cached is not null)
@@ -72,13 +128,11 @@ public sealed class AiInvocationAuditService(
             await context.SaveChangesAsync(cancellationToken);
             await CommitAsync(transaction, cancellationToken);
 
-            var output = JsonSerializer.Deserialize<ProductEditorialSuggestionOutput>(cached.ResponseJson!);
-            if (output is null) throw new InvalidOperationException("The cached AI response could not be read.");
-            return new AiInvocationStart(
+            return new AiInvocationReservation(
                 AiInvocationStartDisposition.CacheHit,
                 invocationId,
                 "An unchanged, previously validated model response was reused without an API call.",
-                output with { InvocationId = invocationId, WasCached = true, InputTokens = 0, OutputTokens = 0 });
+                cached.ResponseJson);
         }
 
         var staleBefore = now.AddMinutes(-Math.Max(1, options.ReservationTimeoutMinutes));
@@ -105,7 +159,7 @@ public sealed class AiInvocationAuditService(
         {
             await context.SaveChangesAsync(cancellationToken);
             await CommitAsync(transaction, cancellationToken);
-            return new AiInvocationStart(
+            return new AiInvocationReservation(
                 AiInvocationStartDisposition.AlreadyInProgress,
                 Guid.Empty,
                 "An identical AI request is already in progress.");
@@ -135,7 +189,7 @@ public sealed class AiInvocationAuditService(
                 errorMessage: $"The configured monthly AI budget of USD {options.MonthlyBudgetUsd:F2} would be exceeded."));
             await context.SaveChangesAsync(cancellationToken);
             await CommitAsync(transaction, cancellationToken);
-            return new AiInvocationStart(
+            return new AiInvocationReservation(
                 AiInvocationStartDisposition.BudgetBlocked,
                 invocationIdForCall,
                 $"The monthly AI budget of USD {options.MonthlyBudgetUsd:F2} has been reached.");
@@ -145,7 +199,7 @@ public sealed class AiInvocationAuditService(
             invocationIdForCall, request, cacheKey, AiInvocationStatus.Reserved, now, reservation));
         await context.SaveChangesAsync(cancellationToken);
         await CommitAsync(transaction, cancellationToken);
-        return new AiInvocationStart(
+        return new AiInvocationReservation(
             AiInvocationStartDisposition.Reserved,
             invocationIdForCall,
             $"USD {reservation:F4} reserved against the monthly AI budget.");
@@ -158,20 +212,41 @@ public sealed class AiInvocationAuditService(
         long latencyMilliseconds,
         CancellationToken cancellationToken = default)
     {
+        var cacheOutput = output with { InvocationId = null, WasCached = false };
+        await RecordSuccessAsync(
+            invocationId,
+            JsonSerializer.Serialize(cacheOutput),
+            output.ResponseHash,
+            providerResponseId,
+            output.InputTokens,
+            output.OutputTokens,
+            latencyMilliseconds,
+            cancellationToken);
+    }
+
+    public async Task RecordSuccessAsync(
+        Guid invocationId,
+        string responseJson,
+        string responseHash,
+        string? providerResponseId,
+        int? inputTokens,
+        int? outputTokens,
+        long latencyMilliseconds,
+        CancellationToken cancellationToken = default)
+    {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         var invocation = await context.AiInvocations.SingleAsync(item => item.Id == invocationId, cancellationToken);
         if (invocation.Status != AiInvocationStatus.Reserved) throw new InvalidOperationException("The AI invocation is not reserved.");
 
-        var cacheOutput = output with { InvocationId = null, WasCached = false };
         invocation.Status = AiInvocationStatus.Succeeded;
         invocation.CompletedUtc = timeProvider.GetUtcNow();
         invocation.ProviderResponseId = Trim(providerResponseId, 100);
-        invocation.ResponseHash = output.ResponseHash;
-        invocation.ResponseJson = JsonSerializer.Serialize(cacheOutput);
-        invocation.InputTokens = output.InputTokens;
-        invocation.OutputTokens = output.OutputTokens;
-        invocation.EstimatedCostUsd = output.InputTokens.HasValue && output.OutputTokens.HasValue
-            ? options.EstimateCostUsd(output.InputTokens.Value, output.OutputTokens.Value)
+        invocation.ResponseHash = responseHash;
+        invocation.ResponseJson = responseJson;
+        invocation.InputTokens = inputTokens;
+        invocation.OutputTokens = outputTokens;
+        invocation.EstimatedCostUsd = inputTokens.HasValue && outputTokens.HasValue
+            ? options.EstimateCostUsd(inputTokens.Value, outputTokens.Value)
             : invocation.ReservedCostUsd;
         invocation.LatencyMilliseconds = Math.Max(0, latencyMilliseconds);
         await context.SaveChangesAsync(cancellationToken);
@@ -212,7 +287,7 @@ public sealed class AiInvocationAuditService(
 
     private AiInvocationRecord CreateInvocation(
         Guid id,
-        ProductEditorialSuggestionRequest request,
+        AiInvocationRequest request,
         string cacheKey,
         AiInvocationStatus status,
         DateTimeOffset requestedUtc,
@@ -228,8 +303,8 @@ public sealed class AiInvocationAuditService(
         string? errorMessage = null) => new()
         {
             Id = id,
-            Purpose = ProductCopyPurpose,
-            ProductId = request.ProductId,
+            Purpose = request.Purpose,
+            ProductId = request.SubjectId,
             Provider = options.Provider.Trim(),
             Model = options.Model.Trim(),
             PromptVersion = request.PromptVersion,

@@ -33,6 +33,34 @@ public sealed class AiInvocationAuditServiceTests
     }
 
     [Fact]
+    public async Task GenericAndProductRequestsShareOneMonthlyBudget()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        var options = Options() with { MonthlyBudgetUsd = 0.02m, MaximumReservedCostPerCallUsd = 0.01m };
+        var service = new AiInvocationAuditService(factory, options, new FixedTimeProvider(Now));
+
+        var category = await service.BeginAsync(
+            new AiInvocationRequest(
+                AiInvocationAuditService.CollectionSuggestionPurpose,
+                "shop:plushies",
+                CollectionAiSuggestionService.PromptVersion,
+                Hash("category-input")),
+            requireValidatedCache: false);
+        var product = await service.BeginProductCopyAsync(Request("shared-cap"));
+        var blockedCategory = await service.BeginAsync(
+            new AiInvocationRequest(
+                AiInvocationAuditService.CollectionSuggestionPurpose,
+                "shop:plushies",
+                CollectionAiSuggestionService.PromptVersion,
+                Hash("different-category-input")),
+            requireValidatedCache: false);
+
+        Assert.Equal(AiInvocationStartDisposition.Reserved, category.Disposition);
+        Assert.Equal(AiInvocationStartDisposition.Reserved, product.Disposition);
+        Assert.Equal(AiInvocationStartDisposition.BudgetBlocked, blockedCategory.Disposition);
+    }
+
+    [Fact]
     public async Task BeginProductCopyAsync_ReusesAnUnchangedSuccessfulResponseAtZeroCost()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
@@ -132,6 +160,42 @@ public sealed class AiInvocationAuditServiceTests
     }
 
     [Fact]
+    public async Task OpenAiProvider_CreatesAuditedDraftOnlyCollectionOutput()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        var options = Options() with { ApiKey = "test-secret-key", CollectionSuggestionsEnabled = true };
+        var handler = new RecordingHandler(CollectionSuccessResponse());
+        var audit = new AiInvocationAuditService(factory, options, new FixedTimeProvider(Now));
+        var provider = new OpenAiStructuredSuggestionProvider(new HttpClient(handler), options, audit);
+        var request = new CollectionSuggestionRequest(
+            "plushies",
+            "The Plushy Shop",
+            ["Animal Friends"],
+            [
+                new("product-1", "Otter plush toy", "Toys", "Plush Animals"),
+                new("product-2", "Seal plush toy", "Toys", "Plush Animals"),
+                new("product-3", "Whale plush toy", "Toys", "Plush Animals")
+            ],
+            1,
+            CollectionAiSuggestionService.PromptVersion,
+            Hash("collection-provider"));
+
+        var output = await provider.SuggestCollectionsAsync(request);
+
+        var suggestion = Assert.Single(output.Suggestions);
+        Assert.Equal("Ocean Friends", suggestion.DisplayName);
+        Assert.NotNull(output.InvocationId);
+        using var requestJson = JsonDocument.Parse(handler.RequestBody!);
+        Assert.Equal("collection_suggestions", requestJson.RootElement.GetProperty("text").GetProperty("format").GetProperty("name").GetString());
+        Assert.Equal(AiInvocationAuditService.CollectionSuggestionPurpose, requestJson.RootElement.GetProperty("metadata").GetProperty("purpose").GetString());
+        Assert.Contains("at least three supplied product IDs", requestJson.RootElement.GetProperty("instructions").GetString(), StringComparison.Ordinal);
+        await using var context = factory.CreateDbContext();
+        var invocation = await context.AiInvocations.SingleAsync();
+        Assert.Equal(AiInvocationStatus.Succeeded, invocation.Status);
+        Assert.Equal(AiInvocationAuditService.CollectionSuggestionPurpose, invocation.Purpose);
+    }
+
+    [Fact]
     public void OpenAiProvider_IsUnavailableUntilTheKeyIsConfigured()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
@@ -149,6 +213,7 @@ public sealed class AiInvocationAuditServiceTests
     {
         Enabled = true,
         ProductCopyEnabled = true,
+        CollectionSuggestionsEnabled = true,
         Provider = "OpenAI",
         Model = "gpt-5.6-luna",
         Endpoint = "https://api.openai.com/",
@@ -206,6 +271,39 @@ public sealed class AiInvocationAuditServiceTests
                 }
             },
             usage = new { input_tokens = 321, output_tokens = 87, total_tokens = 408 }
+        });
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CollectionSuccessResponse()
+    {
+        var structured = JsonSerializer.Serialize(new
+        {
+            suggestions = new[]
+            {
+                new
+                {
+                    displayName = "Ocean Friends",
+                    shortDescription = "Soft sea and river animals grouped into one evidence-backed collection.",
+                    introductoryCopy = "Browse soft animals inspired by seas and rivers, using products already present in the catalogue as evidence. Each listing still passes the normal editorial and publication checks before appearing publicly.",
+                    seoTitle = "Ocean Animal Plush Toys",
+                    seoDescription = "Browse a curated selection of otter, seal and whale plush toys drawn from products already present in the catalogue.",
+                    discoveryQueries = new[] { "ocean animal plush toy" },
+                    rationale = "Three supplied products support the theme.",
+                    evidenceProductIds = new[] { "product-1", "product-2", "product-3" }
+                }
+            }
+        });
+        var body = JsonSerializer.Serialize(new
+        {
+            id = "resp_collection_123",
+            status = "completed",
+            model = "gpt-5.6-luna",
+            output = new[] { new { type = "message", content = new[] { new { type = "output_text", text = structured } } } },
+            usage = new { input_tokens = 400, output_tokens = 180, total_tokens = 580 }
         });
         return new HttpResponseMessage(HttpStatusCode.OK)
         {

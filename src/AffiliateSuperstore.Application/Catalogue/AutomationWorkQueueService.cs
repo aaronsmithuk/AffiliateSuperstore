@@ -70,6 +70,13 @@ public sealed class AutomationWorkQueueService(
                     TimeSpan.FromHours(Math.Clamp(policy.ReviewEveryHours, 1, 720)), 50,
                     options.MaximumAttempts, now, cancellationToken);
             }
+            if (autonomousOptions.CollectionSuggestionsEnabled)
+            {
+                planned += await EnqueueIfDueAsync(
+                    shop.Id, shop.Slug, AutomationWorkType.CollectionSuggestions,
+                    TimeSpan.FromDays(Math.Clamp(autonomousOptions.CollectionSuggestionEveryDays, 1, 31)), 40,
+                    options.MaximumAttempts, now, cancellationToken);
+            }
         }
 
         return planned;
