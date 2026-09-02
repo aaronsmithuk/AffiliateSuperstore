@@ -135,6 +135,45 @@ public sealed class CatalogueCollectionServiceTests
     }
 
     [Fact]
+    public async Task GetProductCandidatesAsync_SuggestedFilterRanksRelevantProductsWithoutAssigningThem()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate() with
+        {
+            Slug = "weird-wonderful",
+            DisplayName = "Weird & Wonderful",
+            ShortDescription = "Capybaras, frogs and delightfully unusual plush personalities.",
+            DiscoveryQueries = ["frog plush toy", "capybara plush toy"]
+        });
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddPendingProduct(context, shopId, "frog-product", "Sleepy green frog plush");
+            AddPendingProduct(context, shopId, "unusual-product", "Unusual geometric cushion");
+            AddPendingProduct(context, shopId, "bread-product", "Soft bread loaf cushion");
+            await context.SaveChangesAsync();
+        }
+
+        var products = await service.GetProductCandidatesAsync(
+            "plushies",
+            saved.CollectionId!.Value,
+            filter: CollectionCandidateFilter.Suggested);
+
+        Assert.Equal(2, products.Count);
+        var product = products[0];
+        Assert.Equal("frog-product", product.ProductId);
+        Assert.True(product.IsSuggested);
+        Assert.True(product.CollectionMatchScore >= CollectionCandidateMatcher.SuggestedScore);
+        Assert.True(product.CollectionMatchScore > products[1].CollectionMatchScore);
+        Assert.Equal("unusual-product", products[1].ProductId);
+        Assert.Contains(product.CollectionMatchReasons, reason =>
+            reason.Contains("frog plush toy", StringComparison.OrdinalIgnoreCase));
+        await using var verification = factory.CreateDbContext();
+        Assert.Empty(verification.CollectionProducts);
+    }
+
+    [Fact]
     public async Task GetCollectionsAsync_ReportsEachReadinessStageAndActionableBlockers()
     {
         var factory = await CreateDatabaseAsync();
@@ -369,12 +408,16 @@ public sealed class CatalogueCollectionServiceTests
         });
     }
 
-    private static void AddPendingProduct(AffiliateSuperstoreDbContext context, Guid shopId, string productId)
+    private static void AddPendingProduct(
+        AffiliateSuperstoreDbContext context,
+        Guid shopId,
+        string productId,
+        string title = "Pending frog plush")
     {
         context.Products.Add(new ProductRecord
         {
             AliExpressProductId = productId,
-            Title = "Pending frog plush",
+            Title = title,
             IsEligible = true,
             FirstSeenUtc = Now,
             LastSeenUtc = Now,
