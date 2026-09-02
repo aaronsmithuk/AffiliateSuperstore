@@ -173,7 +173,7 @@ public sealed class CatalogueCollectionServiceTests
 
         Assert.True(partial.Succeeded);
         Assert.Contains("Added 1 reviewed product", partial.Message, StringComparison.Ordinal);
-        Assert.Contains("2 inactive, ineligible or unavailable", partial.Message, StringComparison.Ordinal);
+        Assert.Contains("2 inactive, ineligible or missing", partial.Message, StringComparison.Ordinal);
         Assert.False(oversized.Succeeded);
         Assert.Contains(CatalogueCollectionService.MaximumBatchAssignments.ToString(), oversized.Message, StringComparison.Ordinal);
         await using var verification = factory.CreateDbContext();

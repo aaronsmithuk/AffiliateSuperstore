@@ -532,7 +532,7 @@ public sealed class CatalogueCollectionService(
         var alreadyAssigned = existingIds.Count;
         var details = new List<string>();
         if (alreadyAssigned > 0) details.Add($"{alreadyAssigned} already assigned");
-        if (skipped > 0) details.Add($"{skipped} inactive, ineligible or unavailable");
+        if (skipped > 0) details.Add($"{skipped} inactive, ineligible or missing");
         var suffix = details.Count == 0 ? "." : $" ({string.Join("; ", details)}).";
         return CollectionCommandResult.Success(
             additions.Length == 0
