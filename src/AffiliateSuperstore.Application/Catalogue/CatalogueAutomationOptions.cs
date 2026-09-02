@@ -94,10 +94,26 @@ public static class CatalogueDiscoveryPlanner
                 .Select(page => new CatalogueIngestionRequest(
                     shop.Slug, query, page, pageSize, CatalogueDiscoverySource.HotProductQuery)))
             : [];
+        var smartMatchSeeds = shop.SmartMatchSeedProductIds
+            .Select(productId => productId.Trim())
+            .Where(productId => productId.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (shop.SmartMatchDiscoveryEnabled && smartMatchSeeds.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"Shop '{shop.Slug}' must configure at least one approved Smart Match seed product ID.");
+        }
         var smartMatches = shop.SmartMatchDiscoveryEnabled
-            ? queries.SelectMany(query => Enumerable.Range(1, shop.AdvancedDiscoveryPagesPerQuery)
-                .Select(page => new CatalogueIngestionRequest(
-                    shop.Slug, query, page, pageSize, CatalogueDiscoverySource.SmartMatch)))
+            ? smartMatchSeeds.SelectMany(seedProductId => queries.SelectMany(query =>
+                Enumerable.Range(1, shop.AdvancedDiscoveryPagesPerQuery)
+                    .Select(page => new CatalogueIngestionRequest(
+                        shop.Slug,
+                        query,
+                        page,
+                        pageSize,
+                        CatalogueDiscoverySource.SmartMatch,
+                        seedProductId))))
             : [];
 
         return standard.Concat(hotProducts).Concat(smartMatches).ToArray();

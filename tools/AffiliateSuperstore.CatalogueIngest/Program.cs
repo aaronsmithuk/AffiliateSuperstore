@@ -25,14 +25,22 @@ var dbOptions = new DbContextOptionsBuilder<AffiliateSuperstoreDbContext>()
     .UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure())
     .Options;
 var contextFactory = new LocalDbContextFactory(dbOptions);
+var previewSource = args.Length > 0 && string.Equals(args[0], "--preview-hot", StringComparison.OrdinalIgnoreCase)
+    ? CatalogueDiscoverySource.HotProductQuery
+    : args.Length > 0 && string.Equals(args[0], "--preview-smart", StringComparison.OrdinalIgnoreCase)
+        ? CatalogueDiscoverySource.SmartMatch
+        : (CatalogueDiscoverySource?)null;
 
-await using (var database = contextFactory.CreateDbContext())
+if (previewSource is null)
 {
-    await database.Database.MigrateAsync();
-}
+    await using (var database = contextFactory.CreateDbContext())
+    {
+        await database.Database.MigrateAsync();
+    }
 
-await new ShopConfigurationSynchronizer(contextFactory, superstoreOptions, TimeProvider.System)
-    .SynchronizeAsync();
+    await new ShopConfigurationSynchronizer(contextFactory, superstoreOptions, TimeProvider.System)
+        .SynchronizeAsync();
+}
 
 if (args.Length == 1 && string.Equals(args[0], "--identity", StringComparison.OrdinalIgnoreCase))
 {
@@ -53,8 +61,34 @@ using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("AffiliateSuperstore-CatalogueIngest/0.1");
 var client = new AliExpressClient(httpClient, aliExpressOptions, new AliExpressRequestSigner());
 var qualityAssessmentService = new ProductQualityAssessmentService(contextFactory, TimeProvider.System);
+var catalogueSource = new AliExpressCatalogueSource(client);
+
+if (previewSource is not null)
+{
+    var seedArgument = args.Skip(1).FirstOrDefault(argument =>
+        argument.StartsWith("--seed=", StringComparison.OrdinalIgnoreCase));
+    var seedProductId = seedArgument?["--seed=".Length..];
+    var previewKeywords = string.Join(' ', args.Skip(1).Where(argument =>
+        !argument.StartsWith("--seed=", StringComparison.OrdinalIgnoreCase)));
+    if (string.IsNullOrWhiteSpace(previewKeywords)) previewKeywords = "plush toy";
+
+    Console.WriteLine($"Running read-only {previewSource} preview for /plushies...");
+    var preview = await new AdvancedCatalogueDiscoveryPreviewService(
+            catalogueSource,
+            contextFactory,
+            qualityAssessmentService)
+        .PreviewAsync("plushies", previewSource.Value, previewKeywords, seedProductId, pageSize: 20);
+    Console.WriteLine($"Read: {preview.ProductsRead}; eligible: {preview.MinimallyEligible}; existing: {preview.AlreadyInCatalogue}; quality-clear new: {preview.QualityClearNewCandidates}");
+    foreach (var candidate in preview.Candidates)
+    {
+        Console.WriteLine($"{candidate.RecommendedAction} | {candidate.ProductId} | {candidate.Currency} {candidate.SalePrice:N2} | {candidate.Title}");
+    }
+
+    return 0;
+}
+
 var service = new CatalogueIngestionService(
-    new AliExpressCatalogueSource(client),
+    catalogueSource,
     contextFactory,
     TimeProvider.System,
     qualityAssessmentService);

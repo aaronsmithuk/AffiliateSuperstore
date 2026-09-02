@@ -175,6 +175,7 @@ builder.Services.AddHttpClient<IAliExpressClient, AliExpressClient>(client =>
 builder.Services.AddTransient<IAffiliateCatalogueSource, AliExpressCatalogueSource>();
 builder.Services.AddTransient<IAffiliateProductDetailSource, AliExpressProductDetailSource>();
 builder.Services.AddTransient<CatalogueIngestionService>();
+builder.Services.AddTransient<AdvancedCatalogueDiscoveryPreviewService>();
 builder.Services.AddTransient<CatalogueProductEnrichmentService>();
 builder.Services.AddTransient<CatalogueDiscoveryPlanService>();
 builder.Services.AddTransient<CatalogueReadinessService>();

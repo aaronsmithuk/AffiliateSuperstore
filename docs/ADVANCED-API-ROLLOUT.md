@@ -1,7 +1,8 @@
 # AliExpress Advanced API rollout
 
-Status: integration foundation complete locally; scheduled Advanced discovery
-remains disabled per shop pending the first supervised ingestion run.
+Status: integration foundation and supervised read-only preview complete locally;
+scheduled Advanced discovery remains disabled per shop while relevance gates are
+tightened.
 
 ## Verified account capabilities
 
@@ -46,6 +47,19 @@ checkpoint retain the source, keyword, page and optional seed product.
 An active type-2 link is not downgraded when the same product is later found by a
 standard search. Link renewal continues to regenerate the current link type.
 
+Authenticated administrators can use `/admin/advanced-discovery` to inspect one
+bounded live page without writing products, changing review state, publishing
+content or generating links. The same read-only path is available to operators:
+
+```text
+--preview-hot "plush toy"
+--preview-smart --seed=<approved-product-id> "plush toy"
+```
+
+The affiliate performance report now groups impressions, clicks, attributed
+orders and commission by each product's earliest recorded `SourceEndpoint`.
+This creates a stable standard-search, hot-product and Smart Match cohort view.
+
 ## Activation controls
 
 The account-level `AliExpress:AdvancedApiEnabled` flag is enabled because live
@@ -56,19 +70,43 @@ each shop:
 {
   "HotProductDiscoveryEnabled": false,
   "SmartMatchDiscoveryEnabled": false,
+  "SmartMatchSeedProductIds": [],
   "AdvancedDiscoveryPagesPerQuery": 1
 }
 ```
 
-Leave both source flags off in the first release. Then activate in this order:
+Leave both source flags off until the relevance changes described below are in
+place. Then activate in this order:
 
 1. Enable hot-product discovery for one supervised cycle. This adds one bounded
    Advanced page per configured keyword after all standard pages.
 2. Review relevance, quality flags, duplicates and type-2 link generation before
    leaving it scheduled.
-3. Enable keyword Smart Match only after hot-product queue volume is understood.
-   Product-seeded Smart Match should be introduced through a separate reviewed
-   replacement/related-product workflow rather than visitor requests.
+3. Do not enable unseeded or keyword-only Smart Match for catalogue discovery.
+   Introduce product-seeded Smart Match through a separate reviewed
+   replacement/related-product workflow using only approved backend seeds.
+
+## Supervised preview findings
+
+Read-only previews on 2 September 2026 produced this evidence:
+
+| Source | Returned | Eligible | Existing | Quality-clear new | Finding |
+|---|---:|---:|---:|---:|---|
+| Hot-product query, `plush toy`, initial rules | 16 | 16 | 1 | 3 | The three nominally clear results still included an IP-risk puppet, vehicle cushions and a dog toy. |
+| Hot-product query after relevance-rule update | 16 | 16 | 1 | 0 | Every unsafe or off-scope result was held for review; the batch had no useful new automatic candidate. |
+| Smart Match, keyword only | 20 | 20 | 0 | 17 | Results were overwhelmingly unrelated electronics, household and beauty products. |
+| Smart Match, approved plush seed | 2 | 2 | 1 | 1 | Both results were closely related fox plush products. |
+
+Consequences for rollout:
+
+- the write path now requires positive plush evidence and applies the expanded IP,
+  pet-product and non-product-scope rules before a candidate is quality clear;
+- the scheduler now refuses to plan Smart Match unless at least one approved
+  backend product seed is configured;
+- keep Hot Product disabled until a query/category strategy produces useful clean
+  candidates rather than merely a safe empty cohort; and
+- keep Smart Match disabled until approved seed management is connected to the
+  reviewed product workflow.
 
 ## Pilot measurements
 

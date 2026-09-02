@@ -38,6 +38,7 @@ public sealed record AffiliatePerformanceReport(
     IReadOnlyList<AffiliatePerformanceBreakdown> Channels,
     IReadOnlyList<AffiliatePerformanceBreakdown> Products)
 {
+    public IReadOnlyList<AffiliatePerformanceBreakdown> DiscoverySources { get; init; } = [];
     public decimal ClickThroughRate => Impressions == 0 ? 0 : (decimal)Clicks / Impressions;
     public decimal ClickToOrderRate => Clicks == 0 ? 0 : (decimal)ConvertingClicks / Clicks;
     public int ActiveLinksWithoutClicks => Math.Max(0, ActiveLinks - ActiveLinksClicked);
@@ -81,6 +82,27 @@ public sealed class AffiliatePerformanceService(
                 item.Placement,
                 item.Count))
             .ToListAsync(cancellationToken);
+        var measuredProductIds = clicks
+            .Select(click => click.ProductId)
+            .Where(productId => !string.IsNullOrWhiteSpace(productId))
+            .Cast<string>()
+            .Concat(impressions.Select(impression => impression.ProductId))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var discoverySourceRows = measuredProductIds.Length == 0
+            ? []
+            : await context.ProductSnapshots.AsNoTracking()
+                .Where(snapshot =>
+                    measuredProductIds.Contains(snapshot.ProductId) &&
+                    snapshot.SourceEndpoint != null &&
+                    snapshot.SourceEndpoint != "")
+                .OrderBy(snapshot => snapshot.FetchedUtc)
+                .ThenBy(snapshot => snapshot.Id)
+                .Select(snapshot => new DiscoverySourceRow(snapshot.ProductId, snapshot.SourceEndpoint))
+                .ToListAsync(cancellationToken);
+        var discoverySources = discoverySourceRows
+            .GroupBy(row => row.ProductId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().SourceEndpoint, StringComparer.Ordinal);
         var clickIds = clicks.Select(click => click.ClickId).ToArray();
         var orders = clickIds.Length == 0
             ? []
@@ -134,7 +156,38 @@ public sealed class AffiliatePerformanceService(
                 click => (click.ProductId ?? "untracked", click.ProductTitle ?? "Product unavailable"),
                 impression => (impression.ProductId, impression.ProductTitle),
                 key => key.Item2,
-                key => key.Item1));
+                key => key.Item1))
+        {
+            DiscoverySources = BuildBreakdown(
+                clicks,
+                impressions,
+                orderLookup,
+                click => DiscoverySourceKey(click.ProductId, discoverySources),
+                impression => DiscoverySourceKey(impression.ProductId, discoverySources),
+                key => key.Name,
+                key => key.Endpoint)
+        };
+    }
+
+    private static (string Name, string Endpoint) DiscoverySourceKey(
+        string? productId,
+        IReadOnlyDictionary<string, string?> discoverySources)
+    {
+        if (string.IsNullOrWhiteSpace(productId) ||
+            !discoverySources.TryGetValue(productId, out var endpoint) ||
+            string.IsNullOrWhiteSpace(endpoint))
+        {
+            return ("Unknown / pre-provenance", "No recorded first-discovery endpoint");
+        }
+
+        var name = endpoint switch
+        {
+            "aliexpress.affiliate.product.query" => "Standard search",
+            "aliexpress.affiliate.hotproduct.query" => "Hot-product query",
+            "aliexpress.affiliate.product.smartmatch" => "Smart Match",
+            _ => "Other source"
+        };
+        return (name, endpoint);
     }
 
     private static IReadOnlyList<AffiliatePerformanceBreakdown> BuildBreakdown<TKey>(
@@ -205,6 +258,8 @@ public sealed class AffiliatePerformanceService(
         string ProductTitle,
         string Placement,
         long Count);
+
+    private sealed record DiscoverySourceRow(string ProductId, string? SourceEndpoint);
 
     private sealed record OrderRow(
         string ClickId,

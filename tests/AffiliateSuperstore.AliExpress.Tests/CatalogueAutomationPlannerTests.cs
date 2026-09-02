@@ -116,6 +116,7 @@ public sealed class CatalogueAutomationPlannerTests
             DiscoveryPagesPerQuery = 2,
             HotProductDiscoveryEnabled = true,
             SmartMatchDiscoveryEnabled = true,
+            SmartMatchSeedProductIds = ["approved-seed"],
             AdvancedDiscoveryPagesPerQuery = 1
         };
 
@@ -126,6 +127,26 @@ public sealed class CatalogueAutomationPlannerTests
             request => Assert.Equal((CatalogueDiscoverySource.StandardSearch, 1), (request.Source, request.PageNumber)),
             request => Assert.Equal((CatalogueDiscoverySource.StandardSearch, 2), (request.Source, request.PageNumber)),
             request => Assert.Equal((CatalogueDiscoverySource.HotProductQuery, 1), (request.Source, request.PageNumber)),
-            request => Assert.Equal((CatalogueDiscoverySource.SmartMatch, 1), (request.Source, request.PageNumber)));
+            request =>
+            {
+                Assert.Equal((CatalogueDiscoverySource.SmartMatch, 1), (request.Source, request.PageNumber));
+                Assert.Equal("approved-seed", request.SeedProductId);
+            });
+    }
+
+    [Fact]
+    public void DiscoveryPlan_RejectsEnabledSmartMatchWithoutApprovedSeed()
+    {
+        var shop = new ShopDefinition
+        {
+            Slug = "plushies",
+            DefaultSearchQuery = "plush toy",
+            SmartMatchDiscoveryEnabled = true
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            CatalogueDiscoveryPlanner.Build(shop, 20));
+
+        Assert.Contains("approved Smart Match seed", exception.Message, StringComparison.Ordinal);
     }
 }

@@ -39,6 +39,12 @@ public sealed class AffiliatePerformanceServiceTests
         Assert.Equal("Small green dragon plush", product.Name);
         Assert.Equal("product-1", product.Detail);
         Assert.Equal(120, product.Impressions);
+        var discoverySource = Assert.Single(report.DiscoverySources);
+        Assert.Equal("Hot-product query", discoverySource.Name);
+        Assert.Equal("aliexpress.affiliate.hotproduct.query", discoverySource.Detail);
+        Assert.Equal(120, discoverySource.Impressions);
+        Assert.Equal(3, discoverySource.Clicks);
+        Assert.Equal(2, discoverySource.Orders);
     }
 
     private static async Task<InMemoryFactory> CreateDatabaseAsync()
@@ -70,6 +76,22 @@ public sealed class AffiliatePerformanceServiceTests
             LastSeenUtc = Now,
             LastRefreshedUtc = Now
         });
+        context.ProductSnapshots.AddRange(
+            new ProductSnapshotRecord
+            {
+                ProductId = "product-1",
+                FetchedUtc = Now.AddDays(-11),
+                Currency = "GBP",
+                ParserVersion = "1.0"
+            },
+            new ProductSnapshotRecord
+            {
+                ProductId = "product-1",
+                FetchedUtc = Now.AddDays(-10),
+                Currency = "GBP",
+                SourceEndpoint = "aliexpress.affiliate.hotproduct.query",
+                ParserVersion = "1.0"
+            });
         context.AffiliateLinks.AddRange(
             Link(clickedLinkId, shopId, "product-1"),
             Link(Guid.CreateVersion7(), shopId, null));

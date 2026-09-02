@@ -193,7 +193,8 @@ public sealed class CatalogueIngestionService(
             var assessment = qualityAssessmentService.Assess(
                 apiProduct.Title,
                 apiProduct.FirstLevelCategoryName,
-                apiProduct.SecondLevelCategoryName);
+                apiProduct.SecondLevelCategoryName,
+                requirePlushEvidence: true);
             shopProduct.AutomatedReviewFlags = assessment.SerializedFlags;
             shopProduct.AutomatedReviewedUtc = now;
             if (assessment.RequiresReview && shopProduct.ReviewStatus is ProductReviewStatus.Pending or ProductReviewStatus.Approved)

@@ -39,6 +39,24 @@ public sealed class ProductQualityAssessmentServiceTests
         Assert.Contains(result.Flags, flag => flag.Code == expectedCode);
     }
 
+    [Theory]
+    [InlineData("Universal UK plug wall charger adapter", "Electronics", "Chargers", "scope.missing-plush-evidence")]
+    [InlineData("For Tesla Model Y headrest car pillow", "Automotive", "Interior accessories", "scope.missing-plush-evidence")]
+    [InlineData("Jeffy hand puppet soft toy", "Toys", "Puppets", "ip.third-party-character")]
+    [InlineData("Plush dog chew rope toy", "Pet supplies", "Dog toys", "scope.pet-product")]
+    public void Assess_DiscoveryEvidence_ReturnsExpectedFlag(
+        string title,
+        string firstCategory,
+        string secondCategory,
+        string expectedCode)
+    {
+        var service = new ProductQualityAssessmentService(null!, TimeProvider.System);
+
+        var result = service.Assess(title, firstCategory, secondCategory, requirePlushEvidence: true);
+
+        Assert.Contains(result.Flags, flag => flag.Code == expectedCode);
+    }
+
     [Fact]
     public async Task ReassessShopAsync_DemotesFlaggedApprovedProductButNeverAutoApprovesCleanProduct()
     {

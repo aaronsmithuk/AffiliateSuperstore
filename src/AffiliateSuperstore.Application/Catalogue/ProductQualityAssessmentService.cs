@@ -35,7 +35,8 @@ public sealed partial class ProductQualityAssessmentService(
     public ProductQualityAssessment Assess(
         string title,
         string? firstLevelCategoryName = null,
-        string? secondLevelCategoryName = null)
+        string? secondLevelCategoryName = null,
+        bool requirePlushEvidence = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         var flags = TitleRules
@@ -46,6 +47,14 @@ public sealed partial class ProductQualityAssessmentService(
         if (PetCategoryPattern().IsMatch(categories) && flags.All(flag => flag.Code != "scope.pet-product"))
         {
             flags.Add(new ProductQualityFlag("scope.pet-category", "AliExpress categorises this as a pet product."));
+        }
+        if (requirePlushEvidence &&
+            !PlushEvidencePattern().IsMatch(title) &&
+            !PlushEvidencePattern().IsMatch(categories))
+        {
+            flags.Add(new ProductQualityFlag(
+                "scope.missing-plush-evidence",
+                "Neither the title nor AliExpress category identifies this as a plush or stuffed product."));
         }
         if (title.Length > 220)
         {
@@ -60,7 +69,11 @@ public sealed partial class ProductQualityAssessmentService(
         string? firstLevelCategoryName = null,
         string? secondLevelCategoryName = null)
     {
-        var sourceAssessment = Assess(sourceTitle, firstLevelCategoryName, secondLevelCategoryName);
+        var sourceAssessment = Assess(
+            sourceTitle,
+            firstLevelCategoryName,
+            secondLevelCategoryName,
+            requirePlushEvidence: true);
         if (string.IsNullOrWhiteSpace(editorialTitle))
         {
             return sourceAssessment;
@@ -118,13 +131,13 @@ public sealed partial class ProductQualityAssessmentService(
         catch (JsonException) { return [new ProductQualityFlag("review.invalid-flags", "Stored quality flags could not be read.")]; }
     }
 
-    [GeneratedRegex(@"\b(catnip|dog\s+toys?|cat\s+toys?|pet\s+toys?|for\s+cats|for\s+dogs|teeth\s+grinding|pet\s+interactive)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(catnip|dog\b.{0,20}\btoys?|cat\b.{0,20}\btoys?|pet\s+toys?|for\s+cats|for\s+dogs|teeth\s+grinding|pet\s+interactive)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PetProductPattern();
 
     [GeneratedRegex(@"\b(newborn|bab(?:y|ies)|baby\s+rattle|stroller|crib|bassinet|teether|cot\s+mobile)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BabyProductPattern();
 
-    [GeneratedRegex(@"\b(mimikyu|eevee|pokemon|pokémon|fnaf|five\s+nights?\s+at\s+freddy|freddy|michael\s+jackson|domo\s+kun|hello\s+kitty|sanrio|kuromi|cinnamoroll|my\s+melody|pompompurin|pochacco|disney|stitch|lilo|marvel|star\s+wars|harry\s+potter|totoro|ghibli|kirby|mario|luigi|sonic|minecraft|creeper|poppy\s+playtime|huggy\s+wuggy|squishmallows?|care\s+bears?|winnie|pooh|one\s+piece|naruto|dragon\s+ball|demon\s+slayer|genshin|honkai|hazbin|labubu|pop\s+mart|minions?|garfield|snoopy|miffy|rilakkuma|pusheen|kermits?|smiling\s+friends|om\s+nom|cut\s+the\s+rope|bad\s+bunny|kinitopet|crayon\s+shinchan|shinchan|anime|game|cosplay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(mimikyu|eevee|pokemon|pokémon|fnaf|five\s+nights?\s+at\s+freddy|freddy|jeffy|sml\s+puppet|michael\s+jackson|domo\s+kun|hello\s+kitty|sanrio|kuromi|cinnamoroll|my\s+melody|pompompurin|pochacco|disney|stitch|lilo|marvel|star\s+wars|harry\s+potter|totoro|ghibli|kirby|mario|luigi|sonic|minecraft|creeper|poppy\s+playtime|huggy\s+wuggy|squishmallows?|care\s+bears?|winnie|pooh|one\s+piece|naruto|dragon\s+ball|demon\s+slayer|genshin|honkai|hazbin|labubu|pop\s+mart|minions?|garfield|snoopy|miffy|rilakkuma|pusheen|kermits?|smiling\s+friends|om\s+nom|cut\s+the\s+rope|bad\s+bunny|kinitopet|crayon\s+shinchan|shinchan|anime|game|cosplay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ThirdPartyCharacterPattern();
 
     [GeneratedRegex(@"\b(official|genuine|original)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -144,4 +157,7 @@ public sealed partial class ProductQualityAssessmentService(
 
     [GeneratedRegex(@"\b(pet\s+supplies|dog\s+toys?|cat\s+toys?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PetCategoryPattern();
+
+    [GeneratedRegex(@"\b(plush(?:ie|y|ies)?|stuffed|soft\s+(?:toy|doll)|cuddly|teddy|puppets?|rag\s+doll|peluche)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PlushEvidencePattern();
 }

@@ -1,0 +1,149 @@
+@page "/admin/advanced-discovery"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
+@rendermode InteractiveServer
+@inject AdvancedCatalogueDiscoveryPreviewService PreviewService
+@inject AffiliateSuperstoreOptions SuperstoreOptions
+@inject IOptions<AliExpressOptions> AliExpressConfiguration
+
+<PageTitle>Advanced discovery preview</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Read-only pilot</p>
+        <h1>Advanced discovery preview</h1>
+        <p class="lede">Inspect hot-product and Smart Match candidates against the live catalogue and quality rules without saving products or generating links.</p>
+    </div>
+    <span class="permission-chip @(AliExpressConfiguration.Value.AdvancedApiEnabled ? "granted" : "unavailable")">
+        Advanced @(AliExpressConfiguration.Value.AdvancedApiEnabled ? "enabled" : "disabled")
+    </span>
+</header>
+
+<section class="panel request-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Preview request</p><h2>One bounded live page</h2></div><span class="method-badge">NO WRITE</span></div>
+    <EditForm Model="Model" OnValidSubmit="RunPreviewAsync" FormName="advanced-discovery-preview">
+        <DataAnnotationsValidator />
+        <div class="form-row">
+            <div class="form-field">
+                <label for="advanced-shop">Shop</label>
+                <InputSelect id="advanced-shop" @bind-Value="Model.ShopSlug">
+                    @foreach (var shop in SuperstoreOptions.Shops.Where(item => item.IsEnabled))
+                    {
+                        <option value="@shop.Slug">@shop.DisplayName</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="form-field">
+                <label for="advanced-source">Source</label>
+                <InputSelect id="advanced-source" @bind-Value="Model.Source">
+                    <option value="@CatalogueDiscoverySource.HotProductQuery">Hot-product query</option>
+                    <option value="@CatalogueDiscoverySource.SmartMatch">Smart Match</option>
+                </InputSelect>
+            </div>
+        </div>
+        <div class="form-field"><label for="advanced-keywords">Keywords</label><InputText id="advanced-keywords" @bind-Value="Model.Keywords" /></div>
+        @if (Model.Source == CatalogueDiscoverySource.SmartMatch)
+        {
+            <div class="form-field"><label for="advanced-seed">Seed product ID (optional)</label><InputText id="advanced-seed" @bind-Value="Model.SeedProductId" /><small>The configured backend identifier is used; no visitor identifier is sent.</small></div>
+        }
+        <div class="form-field"><label for="advanced-size">Page size</label><InputNumber id="advanced-size" @bind-Value="Model.PageSize" /></div>
+        <div class="request-note">The preview calls AliExpress and reads local catalogue state. It does not persist candidates, change review status, publish content or generate affiliate links.</div>
+        <button class="button button-primary" type="submit" disabled="@IsRunning">@(IsRunning ? "Previewing…" : "Run read-only preview")</button>
+    </EditForm>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <div class="alert-card error-card" role="alert"><strong>Preview failed</strong><span>@ErrorMessage</span></div>
+}
+else if (Result is not null)
+{
+    <section class="metric-grid" aria-label="Advanced preview summary">
+        <article class="metric-card"><strong>@Result.ProductsRead</strong><span>Products returned</span></article>
+        <article class="metric-card"><strong>@Result.MinimallyEligible</strong><span>Minimum data valid</span></article>
+        <article class="metric-card"><strong>@Result.AlreadyInCatalogue</strong><span>Already in catalogue</span></article>
+        <article class="metric-card"><strong>@Result.QualityClearNewCandidates</strong><span>Quality-clear new candidates</span></article>
+    </section>
+
+    <section class="panel catalogue-table-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Live evidence</p><h2>@Result.Source · @Result.Keywords</h2></div><span class="count-badge">@Result.Candidates.Count</span></div>
+        @if (Result.Candidates.Count == 0)
+        {
+            <p class="database-empty">AliExpress returned no candidates for this preview.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>Price</th><th>Commission</th><th>Sales / rating</th><th>Catalogue</th><th>Quality evidence</th><th>Recommendation</th></tr></thead><tbody>
+            @foreach (var item in Result.Candidates)
+            {
+                <tr>
+                    <td><strong>@item.Title</strong><small>@item.ProductId · @(item.Category ?? "No category")</small></td>
+                    <td>@FormatPrice(item)</td>
+                    <td>@FormatCommission(item)</td>
+                    <td>@FormatEvidence(item)</td>
+                    <td>@(item.IsAlreadyInCatalogue ? $"Existing · link {item.ExistingActiveLinkType?.ToString() ?? "none"}" : "New")</td>
+                    <td>@(item.QualityFlags.Count == 0 ? "No deterministic flags" : string.Join(" · ", item.QualityFlags.Select(flag => flag.Code)))</td>
+                    <td><strong>@item.RecommendedAction</strong></td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+}
+
+@code {
+    private readonly PreviewModel Model = new();
+    private bool IsRunning;
+    private string? ErrorMessage;
+    private AdvancedDiscoveryPreviewResult? Result;
+
+    protected override void OnInitialized()
+    {
+        var shop = SuperstoreOptions.Shops.FirstOrDefault(item => item.IsEnabled);
+        if (shop is null) return;
+        Model.ShopSlug = shop.Slug;
+        Model.Keywords = shop.DefaultSearchQuery;
+    }
+
+    private async Task RunPreviewAsync()
+    {
+        IsRunning = true;
+        ErrorMessage = null;
+        Result = null;
+        try
+        {
+            Result = await PreviewService.PreviewAsync(
+                Model.ShopSlug,
+                Model.Source,
+                Model.Keywords,
+                Model.SeedProductId,
+                Model.PageSize);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            ErrorMessage = exception.Message;
+        }
+        finally
+        {
+            IsRunning = false;
+        }
+    }
+
+    private static string FormatPrice(AdvancedDiscoveryPreviewCandidate item) =>
+        item.SalePrice is null ? "Not supplied" : $"{item.Currency ?? "?"} {item.SalePrice:N2}";
+    private static string FormatCommission(AdvancedDiscoveryPreviewCandidate item) =>
+        item.HotProductCommissionRate is not null
+            ? $"Hot {item.HotProductCommissionRate:P1} · base {item.CommissionRate?.ToString("P1") ?? "—"}"
+            : item.CommissionRate?.ToString("P1") ?? "Not supplied";
+    private static string FormatEvidence(AdvancedDiscoveryPreviewCandidate item) =>
+        $"{item.RecentSalesVolume?.ToString("N0") ?? "—"} sold · {item.EvaluationRate?.ToString("P1") ?? "—"}";
+
+    private sealed class PreviewModel
+    {
+        [Required] public string ShopSlug { get; set; } = string.Empty;
+        public CatalogueDiscoverySource Source { get; set; } = CatalogueDiscoverySource.HotProductQuery;
+        [Required] public string Keywords { get; set; } = "plush toy";
+        public string? SeedProductId { get; set; }
+        [Range(1, 50)] public int PageSize { get; set; } = 20;
+    }
+}

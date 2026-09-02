@@ -53,6 +53,24 @@ else
     </section>
 
     <section class="panel catalogue-table-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Advanced API cohorts</p><h2>Performance by first discovery source</h2></div><span class="count-badge">@Report.DiscoverySources.Count</span></div>
+        <p>Each product is assigned to the endpoint recorded on its earliest catalogue snapshot, so Advanced API candidates can be compared with the standard search baseline.</p>
+        @if (Report.DiscoverySources.Count == 0)
+        {
+            <p class="database-empty">No product impressions or clicks were recorded in this window.</p>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>First discovery source</th><th>Endpoint</th><th>Impressions</th><th>Clicks</th><th>CTR</th><th>Converting clicks</th><th>Orders</th><th>Commission</th></tr></thead><tbody>
+            @foreach (var row in Report.DiscoverySources)
+            {
+                <tr><td><strong>@row.Name</strong></td><td><small>@row.Detail</small></td><td>@row.Impressions.ToString("N0")</td><td>@row.Clicks</td><td>@FormatPercent(row.ClickThroughRate)</td><td>@row.ConvertingClicks</td><td>@row.Orders</td><td>@FormatCommission(row.Commission)</td></tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+
+    <section class="panel catalogue-table-panel">
         <div class="panel-heading"><div><p class="eyebrow">Revenue</p><h2>Commission by currency</h2></div><span class="count-badge">@Report.Commission.Count</span></div>
         @if (Report.Commission.Count == 0)
         {

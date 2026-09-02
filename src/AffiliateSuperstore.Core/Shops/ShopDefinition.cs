@@ -26,6 +26,8 @@ public sealed class ShopDefinition
 
     public bool SmartMatchDiscoveryEnabled { get; set; }
 
+    public List<string> SmartMatchSeedProductIds { get; set; } = [];
+
     public int AdvancedDiscoveryPagesPerQuery { get; set; } = 1;
 
     public string SeoTitle { get; set; } = string.Empty;
