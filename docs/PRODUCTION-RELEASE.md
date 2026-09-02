@@ -752,6 +752,50 @@ unpublished-collection prioritisation explanation. `circlesofstone.co.uk`,
 `www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
 `propertiesandhomes.co.uk` all returned HTTP 200 after the release.
 
+## Eighteenth production release and catalogue relevance hardening
+
+Application commit `1cd4992` was deployed on 2 September 2026. The release
+adds deterministic holds for sewing/craft kits and listings that advertise an
+ambiguous number of sets, preventing those products from entering paid draft
+preparation or automatic publication. It also renders the real editorial
+version number in the automation decision audit instead of the literal Razor
+expression.
+
+A clean detached Release build passed all 232 tests. Both the project and the
+published root `web.config` validated as OutOfProcess. The release contains no
+database migration, package/runtime change, configuration change or automatic-
+publication policy change. The deployed site-only archive had SHA-256
+`CC814125EDC38674B7CBE6C3F8C1FC8D0CCA0CB8F1B161E7DD3782330D3B83DC`.
+
+The archive was uploaded and expanded only in `/wonderaisle` while a target-
+scoped `app_offline.htm` marker held Wonder Aisle offline. `App_Data` and its
+persistent Data Protection key ring were preserved. Provider decompression
+completed successfully, after which the marker was renamed to the inactive
+recovery record `app_offline-20260902-1cd4992.done.htm`. The uploaded archive
+was retained for recovery. No application-pool restart or account-wide action
+was performed.
+
+After deployment, the authenticated quality reassessment checked all 562
+products, persisted flags on 295 and returned two previously approved products
+to review. The public catalogue consequently moved from 19 to 17 products.
+Both published collections remain live at their 12-product indexing targets;
+approved collection assignments moved from 39 to 35. The AI queue now contains
+17 products awaiting human review, including four sewing/craft kits held as
+non-plush products and one multi-set party listing held for ambiguous quantity.
+The owner-approved automatic policy persists at five candidates per hourly run,
+two publications per UTC day, readiness 1.00, duplicate hold 0.75, USD 0.25
+daily AI spend and a USD 5.00 shared monthly cap.
+
+`/health/live`, `/health/ready`, `/`, `/plushies`, a representative product,
+`/robots.txt`, `/sitemap.xml` and both published collection pages returned HTTP
+200. All 27 post-reassessment sitemap URLs, including 17 product URLs, returned
+HTTP 200 with matching canonicals. Anonymous access to `/admin/automation`
+redirected to the administrator login, and unauthenticated S2S remained
+disabled with HTTP 404. `circlesofstone.co.uk`, `www.iloveplushies.co.uk`,
+`www.ilovefnaf.co.uk`, `www.ilovewitchcraft.co.uk`,
+`www.animesuperstore.co.uk` and `propertiesandhomes.co.uk` all returned HTTP
+200 after the release and reassessment.
+
 ## Build a release bundle
 
 From the repository root:

@@ -90,14 +90,15 @@ an automatic downgrade to Shadow after an autonomous dead letter or three
 consecutive product-copy AI failures. Collections, replacements, identity
 merges, expiry and articles remain review-only.
 
-The 2 September production audit contains 562 source offers, 19 approved active
-products, eight collections, two published collections and one review-only AI
-collection draft. Fifteen durable work items have all succeeded. The calendar-
-month AI ledger contains 22 calls at USD 0.009517 estimated spend with no budget
-block; two products have been published through the restricted automatic path.
-The active growth target is 50–100 approved products across 8–10 useful
-collections while retaining the current two-candidate/two-publication caps for
-at least seven days of observation.
+The 2 September production audit contains 562 source offers, 17 approved active
+products after a full relevance reassessment, eight collections, two published
+collections and one review-only AI collection draft. The reassessment persisted
+deterministic holds on 295 products and returned two approved products to review.
+The calendar-month AI ledger contains 33 charged calls at approximately USD
+0.0190 estimated spend with no budget block; two products have been published
+through the restricted automatic path. The active growth target is 50–100
+approved products across 8–10 useful collections while retaining the current
+five-candidate/two-publication profile for at least seven days of observation.
 
 ## Executive decision
 

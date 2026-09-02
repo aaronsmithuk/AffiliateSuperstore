@@ -100,11 +100,11 @@ The MVP is complete when:
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, ordered product media, links, clicks, jobs and order state | Complete; additive freshness/lifecycle evidence and change history are included |
 | 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Operational in production; a protected 15-minute wake schedule, durable due-state, lease renewal, retry/dead-letter recovery, freshness alerts, supervised discovery, weekly collection suggestions and a restricted fail-closed automatic product-publication pilot are working |
-| 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete and live with 19 approved active products; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working. Catalogue depth is the next commercial milestone. |
+| 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete and live with 17 approved active products after the latest relevance reassessment; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working. Catalogue depth is the next commercial milestone. |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
-| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 19 approved products now have original validated editorial copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Eight collections exist and two are published; deeper collection content is the active growth milestone. Filtered pages and the umbrella home remain `noindex,follow` until their quality gates are met. |
-| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP at application release `f65612a`; all 20 migrations, protected recurring catalogue automation, the owner account, 19-product approved catalogue, search indexing, consented analytics, pilot scorecard, reviewed bulk collection assignment, diverse draft-collection AI preparation, conversion preflight and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all neighbouring-site checks pass; production S2S remains fail-closed and is still a conversion-operations follow-on. |
+| 8. SEO/content and visual system | Structured data, sitemaps, editorial landing pages, index controls and reviewed shop identities | MVP launch gate reached; 17 approved products now have original validated editorial copy, canonical URLs, quality-gated sitemap membership, Product/ItemList JSON-LD and live `index,follow` directives. Eight collections exist and two are published at their 12-product thresholds; deeper collection content is the active growth milestone. Filtered pages and the umbrella home remain `noindex,follow` until their quality gates are met. |
+| 9. Production | Admin authentication, security, domain, GitHub, SmarterASP release and monitoring | Operational for the public plushies MVP at application release `1cd4992`; all 20 migrations, protected recurring catalogue automation, the owner account, relevance-hardened 17-product approved catalogue, search indexing, consented analytics, pilot scorecard, reviewed bulk collection assignment, diverse draft-collection AI preparation, conversion preflight and privacy-minimised performance reporting are live. Managed TLS, redirects, HSTS, health, affiliate redirects and all neighbouring-site checks pass; production S2S remains fail-closed and is still a conversion-operations follow-on. |
 
 ## AI-assisted catalogue and content integration
 
@@ -244,15 +244,16 @@ and architecture are in
 ## Current implementation snapshot
 
 As of 2 September 2026, the production SQL Server database contains one enabled
-shop, 562 source offers, 1,346 immutable price/commission snapshots, 562 active
-affiliate links, 86 successful ingestion jobs and all 20 migrations. The
-`plushies` review state contains 19 approved products, 266 needing review and
-277 pending. Eight collections exist, two are published and one evidence-backed
-AI collection suggestion remains a review-only draft. All 15 durable automation
-work items have succeeded; no queued, leased or dead-letter item was present in
-the audit. The month-to-date AI ledger contains 22 calls at an estimated
-USD 0.009517 with no budget-blocked call. The restricted automatic pilot has
-published two fully gated products.
+shop, 562 source offers, 1,346 immutable price/commission snapshots, 1,329
+affiliate-link records and all 20 migrations. The latest full relevance
+reassessment persisted deterministic flags on 295 products and left 17 approved
+products in the public catalogue, with 17 AI-assisted drafts awaiting human
+review. Eight collections exist, two are published at their 12-product targets,
+35 approved collection assignments are present and one evidence-backed AI
+collection suggestion remains a review-only draft. No queued, leased or dead-
+letter automation item was present in the audit. The month-to-date AI ledger
+contains 33 charged calls at an estimated USD 0.0190 with no budget block. The
+restricted automatic pilot has published two fully gated products.
 
 Implemented operational surfaces:
 
@@ -367,7 +368,7 @@ end-to-end live test are confirmed. See `docs/S2S-SETUP.md`.
 ## Next milestone
 
 The technical MVP and public launch gate are complete. The active commercial
-milestone is **catalogue depth and collection usefulness**: grow from 19 to
+milestone is **catalogue depth and collection usefulness**: grow from 17 to
 50–100 approved active products distributed across 8–10 recognisable plushie
 collections, without relaxing the current product publication, duplicate,
 quality, indexability or AI budget gates. A collection must have original useful

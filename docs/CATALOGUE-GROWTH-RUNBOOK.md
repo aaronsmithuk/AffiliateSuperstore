@@ -7,7 +7,8 @@ silently create a larger public risk.
 
 ## Current baseline and targets
 
-- Public catalogue: 19 approved active products.
+- Public catalogue: 17 approved active products after the 2 September full
+  relevance reassessment returned two unsafe products to review.
 - Collections: eight configured, with `animal-friends` and
   `weird-wonderful` currently published.
 - First commercial target: 50 approved active products distributed across
@@ -52,9 +53,9 @@ The first accelerated profile should use:
 - daily product-copy AI allowance USD 0.25;
 - shared monthly AI ceiling USD 5.00.
 
-Only the candidates-per-run setting changes from the current restricted pilot.
-The owner must review the live scorecard and save that change explicitly. The
-system must not apply this profile from configuration or a deployment.
+The owner applied and verified the five-candidate setting in production on 2
+September 2026. The system must not raise that setting, the publication cap or
+either AI budget from configuration or a deployment.
 
 ## Collection expansion loop
 
