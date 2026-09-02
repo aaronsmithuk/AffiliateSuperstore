@@ -123,7 +123,7 @@ public sealed class CatalogueAiQueuePreparationServiceTests
     }
 
     [Fact]
-    public async Task RunAsync_PrioritisesPublishedCollectionCandidatesBeforeDraftCollections()
+    public async Task RunAsync_PrioritisesDraftCollectionCandidatesForReviewCoverage()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
         await SeedQueueAsync(factory, 2, collectionIsPublished: false);
@@ -164,7 +164,32 @@ public sealed class CatalogueAiQueuePreparationServiceTests
         var result = await service.RunAsync("plushies", 1, "queue tester");
 
         Assert.Equal(1, result.DraftsSaved);
-        Assert.Equal("queue-02", Assert.Single(provider.Requests).ProductId);
+        Assert.Equal("queue-01", Assert.Single(provider.Requests).ProductId);
+    }
+
+    [Fact]
+    public async Task RunAsync_SpendsAtMostOncePerNormalisedTitleWithinABatch()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedQueueAsync(factory, 3);
+        await using (var context = factory.CreateDbContext())
+        {
+            (await context.Products.SingleAsync(item => item.AliExpressProductId == "queue-01")).Title =
+                "New 25cm cartoon frog plush toy wholesale";
+            (await context.Products.SingleAsync(item => item.AliExpressProductId == "queue-02")).Title =
+                "25cm cartoon frog plush toy";
+            await context.SaveChangesAsync();
+        }
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Frog Plush Toy",
+            "A soft cartoon frog plush toy prepared as a review draft from the supplied source facts.",
+            [], [], [], "en-GB", "fake", "test-model", Hash("batch-diversity"), 80, 20));
+        var service = CreateService(factory, provider);
+
+        var result = await service.RunAsync("plushies", 3, "queue tester");
+
+        Assert.Equal(2, result.SelectedCount);
+        Assert.Equal(["queue-01", "queue-03"], provider.Requests.Select(request => request.ProductId));
     }
 
     [Fact]
@@ -335,7 +360,7 @@ public sealed class CatalogueAiQueuePreparationServiceTests
             var productId = $"queue-{index:D2}";
             var sourceTitle = index == flaggedProductIndex
                 ? "Hello Kitty character plush toy"
-                : "Highland cow plush toy";
+                : $"Highland cow plush toy style {index}";
             context.Products.Add(new ProductRecord
             {
                 AliExpressProductId = productId,

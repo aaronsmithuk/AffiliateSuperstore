@@ -181,7 +181,7 @@ public sealed class CatalogueAiQueuePreparationService(
         }
 
         var pool = await eligibleProducts
-            .OrderByDescending(item => context.CollectionProducts.Any(membership =>
+            .OrderBy(item => context.CollectionProducts.Any(membership =>
                 membership.ProductId == item.ProductId &&
                 membership.Collection.ShopId == item.ShopId &&
                 membership.Collection.IsPublished))
@@ -200,6 +200,9 @@ public sealed class CatalogueAiQueuePreparationService(
                 item.Product.SellerName,
                 item.Product.SkuId,
                 item.Product.EanCode,
+                item.Product.IdentityProfile == null
+                    ? item.Product.Title
+                    : item.Product.IdentityProfile.NormalizedTitle,
                 item.ReviewStatus,
                 item.IsFeatured,
                 item.DisplayOrder,
@@ -256,12 +259,20 @@ public sealed class CatalogueAiQueuePreparationService(
                 group => group.Select(invocation => invocation.InputHash).ToHashSet(StringComparer.Ordinal),
                 StringComparer.Ordinal);
 
-        return qualityClear
+        var eligible = qualityClear
             .Where(candidate => !duplicateProductIds.Contains(candidate.ProductId))
             .Where(candidate => !rejectedHashesByProduct.TryGetValue(candidate.ProductId, out var hashes) ||
-                !hashes.Contains(candidate.InputHash))
-            .Take(batchSize)
-            .ToArray();
+                !hashes.Contains(candidate.InputHash));
+        var selected = new List<QueueCandidate>(batchSize);
+        var diversityKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var candidate in eligible)
+        {
+            if (!diversityKeys.Add(candidate.BatchDiversityKey)) continue;
+            selected.Add(candidate);
+            if (selected.Count == batchSize) break;
+        }
+
+        return selected;
     }
 
     private static CatalogueAiQueuePreparationResult BuildResult(
@@ -325,12 +336,21 @@ public sealed class CatalogueAiQueuePreparationService(
         string? SellerName,
         string? SkuId,
         string? EanCode,
+        string IdentityNormalizedTitle,
         ProductReviewStatus ReviewStatus,
         bool IsFeatured,
         int DisplayOrder,
         byte[] RowVersion)
     {
+        private static readonly HashSet<string> BatchNoiseWords =
+            ["new", "wholesale"];
+
         public string ExpectedRowVersion => Convert.ToBase64String(RowVersion);
+        public string BatchDiversityKey => string.Join(' ',
+            IdentityNormalizedTitle
+                .ToLowerInvariant()
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .Where(token => !BatchNoiseWords.Contains(token)));
         public string InputHash => CatalogueAiSuggestionService.ComputeInputHash(
             ProductId,
             SourceTitle,

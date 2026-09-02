@@ -26,8 +26,10 @@ silently create a larger public risk.
    collections in bounded, reviewable batches. Assignment never approves a
    product or publishes a collection.
 3. Prepare AI editorial drafts for suitable products assigned to either
-   published or draft collections. This expands the human-review queue, not
-   autonomous publication eligibility.
+   published or draft collections. Manual batches prioritise draft-only
+   collection coverage and avoid paying twice for the same normalised source
+   title within one batch. This expands the human-review queue, not autonomous
+   publication eligibility.
 4. Keep autonomous preparation restricted to products assigned to a published
    collection. Keep all readiness, duplicate, availability, price, link,
    provenance and source-change checks unchanged.
