@@ -39,6 +39,9 @@ public sealed record AffiliatePerformanceReport(
     IReadOnlyList<AffiliatePerformanceBreakdown> Products)
 {
     public IReadOnlyList<AffiliatePerformanceBreakdown> DiscoverySources { get; init; } = [];
+    public int UnattributedOrders { get; init; }
+    public int UnattributedS2sEvents { get; init; }
+    public int AwaitingSettlementOrders { get; init; }
     public decimal ClickThroughRate => Impressions == 0 ? 0 : (decimal)Clicks / Impressions;
     public decimal ClickToOrderRate => Clicks == 0 ? 0 : (decimal)ConvertingClicks / Clicks;
     public int ActiveLinksWithoutClicks => Math.Max(0, ActiveLinks - ActiveLinksClicked);
@@ -119,6 +122,25 @@ public sealed class AffiliatePerformanceService(
                 .ToListAsync(cancellationToken);
         var s2sEvents = await context.AffiliateS2sEvents.AsNoTracking()
             .CountAsync(item => item.ReceivedUtc >= windowStart && item.ReceivedUtc <= now, cancellationToken);
+        var unattributedS2sEvents = await context.AffiliateS2sEvents.AsNoTracking()
+            .CountAsync(item =>
+                item.ReceivedUtc >= windowStart &&
+                item.ReceivedUtc <= now &&
+                item.ClickId == null,
+                cancellationToken);
+        var unattributedOrders = await context.AffiliateOrders.AsNoTracking()
+            .CountAsync(order =>
+                order.PaidUtc >= windowStart &&
+                order.PaidUtc <= now &&
+                order.ClickId == null,
+                cancellationToken);
+        var awaitingSettlementOrders = await context.AffiliateOrders.AsNoTracking()
+            .CountAsync(order =>
+                order.PaidUtc >= windowStart &&
+                order.PaidUtc <= now &&
+                order.Status != AliExpressOrderStatuses.CompletedSettlement &&
+                order.Status != AliExpressOrderStatuses.Invalid,
+                cancellationToken);
 
         var orderLookup = orders.ToLookup(order => order.ClickId, StringComparer.Ordinal);
         var convertingClicks = clicks.Count(click => orderLookup.Contains(click.ClickId));
@@ -158,6 +180,9 @@ public sealed class AffiliatePerformanceService(
                 key => key.Item2,
                 key => key.Item1))
         {
+            UnattributedOrders = unattributedOrders,
+            UnattributedS2sEvents = unattributedS2sEvents,
+            AwaitingSettlementOrders = awaitingSettlementOrders,
             DiscoverySources = BuildBreakdown(
                 clicks,
                 impressions,

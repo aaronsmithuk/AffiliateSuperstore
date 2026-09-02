@@ -67,6 +67,40 @@ public sealed class AffiliateOrderReconciliationServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_ConvergesS2sEstimateIntoSignedApiSettlementWithoutDuplicateOrder()
+    {
+        var factory = await CreateDatabaseAsync();
+        var s2s = new AffiliateS2sIngestionService(factory, new AffiliateS2sOptions
+        {
+            Enabled = true,
+            VerificationToken = "test-fixed-secret-with-at-least-32-chars"
+        }, new FixedTimeProvider(Now.AddHours(-1)));
+        var pushed = await s2s.IngestAsync(new Dictionary<string, string>
+        {
+            ["order_id"] = "order-1",
+            ["item_id"] = "product-1",
+            ["effect_pay_time"] = "2026-08-29 12:00:00",
+            ["commission_fee"] = "1.25",
+            ["currency"] = "USD",
+            ["clickid"] = "click-123"
+        });
+
+        var reconciled = await CreateService(
+            new FakeClient { DiscoveryStatus = AliExpressOrderStatuses.PaymentCompleted },
+            factory).RunAsync();
+
+        Assert.Equal(AffiliateS2sDisposition.Accepted, pushed.Disposition);
+        Assert.Equal(IngestionJobStatus.Succeeded, reconciled.Status);
+        await using var context = factory.CreateDbContext();
+        var order = await context.AffiliateOrders.SingleAsync();
+        Assert.Equal(AliExpressOrderStatuses.CompletedSettlement, order.Status);
+        Assert.Equal(1.25m, order.EstimatedPaidCommission);
+        Assert.Equal(1.11m, order.EstimatedFinishedCommission);
+        Assert.NotNull(order.CompletedSettlementUtc);
+        Assert.Single(context.AffiliateS2sEvents);
+    }
+
+    [Fact]
     public void Planner_UsesShortFailureRetryAndNormalSuccessInterval()
     {
         var options = Options();

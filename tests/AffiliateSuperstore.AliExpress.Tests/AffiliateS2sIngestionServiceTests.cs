@@ -8,6 +8,7 @@ namespace AffiliateSuperstore.AliExpress.Tests;
 public sealed class AffiliateS2sIngestionServiceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 8, 30, 20, 0, 0, TimeSpan.Zero);
+    private const string VerificationToken = "test-fixed-secret-with-at-least-32-chars";
 
     [Fact]
     public async Task IngestAsync_AttributesPaidOrderStoresAllowListedEventAndSuppressesDuplicate()
@@ -21,7 +22,7 @@ public sealed class AffiliateS2sIngestionServiceTests
 
         Assert.Equal(AffiliateS2sDisposition.Accepted, first.Disposition);
         Assert.Equal(AffiliateS2sDisposition.Duplicate, second.Disposition);
-        Assert.True(service.IsAuthorized("test-fixed-secret"));
+        Assert.True(service.IsAuthorized(VerificationToken));
         Assert.False(service.IsAuthorized("wrong-secret"));
         await using var context = factory.CreateDbContext();
         var order = await context.AffiliateOrders.SingleAsync();
@@ -74,11 +75,59 @@ public sealed class AffiliateS2sIngestionServiceTests
         Assert.Contains("order_id", result.Error, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(511)]
+    [InlineData(65537)]
+    public void Options_RejectInvalidPayloadLimit(int maximumPayloadCharacters)
+    {
+        var options = new AffiliateS2sOptions
+        {
+            Enabled = true,
+            VerificationToken = VerificationToken,
+            MaximumPayloadCharacters = maximumPayloadCharacters
+        };
+
+        var error = Assert.Throws<InvalidOperationException>(() => AffiliateS2sOptions.Validate(options));
+
+        Assert.Contains("MaximumPayloadCharacters", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(31)]
+    [InlineData(513)]
+    public void Options_RejectInvalidVerificationTokenLength(int tokenLength)
+    {
+        var options = new AffiliateS2sOptions
+        {
+            Enabled = true,
+            VerificationToken = new string('x', tokenLength)
+        };
+
+        var error = Assert.Throws<InvalidOperationException>(() => AffiliateS2sOptions.Validate(options));
+
+        Assert.Contains("VerificationToken", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IsConfigured_RejectsWeakTokenWhenEnabled()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        var service = new AffiliateS2sIngestionService(factory, new AffiliateS2sOptions
+        {
+            Enabled = true,
+            VerificationToken = "placeholder"
+        }, new FixedTimeProvider(Now));
+
+        Assert.True(service.IsEnabled);
+        Assert.False(service.IsConfigured);
+        Assert.False(service.IsAuthorized("placeholder"));
+    }
+
     private static AffiliateS2sIngestionService CreateService(IDbContextFactory<AffiliateSuperstoreDbContext> factory) =>
         new(factory, new AffiliateS2sOptions
         {
             Enabled = true,
-            VerificationToken = "test-fixed-secret",
+            VerificationToken = VerificationToken,
             MaximumPayloadCharacters = 8192
         }, new FixedTimeProvider(Now));
 

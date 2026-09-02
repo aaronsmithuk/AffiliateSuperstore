@@ -50,7 +50,18 @@ else
         <article class="metric-card"><strong>@Report.ActiveLinksWithoutClicks</strong><span>Active links without clicks</span></article>
         <article class="metric-card"><strong>@Report.InvalidOrders</strong><span>Invalid orders</span></article>
         <article class="metric-card"><strong>@Report.S2sEvents</strong><span>S2S events received</span></article>
+        <article class="metric-card"><strong>@Report.UnattributedOrders</strong><span>Paid orders missing click ID</span></article>
+        <article class="metric-card"><strong>@Report.UnattributedS2sEvents</strong><span>S2S events missing click ID</span></article>
+        <article class="metric-card"><strong>@Report.AwaitingSettlementOrders</strong><span>Orders awaiting terminal state</span></article>
     </section>
+
+    @if (Report.UnattributedOrders > 0 || Report.UnattributedS2sEvents > 0)
+    {
+        <div class="alert-card warning-card automation-note">
+            <strong>Attribution needs review</strong>
+            <span>These provider events could not be joined to an outbound click. Check the Portals <code>dp</code> → <code>clickid</code> mapping and compare the stored sub-orders with Live Order Tracking.</span>
+        </div>
+    }
 
     <section class="panel catalogue-table-panel">
         <div class="panel-heading"><div><p class="eyebrow">Advanced API cohorts</p><h2>Performance by first discovery source</h2></div><span class="count-badge">@Report.DiscoverySources.Count</span></div>

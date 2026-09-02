@@ -12,6 +12,10 @@ endpoint requires a long random fixed parameter and treats the push as an
 estimated conversion only. The signed order API remains the source of truth
 for settlement and invalidation.
 
+The fixed token must contain 32–512 characters. Invalid payload bounds or a
+short/missing token make an enabled endpoint return `503 Service Unavailable`;
+they cannot put it into a weak ready state. Responses are marked `no-store`.
+
 ## Production configuration
 
 Store these values in protected hosting configuration, never in committed
@@ -63,6 +67,8 @@ creating a second inbox event or order.
 
 ## Release check
 
+Follow the controlled activation, live validation, evidence and rollback
+sequence in [`CONVERSION-OPERATIONS-RUNBOOK.md`](CONVERSION-OPERATIONS-RUNBOOK.md).
 After deploying but before enabling the AliExpress rule:
 
 Follow the baseline deployment and sibling-site checks in
@@ -74,7 +80,12 @@ Follow the baseline deployment and sibling-site checks in
 4. Confirm one S2S event and one Payment Completed order appear in
    `/admin/orders`.
 5. Repeat the same callback and confirm the counts do not increase.
-6. Remove the synthetic records before launch.
+6. Remove only the recorded synthetic records in a reviewed transaction before
+   launch.
+
+This synthetic check does not prove Portals delivery, click attribution or
+settlement. Final acceptance requires a legitimate unrelated-customer event;
+do not make a self-purchase to manufacture one.
 
 Do not enable S2S on local development: the admin is authenticated, but there
 is no stable public HTTPS callback URL and the local token is not a production

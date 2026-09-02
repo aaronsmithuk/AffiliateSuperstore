@@ -36,7 +36,21 @@ public sealed class AffiliateS2sIngestionService(
     };
 
     public bool IsEnabled => options.Enabled;
-    public bool IsConfigured => options.Enabled && !string.IsNullOrWhiteSpace(options.VerificationToken);
+    public bool IsConfigured
+    {
+        get
+        {
+            try
+            {
+                AffiliateS2sOptions.Validate(options);
+                return options.Enabled;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+    }
 
     public bool IsAuthorized(string? suppliedToken)
     {
@@ -51,10 +65,7 @@ public sealed class AffiliateS2sIngestionService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (options.MaximumPayloadCharacters is < 512 or > 65536)
-        {
-            throw new InvalidOperationException("AliExpressS2s:MaximumPayloadCharacters must be between 512 and 65536.");
-        }
+        AffiliateS2sOptions.Validate(options);
 
         var subOrderId = Limit(Get(input, "order_id"), 100);
         if (subOrderId is null)

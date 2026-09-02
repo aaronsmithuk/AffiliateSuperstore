@@ -13,6 +13,10 @@ Project-specific consequences are maintained separately in
 [IMPLEMENTATION-NOTES.md](IMPLEMENTATION-NOTES.md), so captured source material
 can remain unchanged.
 
+Volatile agreement, quota, cache, API-lifecycle and commission conclusions are
+tracked in [EVIDENCE-STATUS.md](EVIDENCE-STATUS.md). It distinguishes confirmed
+evidence from production blockers and gives the redacted recapture procedure.
+
 ## 1. Binding programme documents
 
 - [Affiliate Program Service Agreement](sources/01-affiliate-program-service-agreement.md)
