@@ -16,9 +16,23 @@ public sealed record AutonomousPilotDayReport(
     int BudgetBlocks,
     decimal AiSpendUsd);
 
+public enum AutonomousPilotPromotionState
+{
+    NotStarted,
+    Observing,
+    Blocked,
+    ReadyForOwnerReview
+}
+
+public sealed record AutonomousPilotPromotionAssessment(
+    AutonomousPilotPromotionState State,
+    IReadOnlyList<string> Findings);
+
 public sealed record AutonomousPilotReport(
+    DateTimeOffset GeneratedUtc,
     DateTimeOffset WindowStartUtc,
     DateTimeOffset WindowEndUtc,
+    DateTimeOffset? FirstAutomaticEvaluationUtc,
     IReadOnlyList<AutonomousPilotDayReport> Days,
     int AutomaticEvaluations,
     int ShadowEvaluations,
@@ -34,11 +48,72 @@ public sealed record AutonomousPilotReport(
     int PendingReviews,
     int FailedReviews,
     int DeadLetterReviews,
-    int SafetyPausedPolicies)
+    int SafetyPausedPolicies,
+    int AutomaticPolicies)
 {
     public bool HasCriticalFault => DeadLetterReviews > 0 || SafetyPausedPolicies > 0;
     public bool HasWarning => !HasCriticalFault &&
         (AutomaticEvaluations == 0 || FailedReviews > 0 || AiFailures > 0 || BudgetBlocks > 0);
+    public AutonomousPilotPromotionAssessment Promotion => AutonomousPilotPromotionPolicy.Assess(this);
+}
+
+public static class AutonomousPilotPromotionPolicy
+{
+    public const int MinimumObservationDays = 7;
+    public const int MinimumAutomaticEvaluations = 14;
+    public const int MinimumAutomaticPublications = 7;
+
+    public static AutonomousPilotPromotionAssessment Assess(AutonomousPilotReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        var blockers = new List<string>();
+        if (report.SafetyPausedPolicies > 0) blockers.Add("A policy was downgraded by the automatic safety circuit.");
+        if (report.DeadLetterReviews > 0) blockers.Add("Autonomous review work reached the dead-letter queue.");
+        if (report.FailedReviews > 0) blockers.Add("Autonomous review work was cancelled during the evidence window.");
+        if (report.AiFailures > 0) blockers.Add("Product-copy AI calls failed during the evidence window.");
+        if (report.BudgetBlocks > 0) blockers.Add("The AI budget blocked product-copy work during the evidence window.");
+        if (blockers.Count > 0)
+        {
+            return new(AutonomousPilotPromotionState.Blocked, blockers);
+        }
+
+        if (report.FirstAutomaticEvaluationUtc is null)
+        {
+            return new(AutonomousPilotPromotionState.NotStarted,
+                ["No automatic catalogue decision has been recorded yet."]);
+        }
+
+        if (report.AutomaticPolicies == 0)
+        {
+            return new(AutonomousPilotPromotionState.Blocked,
+                ["No shop currently has an Automatic policy armed."]);
+        }
+
+        var observations = new List<string>();
+        var observationAge = report.GeneratedUtc - report.FirstAutomaticEvaluationUtc.Value;
+        if (observationAge < TimeSpan.FromDays(MinimumObservationDays))
+        {
+            var remaining = Math.Max(1, (int)Math.Ceiling((TimeSpan.FromDays(MinimumObservationDays) - observationAge).TotalDays));
+            observations.Add($"Observe for approximately {remaining} more day(s) before reviewing the limits.");
+        }
+        if (report.AutomaticEvaluations < MinimumAutomaticEvaluations)
+        {
+            observations.Add($"Record at least {MinimumAutomaticEvaluations} automatic decisions in the rolling window ({report.AutomaticEvaluations} recorded).");
+        }
+        if (report.Published < MinimumAutomaticPublications)
+        {
+            observations.Add($"Review at least {MinimumAutomaticPublications} automatic publications in the rolling window ({report.Published} recorded).");
+        }
+        if (report.PendingReviews > 0)
+        {
+            observations.Add($"Let the autonomous review queue drain ({report.PendingReviews} pending or leased).");
+        }
+
+        return observations.Count > 0
+            ? new(AutonomousPilotPromotionState.Observing, observations)
+            : new(AutonomousPilotPromotionState.ReadyForOwnerReview,
+                ["Seven days and the minimum evidence volume are complete with no recorded safety, queue, AI or budget faults."]);
+    }
 }
 
 public sealed class AutonomousPilotReportService(
@@ -59,6 +134,11 @@ public sealed class AutonomousPilotReportService(
             .Where(item => item.EvaluatedUtc >= windowStart && item.EvaluatedUtc < windowEnd)
             .Select(item => new DecisionSample(item.EvaluatedUtc, item.Mode, item.Decision, item.Action))
             .ToListAsync(cancellationToken);
+        var firstAutomaticEvaluationUtc = await context.AutonomousCatalogueDecisions.AsNoTracking()
+            .Where(item => item.Mode == AutonomousCatalogueMode.Automatic)
+            .OrderBy(item => item.EvaluatedUtc)
+            .Select(item => (DateTimeOffset?)item.EvaluatedUtc)
+            .FirstOrDefaultAsync(cancellationToken);
         var invocations = await context.AiInvocations.AsNoTracking()
             .Where(item => item.Purpose == AiInvocationAuditService.ProductCopyPurpose &&
                            item.RequestedUtc >= windowStart && item.RequestedUtc < windowEnd)
@@ -73,9 +153,12 @@ public sealed class AutonomousPilotReportService(
                            item.QueuedUtc >= windowStart && item.QueuedUtc < windowEnd)
             .Select(item => item.Status)
             .ToListAsync(cancellationToken);
-        var safetyPausedPolicies = await context.AutonomousCataloguePolicies.AsNoTracking()
-            .CountAsync(item => item.Mode == AutonomousCatalogueMode.Shadow &&
-                                item.UpdatedBy.StartsWith("automatic safety:"), cancellationToken);
+        var policies = await context.AutonomousCataloguePolicies.AsNoTracking()
+            .Select(item => new { item.Mode, item.UpdatedBy })
+            .ToListAsync(cancellationToken);
+        var safetyPausedPolicies = policies.Count(item =>
+            item.Mode == AutonomousCatalogueMode.Shadow &&
+            item.UpdatedBy.StartsWith("automatic safety:", StringComparison.OrdinalIgnoreCase));
 
         var days = Enumerable.Range(0, dayCount)
             .Select(offset => BuildDay(
@@ -85,8 +168,10 @@ public sealed class AutonomousPilotReportService(
             .ToArray();
 
         return new AutonomousPilotReport(
+            now,
             windowStart,
             windowEnd,
+            firstAutomaticEvaluationUtc,
             days,
             days.Sum(item => item.AutomaticEvaluations),
             days.Sum(item => item.ShadowEvaluations),
@@ -102,7 +187,8 @@ public sealed class AutonomousPilotReportService(
             reviews.Count(item => item is AutomationWorkStatus.Pending or AutomationWorkStatus.Leased),
             reviews.Count(item => item == AutomationWorkStatus.Cancelled),
             reviews.Count(item => item == AutomationWorkStatus.DeadLetter),
-            safetyPausedPolicies);
+            safetyPausedPolicies,
+            policies.Count(item => item.Mode == AutonomousCatalogueMode.Automatic));
     }
 
     private static AutonomousPilotDayReport BuildDay(

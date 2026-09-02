@@ -381,6 +381,13 @@ increase. Review daily publications, holds, dead letters, provider failures,
 spend and unexpected source changes. Any safety downgrade stays in Shadow until
 the cause is reviewed and the owner deliberately re-arms Automatic mode.
 
+The admin now applies a conservative, deterministic limit-review policy. It can
+recommend owner review only after at least seven elapsed days, 14 automatic
+decisions and seven automatic publications in the rolling seven-day evidence
+window, with the review queue drained and no AI failure, budget block, cancelled
+review, dead letter or safety pause. The recommendation is advisory: it never
+changes a policy, candidate limit, publication cap or AI budget.
+
 Production S2S activation is the parallel conversion milestone. Identity gold-
 set growth, automatic canonical linking, replacement automation and evidence-led
 articles remain later work; they do not block catalogue-depth delivery.

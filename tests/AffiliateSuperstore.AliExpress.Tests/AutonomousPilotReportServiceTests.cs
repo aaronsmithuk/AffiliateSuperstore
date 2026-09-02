@@ -55,6 +55,7 @@ public sealed class AutonomousPilotReportServiceTests
         Assert.Equal(1, report.PendingReviews);
         Assert.True(report.HasWarning);
         Assert.False(report.HasCriticalFault);
+        Assert.Equal(AutonomousPilotPromotionState.Blocked, report.Promotion.State);
     }
 
     [Fact]
@@ -91,6 +92,54 @@ public sealed class AutonomousPilotReportServiceTests
         Assert.Equal(1, report.SafetyPausedPolicies);
         Assert.True(report.HasCriticalFault);
         Assert.False(report.HasWarning);
+        Assert.Equal(AutonomousPilotPromotionState.Blocked, report.Promotion.State);
+    }
+
+    [Fact]
+    public async Task GetReportAsync_OnlyRecommendsOwnerReviewAfterMinimumCleanEvidence()
+    {
+        var now = new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero);
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await using (var context = factory.CreateDbContext())
+        {
+            context.AutonomousCataloguePolicies.Add(new AutonomousCataloguePolicyRecord
+            {
+                ShopId = Guid.CreateVersion7(),
+                Mode = AutonomousCatalogueMode.Automatic,
+                UpdatedBy = "owner@example.test",
+                CreatedUtc = now.AddDays(-9),
+                UpdatedUtc = now.AddDays(-9)
+            });
+            context.AutonomousCatalogueDecisions.Add(
+                Decision(now.AddDays(-8), AutonomousCatalogueMode.Automatic, AutonomousCatalogueDecision.Hold, AutonomousCatalogueAction.None));
+            context.AutonomousCatalogueDecisions.AddRange(Enumerable.Range(0, 14).Select(index =>
+                Decision(
+                    now.AddHours(-index * 10),
+                    AutonomousCatalogueMode.Automatic,
+                    index < 7 ? AutonomousCatalogueDecision.WouldPublish : AutonomousCatalogueDecision.Hold,
+                    index < 7 ? AutonomousCatalogueAction.Published : AutonomousCatalogueAction.None)));
+            await context.SaveChangesAsync();
+        }
+
+        var report = await new AutonomousPilotReportService(factory, new FixedTimeProvider(now)).GetReportAsync();
+
+        Assert.Equal(14, report.AutomaticEvaluations);
+        Assert.Equal(7, report.Published);
+        Assert.Equal(1, report.AutomaticPolicies);
+        Assert.Equal(now.AddDays(-8), report.FirstAutomaticEvaluationUtc);
+        Assert.Equal(AutonomousPilotPromotionState.ReadyForOwnerReview, report.Promotion.State);
+        Assert.Single(report.Promotion.Findings);
+    }
+
+    [Fact]
+    public async Task GetReportAsync_ReportsNotStartedWithoutAutomaticEvidence()
+    {
+        var now = new DateTimeOffset(2026, 9, 2, 12, 0, 0, TimeSpan.Zero);
+        var report = await new AutonomousPilotReportService(
+            new InMemoryFactory(Guid.NewGuid().ToString("N")),
+            new FixedTimeProvider(now)).GetReportAsync();
+
+        Assert.Equal(AutonomousPilotPromotionState.NotStarted, report.Promotion.State);
     }
 
     private static AutonomousCatalogueDecisionRecord Decision(

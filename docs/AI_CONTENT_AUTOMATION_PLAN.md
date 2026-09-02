@@ -699,6 +699,14 @@ expiry actions remain outside this exception. An automatic safety circuit
 downgrades the policy to Shadow after an autonomous dead letter or three
 consecutive product-copy AI failures since the latest owner acknowledgement.
 
+Cap increases remain an explicit owner decision. `/admin/automation` may mark
+the pilot ready for owner review only after seven elapsed days, at least 14
+automatic decisions and seven automatic publications in the rolling evidence
+window, a drained autonomous-review queue, and zero AI failures, budget blocks,
+cancelled reviews, dead letters or safety pauses. These are conservative local
+operating gates rather than AliExpress programme rules, and the assessment never
+changes configuration automatically.
+
 1. Offline POC and gold-set baselines.
 2. Shadow mode: compute flags/matches/lifecycle actions but change nothing.
 3. Review-only mode for one shop and 10% sample.

@@ -154,14 +154,26 @@
             <span class="result-badge @PilotStatusClass(PilotReport)">@PilotStatusLabel(PilotReport)</span>
         </div>
         <div class="metric-grid" aria-label="Automatic pilot health">
+            <article class="metric-card"><strong>@PilotReport.AutomaticEvaluations</strong><span>Automatic decisions</span></article>
             <article class="metric-card"><strong>@PilotReport.Published</strong><span>Automatic publications</span></article>
             <article class="metric-card"><strong>@PilotReport.Held</strong><span>Held decisions</span></article>
             <article class="metric-card"><strong>@PilotReport.ActiveObservationDays / 7</strong><span>Days with automatic decisions</span></article>
+            <article class="metric-card"><strong>@PilotAge(PilotReport)</strong><span>Elapsed pilot observation</span></article>
             <article class="metric-card"><strong>$@PilotReport.AiSpendUsd.ToString("0.0000")</strong><span>Product-copy AI spend</span></article>
             <article class="metric-card"><strong>@PilotReport.AiFailures</strong><span>AI failures</span></article>
             <article class="metric-card"><strong>@PilotReport.BudgetBlocks</strong><span>Budget blocks</span></article>
             <article class="metric-card"><strong>@PilotReport.DeadLetterReviews</strong><span>Review dead letters</span></article>
             <article class="metric-card"><strong>@PilotReport.SafetyPausedPolicies</strong><span>Safety-paused policies</span></article>
+        </div>
+        <div class="alert-card @PromotionAlertClass(PilotReport.Promotion.State) automation-note" role="status">
+            <strong>Limit recommendation: @PromotionLabel(PilotReport.Promotion.State)</strong>
+            <span>This is deterministic decision support only. It never changes the policy, candidate limit, publication cap or AI budget.</span>
+            <ul class="validation-findings">
+                @foreach (var finding in PilotReport.Promotion.Findings)
+                {
+                    <li>@finding</li>
+                }
+            </ul>
         </div>
         <div class="table-scroll">
             <table class="admin-table">
@@ -588,6 +600,9 @@ else
     private static string DecisionLabel(AutonomousCatalogueDecision decision) => decision == AutonomousCatalogueDecision.WouldPublish ? "Would publish" : "Hold";
     private static string PilotStatusClass(AutonomousPilotReport report) => report.HasCriticalFault ? "failure" : report.HasWarning ? string.Empty : "success";
     private static string PilotStatusLabel(AutonomousPilotReport report) => report.HasCriticalFault ? "Action required" : report.HasWarning ? "Watch" : "Healthy";
+    private static string PromotionAlertClass(AutonomousPilotPromotionState state) => state switch { AutonomousPilotPromotionState.ReadyForOwnerReview => "success-card", AutonomousPilotPromotionState.Blocked => "error-card", _ => "warning-card" };
+    private static string PromotionLabel(AutonomousPilotPromotionState state) => state switch { AutonomousPilotPromotionState.ReadyForOwnerReview => "ready for owner review", AutonomousPilotPromotionState.Blocked => "blocked", AutonomousPilotPromotionState.Observing => "keep observing", _ => "not started" };
+    private static string PilotAge(AutonomousPilotReport report) => report.FirstAutomaticEvaluationUtc is null ? "—" : (report.GeneratedUtc - report.FirstAutomaticEvaluationUtc.Value).TotalDays < 1 ? "<1 day" : $"{(int)(report.GeneratedUtc - report.FirstAutomaticEvaluationUtc.Value).TotalDays} days";
     private static string ShortError(string error) => error.Length <= 100 ? error : error[..100] + "…";
     private static string AlertClass(AutomationAlertSeverity severity) => severity switch { AutomationAlertSeverity.Critical => "error-card", AutomationAlertSeverity.Warning => "warning-card", _ => "success-card" };
     private static string Duration(DateTimeOffset? startedUtc, DateTimeOffset? completedUtc) => startedUtc is null ? "—" : completedUtc is null ? "Running" : (completedUtc.Value - startedUtc.Value).TotalSeconds < 60 ? $"{(completedUtc.Value - startedUtc.Value).TotalSeconds:N0} sec" : $"{(completedUtc.Value - startedUtc.Value).TotalMinutes:N1} min";
