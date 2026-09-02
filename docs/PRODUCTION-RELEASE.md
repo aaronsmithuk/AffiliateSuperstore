@@ -704,6 +704,19 @@ the administrator login, and unauthenticated S2S remained disabled with HTTP
 `www.animesuperstore.co.uk` and `propertiesandhomes.co.uk` all returned HTTP
 200 after the release.
 
+After release verification, the authenticated owner increased the hourly
+candidate limit from two to five. The two-publications-per-UTC-day ceiling,
+readiness 1.00, duplicate hold 0.75, USD 0.25 daily product-AI allowance and
+USD 5.00 shared monthly cap were retained. The day had already reached its two-
+publication ceiling, so the change increased evaluation throughput without
+allowing another same-day publication.
+
+The first administrator-triggered accelerated batch considered ten candidates
+from published and unpublished collection assignments. Eight mechanically
+validated review drafts were saved, two were blocked, none failed and nothing
+was approved or published. The batch used 5,346 input and 4,002 output tokens
+at an estimated cost of USD 0.005872.
+
 ## Build a release bundle
 
 From the repository root:

@@ -34,7 +34,7 @@ permit automatic shops, collections, guides, comparisons, recommendations or
 keyword pages.
 
 During the current live pilot the system may publish at most two products per UTC
-day and evaluate at most two candidates per hourly autonomous run. A candidate must pass
+day and evaluate at most five candidates per hourly autonomous run. A candidate must pass
 every deterministic gate: active and eligible; directly checked within the
 freshness window; currently available with positive source price; working
 affiliate link; usable product URL and image; membership of a published

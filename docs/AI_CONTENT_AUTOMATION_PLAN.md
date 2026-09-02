@@ -83,7 +83,7 @@ warnings, one was blocked, and none failed. The run used 4,650 input and 3,160
 output tokens at an estimated USD 0.004722. Database verification found five AI
 editorial versions, all five still awaiting human review and zero approved.
 The historical review-only rollout above has since advanced to the
-owner-approved restricted `plushies` pilot: two candidates per hourly run, two
+owner-approved restricted `plushies` pilot: five candidates per hourly run, two
 fully gated product publications per UTC day, a USD 5 shared monthly cap, and
 an automatic downgrade to Shadow after an autonomous dead letter or three
 consecutive product-copy AI failures. Collections, replacements, identity
@@ -697,7 +697,7 @@ quality. Do not optimize for raw word count or publication volume.
 Owner decision, 2 September 2026: the individual product-copy workflow may move
 from shadow to a tightly capped production pilot before the broader four-week
 identity/replacement rollout completes. The exception is limited to two
-`plushies` products per UTC day, two candidates per hourly run, the current audited prompt,
+`plushies` products per UTC day, five candidates per hourly run, the current audited prompt,
 and all gates recorded in `SEARCH-CONTENT-GOVERNANCE.md`. New categories,
 collections, articles, comparisons, recommendations, canonical merges and
 expiry actions remain outside this exception. An automatic safety circuit
