@@ -577,6 +577,30 @@ access to `/admin/collection-suggestions` redirected to `/admin/login`.
 `propertiesandhomes.co.uk` all returned HTTP 200 after canonical redirects.
 No application-pool or account-wide restart was performed.
 
+After four successful autonomous cycles had demonstrated one correct probable-
+duplicate hold, one fully gated publication and one correct daily-limit hold,
+the owner approved a conservative pilot expansion. A fresh production SQL
+backup completed successfully at 12:54 PM local time before the policy row was
+changed. The hourly policy now considers at most two candidates and permits at
+most two automatic publications per UTC day. Readiness remains 1.00, duplicate
+holds remain at confidence 0.75, the daily AI allowance remains USD 0.25 and
+the shared monthly hard limit remains USD 5.00.
+
+An explicitly queued supervised cycle completed successfully on its first
+attempt after the existing scheduled wake. It evaluated two candidates: one
+was held for `editorial.source-changed` and `duplicate.probable`, while the
+other passed every deterministic gate and became the second automatic
+publication of the UTC day. The two AI calls used 1,091 input and 688 output
+tokens at an estimated cost of USD 0.0010438. Production then reported 19
+approved active products, exactly two automatic publications for the day,
+USD 0.009517 month-to-date AI spend and zero budget-blocked calls.
+
+Both health endpoints, the catalogue, new product `1005008351465839` and the
+sitemap returned HTTP 200; the sitemap includes the new product. All six
+neighbouring production sites returned HTTP 200. This was a database policy
+change only: no application files were deployed, no `app_offline.htm` was
+created and no application-pool action was taken.
+
 ## Build a release bundle
 
 From the repository root:
