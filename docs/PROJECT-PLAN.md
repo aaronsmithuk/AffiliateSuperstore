@@ -375,6 +375,10 @@ copy and enough approved products before it is published or indexed. The second
 shop remains deferred until this milestone demonstrates stable discovery,
 editorial throughput and useful click behaviour.
 
+The controlled operating sequence, initial accelerated profile and daily stop
+conditions are maintained in
+[`CATALOGUE-GROWTH-RUNBOOK.md`](CATALOGUE-GROWTH-RUNBOOK.md).
+
 The automatic product pilot remains capped at two candidates per hourly run and
 two publications per UTC day. Operate it for at least seven days before any cap
 increase. Review daily publications, holds, dead letters, provider failures,
