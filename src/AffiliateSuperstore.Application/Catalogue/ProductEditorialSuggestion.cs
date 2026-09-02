@@ -93,7 +93,7 @@ public sealed class CatalogueAiSuggestionService(
     AiInvocationAuditService invocationAudit,
     AiAutomationOptions options)
 {
-    public const string PromptVersion = "product-editorial-v2";
+    public const string PromptVersion = "product-editorial-v3";
     public const int MaximumShadowSampleSize = 10;
 
     public async Task<CatalogueAiSuggestionResult> SuggestAsync(

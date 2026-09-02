@@ -113,6 +113,12 @@ public sealed class AiInvocationAuditServiceTests
         using var requestJson = JsonDocument.Parse(handler.RequestBody!);
         Assert.False(requestJson.RootElement.GetProperty("store").GetBoolean());
         Assert.Equal("gpt-5.6-luna", requestJson.RootElement.GetProperty("model").GetString());
+        var instructions = requestJson.RootElement.GetProperty("instructions").GetString();
+        Assert.Contains("100 to 280 characters", instructions, StringComparison.Ordinal);
+        Assert.Contains("cannot support at least 80 useful characters", instructions, StringComparison.Ordinal);
+        Assert.Equal(
+            CatalogueAiSuggestionService.PromptVersion,
+            requestJson.RootElement.GetProperty("metadata").GetProperty("prompt_version").GetString());
         var format = requestJson.RootElement.GetProperty("text").GetProperty("format");
         Assert.Equal("json_schema", format.GetProperty("type").GetString());
         Assert.True(format.GetProperty("strict").GetBoolean());
