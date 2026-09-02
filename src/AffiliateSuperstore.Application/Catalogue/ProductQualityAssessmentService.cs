@@ -146,13 +146,13 @@ public sealed partial class ProductQualityAssessmentService(
     [GeneratedRegex(@"\b(cigar|cigarette|tobacco)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TobaccoPattern();
 
-    [GeneratedRegex(@"\b\d+\s*(pcs|pieces)\b|\b\d+\s*[~-]\s*\d+\s*pcs\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b\d+\s*(pcs|pieces|sets)\b|\b\d+\s*[~-]\s*\d+\s*(pcs|pieces|sets)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AmbiguousQuantityPattern();
 
     [GeneratedRegex(@"\b\d+\s*[-/]\s*\d+\s*(cm|inches?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex VariantSizePattern();
 
-    [GeneratedRegex(@"\b(plush\s+fabric|doll\s+(shoes|slippers|accessories)|squeeze\s+ball|squishy\s+stress|plush\s+(backpack|crossbody|shoulder\s+bag|pencil\s+case|coin\s+purse)|slap\s+snap\s+wrap|wristband\s+bracelet)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(plush\s+fabric|(?:diy\s+)?(?:sewing|craft)\s+(?:kit|set)|doll\s+(shoes|slippers|accessories)|squeeze\s+ball|squishy\s+stress|plush\s+(backpack|crossbody|shoulder\s+bag|pencil\s+case|coin\s+purse)|slap\s+snap\s+wrap|wristband\s+bracelet)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NonPlushProductPattern();
 
     [GeneratedRegex(@"\b(pet\s+supplies|dog\s+toys?|cat\s+toys?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

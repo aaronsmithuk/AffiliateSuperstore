@@ -30,6 +30,8 @@ public sealed class ProductQualityAssessmentServiceTests
     [InlineData("Genuine YELL original otter capsule figure", "ip.licensing-claim")]
     [InlineData("Cute frog plush toy 25/35cm", "listing.variant-dependent-price")]
     [InlineData("Otter plush backpack crossbody bag", "scope.non-plush-product")]
+    [InlineData("Kids Sewing Kit Woodland Animals Craft DIY Sewing Felt Plush Animals", "scope.non-plush-product")]
+    [InlineData("12-36Sets Adopt A Chick Mini Wind Up Chicks Plush Party Favour", "listing.ambiguous-quantity")]
     public void Assess_RiskyOrOutOfScopeTitle_ReturnsExpectedFlag(string title, string expectedCode)
     {
         var service = new ProductQualityAssessmentService(null!, TimeProvider.System);

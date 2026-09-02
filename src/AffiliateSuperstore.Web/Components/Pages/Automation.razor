@@ -226,7 +226,7 @@
         {
             <tr>
                 <td>@LocalTime(decision.EvaluatedUtc)</td>
-                <td><strong>@decision.ProductTitle</strong><small>@decision.ProductId · @decision.ShopSlug · editorial v@decision.EditorialVersionNumber</small></td>
+                <td><strong>@decision.ProductTitle</strong><small>@decision.ProductId · @decision.ShopSlug · editorial v@(decision.EditorialVersionNumber)</small></td>
                 <td><span class="result-badge @DecisionClass(decision.Decision)">@DecisionLabel(decision.Decision)</span></td>
                 <td>@decision.ReadinessScore.ToString("P0")</td>
                 <td><span>@decision.Mode</span><small>@decision.Action</small></td>
