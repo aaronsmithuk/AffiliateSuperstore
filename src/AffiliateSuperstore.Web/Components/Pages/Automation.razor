@@ -8,6 +8,7 @@
 @inject TimeProvider TimeProvider
 @inject AutomationWorkQueueService WorkQueue
 @inject CatalogueAutomationMonitorService MonitorService
+@inject AutonomousPilotReportService PilotReportService
 @inject AffiliateSuperstore.Web.Services.CatalogueAutomationWakeSignal WakeSignal
 @inject AutonomousCataloguePolicyService PolicyService
 @inject AutonomousCatalogueOptions AutonomousOptions
@@ -140,6 +141,51 @@
         </div>
     }
 </section>
+
+@if (PilotReport is not null)
+{
+    <section class="panel catalogue-table-panel">
+        <div class="panel-heading">
+            <div>
+                <p class="eyebrow">Seven-day evidence window</p>
+                <h2>Restricted automatic pilot</h2>
+                <p class="panel-copy">UTC evidence from @PilotReport.WindowStartUtc.ToString("dd MMM") through @PilotReport.WindowEndUtc.AddDays(-1).ToString("dd MMM yyyy"). Empty days remain visible so observation coverage is not overstated.</p>
+            </div>
+            <span class="result-badge @PilotStatusClass(PilotReport)">@PilotStatusLabel(PilotReport)</span>
+        </div>
+        <div class="metric-grid" aria-label="Automatic pilot health">
+            <article class="metric-card"><strong>@PilotReport.Published</strong><span>Automatic publications</span></article>
+            <article class="metric-card"><strong>@PilotReport.Held</strong><span>Held decisions</span></article>
+            <article class="metric-card"><strong>@PilotReport.ActiveObservationDays / 7</strong><span>Days with automatic decisions</span></article>
+            <article class="metric-card"><strong>$@PilotReport.AiSpendUsd.ToString("0.0000")</strong><span>Product-copy AI spend</span></article>
+            <article class="metric-card"><strong>@PilotReport.AiFailures</strong><span>AI failures</span></article>
+            <article class="metric-card"><strong>@PilotReport.BudgetBlocks</strong><span>Budget blocks</span></article>
+            <article class="metric-card"><strong>@PilotReport.DeadLetterReviews</strong><span>Review dead letters</span></article>
+            <article class="metric-card"><strong>@PilotReport.SafetyPausedPolicies</strong><span>Safety-paused policies</span></article>
+        </div>
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead><tr><th>UTC date</th><th>Automatic</th><th>Shadow</th><th>Publishable</th><th>Held</th><th>Published</th><th>AI calls</th><th>Failures / blocks</th><th>Spend</th></tr></thead>
+                <tbody>
+                @foreach (var day in PilotReport.Days.OrderByDescending(item => item.Date))
+                {
+                    <tr>
+                        <td><strong>@day.Date.ToString("dd MMM yyyy")</strong></td>
+                        <td>@day.AutomaticEvaluations</td>
+                        <td>@day.ShadowEvaluations</td>
+                        <td>@day.WouldPublish</td>
+                        <td>@day.Held</td>
+                        <td>@day.Published</td>
+                        <td>@day.AiCalls</td>
+                        <td>@day.AiFailures / @day.BudgetBlocks</td>
+                        <td>$@day.AiSpendUsd.ToString("0.0000")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
 
 <section class="metric-grid" aria-label="Autonomous shadow results">
     <article class="metric-card"><strong>@RecentDecisionRows.Count</strong><span>Recent decisions</span></article>
@@ -324,6 +370,7 @@ else
     private PolicyEditorModel? PolicyEditor;
     private AutomationQueueHealth? QueueHealth;
     private CatalogueAutomationMonitoringReport? Monitoring;
+    private AutonomousPilotReport? PilotReport;
     private bool IsLoading;
     private bool IsActing;
     private bool IsBusy => IsLoading || IsActing;
@@ -372,6 +419,7 @@ else
             Shops = rows;
             QueueHealth = await WorkQueue.GetHealthAsync();
             Monitoring = await MonitorService.GetReportAsync(Options);
+            PilotReport = await PilotReportService.GetReportAsync();
             Policies = (await PolicyService.GetAllAsync()).ToList();
             SelectedPolicySlug = Policies.Any(item => item.ShopSlug == SelectedPolicySlug)
                 ? SelectedPolicySlug
@@ -538,6 +586,8 @@ else
     private static string ModeClass(AutonomousCatalogueMode mode) => mode == AutonomousCatalogueMode.Shadow ? "success" : mode == AutonomousCatalogueMode.Automatic ? "failure" : string.Empty;
     private static string DecisionClass(AutonomousCatalogueDecision decision) => decision == AutonomousCatalogueDecision.WouldPublish ? "success" : "failure";
     private static string DecisionLabel(AutonomousCatalogueDecision decision) => decision == AutonomousCatalogueDecision.WouldPublish ? "Would publish" : "Hold";
+    private static string PilotStatusClass(AutonomousPilotReport report) => report.HasCriticalFault ? "failure" : report.HasWarning ? string.Empty : "success";
+    private static string PilotStatusLabel(AutonomousPilotReport report) => report.HasCriticalFault ? "Action required" : report.HasWarning ? "Watch" : "Healthy";
     private static string ShortError(string error) => error.Length <= 100 ? error : error[..100] + "…";
     private static string AlertClass(AutomationAlertSeverity severity) => severity switch { AutomationAlertSeverity.Critical => "error-card", AutomationAlertSeverity.Warning => "warning-card", _ => "success-card" };
     private static string Duration(DateTimeOffset? startedUtc, DateTimeOffset? completedUtc) => startedUtc is null ? "—" : completedUtc is null ? "Running" : (completedUtc.Value - startedUtc.Value).TotalSeconds < 60 ? $"{(completedUtc.Value - startedUtc.Value).TotalSeconds:N0} sec" : $"{(completedUtc.Value - startedUtc.Value).TotalMinutes:N1} min";
