@@ -638,6 +638,39 @@ representative product pages returned HTTP 200. Anonymous access to
 `www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
 `propertiesandhomes.co.uk` all returned HTTP 200 after the release.
 
+## Fifteenth production release and operating-readiness record
+
+Application commit `6d96fad` was deployed on 2 September 2026 after the
+roadmap, autonomous-pilot evidence, collection-candidate matching and
+conversion-activation preflight work in commits `9b5352d` through `6d96fad`.
+A clean detached release build passed all 223 tests. Both the project and the
+published root `web.config` validated as OutOfProcess. The release contains no
+database migration, package/runtime change or autonomous-policy change.
+
+The site-only archive was uploaded and expanded only in `/wonderaisle` while a
+target-scoped `app_offline.htm` marker held Wonder Aisle offline. `App_Data`
+and its persistent Data Protection key ring were preserved. Provider
+decompression completed successfully, after which the marker was renamed to
+the inactive recovery record `app_offline-20260902-6d96fad.done.htm`. The
+uploaded archive was retained for recovery. No application-pool restart or
+account-wide action was performed.
+
+The release adds a deterministic seven-day automatic-pilot scorecard, bounded
+collection candidate scoring and filters, and a fail-closed conversion
+activation preflight. The preflight starts with empty evidence acknowledgements
+and does not enable S2S. Production S2S remains disabled; an unauthenticated
+request to `/integrations/aliexpress/s2s` returned HTTP 404 as intended.
+
+`/health/live` and `/health/ready` returned healthy HTTP 200 responses. The
+home page, `/plushies`, a representative product, `/robots.txt`,
+`/sitemap.xml` and both published collection pages returned HTTP 200. The
+sitemap contained 29 URLs. Anonymous access to `/admin/automation`,
+`/admin/collections`, `/admin/orders` and `/admin/performance` redirected to
+the administrator login. `circlesofstone.co.uk`, `www.iloveplushies.co.uk`,
+`www.ilovefnaf.co.uk`, `www.ilovewitchcraft.co.uk`,
+`www.animesuperstore.co.uk` and `propertiesandhomes.co.uk` all returned HTTP
+200 after the release.
+
 ## Build a release bundle
 
 From the repository root:
