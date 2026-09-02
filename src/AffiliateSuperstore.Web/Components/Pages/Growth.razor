@@ -1,0 +1,139 @@
+@page "/admin/growth"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
+@rendermode InteractiveServer
+@inject CatalogueGrowthPipelineService GrowthService
+
+<PageTitle>Catalogue growth pipeline</PageTitle>
+
+<header class="admin-topbar">
+    <div>
+        <p class="eyebrow">Autonomous merchandising</p>
+        <h1>Catalogue growth pipeline</h1>
+        <p class="lede">A live explanation of what can publish, what will be retired, and what is stopping Wonder Aisle from reaching its first 50 public products.</p>
+    </div>
+    <div class="topbar-actions">
+        <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsLoading">@(IsLoading ? "Refreshing…" : "Refresh pipeline")</button>
+        <a class="button" href="/admin/automation">Automation controls</a>
+        <a class="public-site-link" href="/plushies">View public shop <span aria-hidden="true">↗</span></a>
+    </div>
+</header>
+
+@if (Pipeline is null)
+{
+    <section class="panel growth-loading"><span class="spinner"></span><p>Calculating the catalogue pipeline…</p></section>
+}
+else
+{
+    <section class="panel growth-target" aria-labelledby="growth-target-title">
+        <div class="panel-heading">
+            <div><p class="eyebrow">First operating target</p><h2 id="growth-target-title">@Pipeline.PublicProducts of @Pipeline.TargetPublicProducts public products</h2></div>
+            <span class="count-badge">@Percent(Pipeline.PublicProducts, Pipeline.TargetPublicProducts)%</span>
+        </div>
+        <progress value="@Pipeline.PublicProducts" max="@Pipeline.TargetPublicProducts">@Pipeline.PublicProducts / @Pipeline.TargetPublicProducts</progress>
+        <p>@Pipeline.ProductsStillNeeded more products are needed. At the current safety limit of @Pipeline.DailyPublicationLimit automatic publications per UTC day, the optimistic minimum is <strong>@DaysLabel(Pipeline.OptimisticDaysToTarget)</strong>. Holds and discovery supply can make the real time longer.</p>
+    </section>
+
+    <section class="metric-grid growth-metrics" aria-label="Pipeline totals">
+        <article class="metric-card"><strong>@Pipeline.ReadyForAutonomousApproval</strong><span>Ready now</span></article>
+        <article class="metric-card"><strong>@Pipeline.AwaitingAiReview</strong><span>AI drafts awaiting a decision</span></article>
+        <article class="metric-card"><strong>@Pipeline.PermanentRetirementCandidates</strong><span>Permanent scope failures</span></article>
+        <article class="metric-card"><strong>@Pipeline.AutomaticallyRetiredProducts</strong><span>Auto-retired audit total</span></article>
+        <article class="metric-card"><strong>@Pipeline.HeldForRepairOrReview</strong><span>Repair or human review</span></article>
+        <article class="metric-card"><strong>@Pipeline.DeferredByDailyLimit</strong><span>Deferred until tomorrow</span></article>
+        <article class="metric-card"><strong>@Pipeline.DraftCollectionsReady</strong><span>Draft collections ready at 12</span></article>
+    </section>
+
+    <div class="alert-card success-card">
+        <strong>Bounded automatic mode</strong>
+        <span>Clear candidates may publish automatically. Permanent non-plush, pet and tobacco-scope failures are retired with a reversible audit reason. Ambiguous quantity, licensing, safety and duplicate questions remain held.</span>
+    </div>
+
+    <section class="panel" aria-labelledby="collection-growth-title">
+        <div class="panel-heading"><div><p class="eyebrow">Breadth before new shops</p><h2 id="collection-growth-title">Collection coverage</h2></div><span class="count-badge">@Pipeline.Collections.Count collections</span></div>
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead><tr><th>Collection</th><th>State</th><th>Assigned</th><th>Public</th><th>Indexable target</th><th>Gap</th></tr></thead>
+                <tbody>
+                    @foreach (var collection in Pipeline.Collections.OrderBy(item => item.ProductsNeeded).ThenBy(item => item.DisplayName))
+                    {
+                        <tr>
+                            <td><strong>@collection.DisplayName</strong><small>/@collection.Slug</small></td>
+                            <td><span class="table-status @(collection.IsPublished ? "ready" : collection.IsReadyToPublish ? "ready" : "missing")">@(collection.IsPublished ? "Published" : collection.IsReadyToPublish ? "Ready for owner" : "Draft")</span></td>
+                            <td>@collection.AssignedProducts</td>
+                            <td>@collection.PublicProducts</td>
+                            <td><progress value="@collection.IndexableProducts" max="@collection.TargetProducts">@collection.IndexableProducts / @collection.TargetProducts</progress><small>@collection.IndexableProducts / @collection.TargetProducts</small></td>
+                            <td>@(collection.ProductsNeeded == 0 ? "Target met" : $"{collection.ProductsNeeded} needed")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="growth-blockers-title">
+        <div class="panel-heading"><div><p class="eyebrow">Why work is waiting</p><h2 id="growth-blockers-title">Current blockers</h2></div><span class="count-badge">@Pipeline.Blockers.Sum(item => item.Products) flags</span></div>
+        @if (Pipeline.Blockers.Count == 0)
+        {
+            <div class="empty-response compact"><h3>No blockers in the AI queue</h3><p>The next automation run can focus on discovery.</p></div>
+        }
+        else
+        {
+            <div class="growth-blocker-grid">
+                @foreach (var blocker in Pipeline.Blockers)
+                {
+                    <article><strong>@blocker.Products</strong><span>@blocker.Label</span><code>@blocker.Code</code></article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="panel" aria-labelledby="growth-candidates-title">
+        <div class="panel-heading"><div><p class="eyebrow">Explainable queue</p><h2 id="growth-candidates-title">AI-assisted candidates</h2></div><span class="count-badge">@Pipeline.Candidates.Count shown</span></div>
+        @if (Pipeline.Candidates.Count == 0)
+        {
+            <div class="empty-response compact"><h3>No AI drafts are waiting</h3><p>The autonomous worker can prepare the next quality-filtered batch.</p></div>
+        }
+        else
+        {
+            <div class="table-scroll"><table class="admin-table"><thead><tr><th>Product</th><th>Disposition</th><th>Collections</th><th>Reasons</th><th>Drafted</th></tr></thead><tbody>
+                @foreach (var candidate in Pipeline.Candidates)
+                {
+                    <tr>
+                        <td><a href="/admin/ai-review#ai-review-@candidate.ProductId"><strong>@candidate.Title</strong></a><small>@candidate.ProductId</small></td>
+                        <td><span class="table-status @DispositionClass(candidate.Disposition)">@candidate.Disposition</span></td>
+                        <td>@(candidate.Collections.Count == 0 ? "Unassigned" : string.Join(", ", candidate.Collections))</td>
+                        <td>@if (candidate.ReasonCodes.Count == 0) { <span>All deterministic gates clear</span> } else { <code>@string.Join(", ", candidate.ReasonCodes)</code> }</td>
+                        <td>@candidate.DraftedUtc.ToLocalTime().ToString("dd MMM HH:mm")</td>
+                    </tr>
+                }
+            </tbody></table></div>
+        }
+    </section>
+
+    <p class="growth-generated">Calculated @Pipeline.GeneratedUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss") from current database state.</p>
+}
+
+@code {
+    private CatalogueGrowthPipeline? Pipeline;
+    private bool IsLoading;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try { Pipeline = await GrowthService.GetAsync("plushies"); }
+        finally { IsLoading = false; }
+    }
+
+    private static int Percent(int value, int target) => target <= 0 ? 0 : Math.Clamp((int)Math.Round(value * 100m / target), 0, 100);
+    private static string DaysLabel(int? days) => days is null ? "not available while automatic publication is off" : days == 1 ? "1 day" : $"{days} days";
+    private static string DispositionClass(string disposition) => disposition switch
+    {
+        "Ready for autonomous approval" => "ready",
+        "Permanent retirement" => "missing",
+        "Deferred until next UTC day" => "pending",
+        _ => "pending"
+    };
+}

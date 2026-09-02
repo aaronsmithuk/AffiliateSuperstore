@@ -129,6 +129,162 @@ public sealed class AutonomousCatalogueEvaluationServiceTests
         Assert.Equal(AutonomousCatalogueAction.Published, decision.Action);
     }
 
+    [Fact]
+    public async Task RunAsync_AutomaticModeRetiresPermanentScopeFailureWithReversibleAuditReason()
+    {
+        var now = new DateTimeOffset(2026, 9, 2, 12, 0, 0, TimeSpan.Zero);
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, now);
+        await using (var context = factory.CreateDbContext())
+        {
+            var policyRow = await context.AutonomousCataloguePolicies.SingleAsync();
+            policyRow.Mode = AutonomousCatalogueMode.Automatic;
+            var product = await context.Products.SingleAsync();
+            product.Title = "DIY sewing craft kit for a stuffed animal plush";
+            var shopProduct = await context.ShopProducts.SingleAsync();
+            shopProduct.AutomatedReviewFlags = "[{\"Code\":\"scope.non-plush-product\",\"Message\":\"Not a finished plush product.\"}]";
+            await context.SaveChangesAsync();
+        }
+
+        var service = CreateService(factory, now, automaticPublishing: true);
+        var result = await service.RunAsync("plushies");
+
+        Assert.Equal(1, result.ProductsEvaluated);
+        Assert.Equal(0, result.Published);
+        await using (var verification = factory.CreateDbContext())
+        {
+            var product = await verification.ShopProducts.SingleAsync();
+            Assert.Equal(ProductReviewStatus.Rejected, product.ReviewStatus);
+            Assert.StartsWith(CatalogueAutonomousTriagePolicy.AutomaticRetirementReasonPrefix, product.DisabledReason, StringComparison.Ordinal);
+            var decision = await verification.AutonomousCatalogueDecisions.SingleAsync();
+            Assert.Equal(AutonomousCatalogueAction.None, decision.Action);
+            Assert.Contains("retirement.scope.non-plush-product", decision.ReasonCodesJson, StringComparison.Ordinal);
+        }
+
+        var editorial = CreateEditorialService(factory, now);
+        var reversal = await editorial.SetReviewStatusAsync("plushies", "shadow-product", ProductReviewStatus.NeedsReview);
+        Assert.True(reversal.Succeeded);
+        await using var reversed = factory.CreateDbContext();
+        Assert.Equal(ProductReviewStatus.NeedsReview, (await reversed.ShopProducts.SingleAsync()).ReviewStatus);
+        Assert.Null((await reversed.ShopProducts.SingleAsync()).DisabledReason);
+    }
+
+    [Fact]
+    public async Task RunAsync_DailyLimitHoldSleepsUntilNextUtcDay()
+    {
+        var now = new DateTimeOffset(2026, 9, 2, 12, 0, 0, TimeSpan.Zero);
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, now);
+        await using (var context = factory.CreateDbContext())
+        {
+            var policyRow = await context.AutonomousCataloguePolicies.SingleAsync();
+            policyRow.Mode = AutonomousCatalogueMode.Automatic;
+            var shopProduct = await context.ShopProducts.SingleAsync();
+            context.AutonomousCatalogueDecisions.Add(new AutonomousCatalogueDecisionRecord
+            {
+                Id = Guid.CreateVersion7(),
+                ShopId = policyRow.ShopId,
+                ProductId = shopProduct.ProductId,
+                EditorialVersionNumber = shopProduct.CurrentEditorialVersionNumber!.Value,
+                Mode = AutonomousCatalogueMode.Automatic,
+                Decision = AutonomousCatalogueDecision.Hold,
+                Action = AutonomousCatalogueAction.None,
+                ReadinessScore = 1m,
+                ReasonCodesJson = "[\"publication.daily-limit\"]",
+                Summary = "Daily limit reached.",
+                EvaluatedUtc = now.AddHours(-2)
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var sameDay = await CreateService(factory, now, automaticPublishing: true).RunAsync("plushies");
+        Assert.Equal(0, sameDay.ProductsEvaluated);
+
+        var nextDay = await CreateService(factory, now.AddDays(1), automaticPublishing: true).RunAsync("plushies");
+        Assert.Equal(1, nextDay.ProductsEvaluated);
+        Assert.Equal(1, nextDay.Published);
+    }
+
+    [Fact]
+    public async Task GrowthPipeline_ExplainsReadyDraftAndCollectionGap()
+    {
+        var now = new DateTimeOffset(2026, 9, 2, 12, 0, 0, TimeSpan.Zero);
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedAsync(factory, now);
+        var clock = new FixedTimeProvider(now);
+        var autonomousOptions = new AutonomousCatalogueOptions { Enabled = true };
+        var pipelineService = new CatalogueGrowthPipelineService(
+            factory,
+            new CatalogueAiReviewService(factory),
+            new CatalogueCollectionService(factory, new CatalogueSeoPolicy(clock), clock),
+            new AutonomousCataloguePolicyService(factory, autonomousOptions, clock),
+            clock);
+
+        var pipeline = await pipelineService.GetAsync("plushies");
+
+        Assert.Equal(50, pipeline.TargetPublicProducts);
+        Assert.Equal(0, pipeline.PublicProducts);
+        Assert.Equal(1, pipeline.AwaitingAiReview);
+        Assert.Equal(1, pipeline.ReadyForAutonomousApproval);
+        Assert.Equal(0, pipeline.PermanentRetirementCandidates);
+        Assert.Equal(10, pipeline.OptimisticDaysToTarget);
+        var collection = Assert.Single(pipeline.Collections);
+        Assert.Equal(12, collection.ProductsNeeded);
+        var candidate = Assert.Single(pipeline.Candidates);
+        Assert.Equal("Ready for autonomous approval", candidate.Disposition);
+        Assert.Empty(candidate.ReasonCodes);
+    }
+
+    private static AutonomousCatalogueEvaluationService CreateService(
+        InMemoryFactory factory,
+        DateTimeOffset now,
+        bool automaticPublishing)
+    {
+        var aiOptions = new AiAutomationOptions
+        {
+            Enabled = true,
+            ProductCopyEnabled = true,
+            ApiKey = "test-key",
+            MaximumReservedCostPerCallUsd = .01m
+        };
+        var autonomousOptions = new AutonomousCatalogueOptions
+        {
+            Enabled = true,
+            AutomaticPublishingEnabled = automaticPublishing
+        };
+        var clock = new FixedTimeProvider(now);
+        var validator = new EditorialContentValidator();
+        var quality = new ProductQualityAssessmentService(factory, clock);
+        var editorial = new CatalogueEditorialService(factory, quality, validator, clock);
+        var suggestions = new CatalogueAiSuggestionService(
+            factory,
+            new FailingProvider(),
+            validator,
+            new AiInvocationAuditService(factory, aiOptions, clock),
+            aiOptions);
+        return new AutonomousCatalogueEvaluationService(
+            factory,
+            new AutonomousCataloguePolicyService(factory, autonomousOptions, clock),
+            new CatalogueAiQueuePreparationService(factory, suggestions, editorial, quality, aiOptions),
+            new CatalogueAiReviewService(factory),
+            editorial,
+            new AutonomousCatalogueSafetyService(factory, autonomousOptions, clock),
+            autonomousOptions,
+            new CatalogueAutomationOptions { ProductStaleAfterHours = 30 },
+            aiOptions,
+            clock);
+    }
+
+    private static CatalogueEditorialService CreateEditorialService(InMemoryFactory factory, DateTimeOffset now)
+    {
+        var clock = new FixedTimeProvider(now);
+        return new CatalogueEditorialService(
+            factory,
+            new ProductQualityAssessmentService(factory, clock),
+            new EditorialContentValidator(),
+            clock);
+    }
+
     private static async Task SeedAsync(InMemoryFactory factory, DateTimeOffset now)
     {
         await using var context = factory.CreateDbContext();

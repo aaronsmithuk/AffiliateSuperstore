@@ -12,7 +12,7 @@
     <div>
         <p class="eyebrow">Editorial control</p>
         <h1>AI review queue</h1>
-        <p class="lede">Compare every AI-assisted draft with its source evidence before explicitly approving, editing or rejecting it.</p>
+        <p class="lede">Inspect AI-assisted drafts, their source evidence and the decisions made by either bounded automatic mode or an administrator.</p>
     </div>
     <div class="topbar-actions">
         <button class="button refresh-button" type="button" @onclick="LoadAsync" disabled="@IsBusy">@(IsLoading ? "Refreshing…" : "Refresh queue")</button>
@@ -28,7 +28,7 @@
 else
 {
     <section class="metric-grid ai-review-metrics" aria-label="AI review totals">
-        <article class="metric-card"><strong>@Dashboard.AwaitingReview</strong><span>Awaiting human review</span></article>
+        <article class="metric-card"><strong>@Dashboard.AwaitingReview</strong><span>Awaiting an editorial decision</span></article>
         <article class="metric-card"><strong>@Dashboard.Approved</strong><span>Approved after review</span></article>
         <article class="metric-card"><strong>@Dashboard.Rejected</strong><span>Rejected</span></article>
         <article class="metric-card"><strong>@Dashboard.WarningInvocations</strong><span>Recent warnings</span></article>
@@ -37,8 +37,8 @@ else
     </section>
 
     <div class="alert-card warning-card ai-review-safety">
-        <strong>Publication always requires a person</strong>
-        <span>AI output can create a versioned draft, but only the explicit confirmation below can approve it for the public shop. Source price, stock and links remain API-controlled.</span>
+        <strong>Every publication still passes deterministic safety gates</strong>
+        <span>Bounded automatic mode can approve only a fully clear, versioned draft within its daily cap. Ambiguous, risky and duplicate candidates stay here for a person; every automatic decision remains auditable and reversible.</span>
     </div>
 
     @if (CommandResult is not null)

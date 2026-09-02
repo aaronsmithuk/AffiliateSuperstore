@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -154,13 +155,40 @@ public sealed class AutonomousCatalogueEvaluationService(
             var sourceChecks = await context.Products.AsNoTracking()
                 .Where(item => productIds.Contains(item.AliExpressProductId))
                 .ToDictionaryAsync(item => item.AliExpressProductId, item => item.LastCheckedUtc, cancellationToken);
-            var productsWithPublishedCollections = (await context.CollectionProducts.AsNoTracking()
+            var publishedMemberships = await context.CollectionProducts.AsNoTracking()
                 .Where(item => productIds.Contains(item.ProductId) &&
                     item.Collection.ShopId == shopId &&
                     item.Collection.IsPublished)
+                .Select(item => new { item.ProductId, item.CollectionId })
+                .ToArrayAsync(cancellationToken);
+            var productsWithPublishedCollections = publishedMemberships
                 .Select(item => item.ProductId)
+                .ToHashSet(StringComparer.Ordinal);
+            var publishedCollectionIds = publishedMemberships
+                .Select(item => item.CollectionId)
                 .Distinct()
-                .ToArrayAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+                .ToArray();
+            var approvedMemberships = publishedCollectionIds.Length == 0
+                ? []
+                : await (
+                    from membership in context.CollectionProducts.AsNoTracking()
+                    join shopProduct in context.ShopProducts.AsNoTracking()
+                        on new { ShopId = shopId, membership.ProductId }
+                        equals new { shopProduct.ShopId, shopProduct.ProductId }
+                    where publishedCollectionIds.Contains(membership.CollectionId) &&
+                        shopProduct.IsActive &&
+                        shopProduct.ReviewStatus == ProductReviewStatus.Approved
+                    select membership.CollectionId)
+                    .ToArrayAsync(cancellationToken);
+            var publishedCollectionCoverage = approvedMemberships
+                .GroupBy(collectionId => collectionId)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var coverageScoreByProduct = publishedMemberships
+                .GroupBy(item => item.ProductId, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Min(item => publishedCollectionCoverage.GetValueOrDefault(item.CollectionId)),
+                    StringComparer.Ordinal);
             var sourceChanges = await context.ProductChangeEvents.AsNoTracking()
                 .Where(item => productIds.Contains(item.ProductId) &&
                     (item.Kind == ProductChangeEventKind.ContentChanged ||
@@ -190,15 +218,40 @@ public sealed class AutonomousCatalogueEvaluationService(
             var decisionRows = await context.AutonomousCatalogueDecisions.AsNoTracking()
                 .Where(item => item.ShopId == shopId && productIds.Contains(item.ProductId))
                 .OrderByDescending(item => item.EvaluatedUtc)
-                .Select(item => new { item.ProductId, item.EditorialVersionNumber, item.EvaluatedUtc })
+                .Select(item => new
+                {
+                    item.ProductId,
+                    item.EditorialVersionNumber,
+                    item.Decision,
+                    item.ReasonCodesJson,
+                    item.EvaluatedUtc
+                })
                 .ToArrayAsync(cancellationToken);
             var latestDecision = decisionRows
                 .GroupBy(item => (item.ProductId, item.EditorialVersionNumber))
-                .ToDictionary(group => group.Key, group => group.Max(item => item.EvaluatedUtc));
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.OrderByDescending(item => item.EvaluatedUtc)
+                        .Select(item => new PreviousDecision(
+                            item.Decision,
+                            ReadReasonCodes(item.ReasonCodesJson),
+                            item.EvaluatedUtc))
+                        .First());
 
             var selected = awaiting
-                .OrderBy(item => latestDecision.ContainsKey((item.ProductId, item.CurrentVersionNumber)) ? 1 : 0)
-                .ThenBy(item => latestDecision.GetValueOrDefault((item.ProductId, item.CurrentVersionNumber)))
+                .Where(item => ShouldEvaluate(
+                    latestDecision.GetValueOrDefault((item.ProductId, item.CurrentVersionNumber)),
+                    policy,
+                    now))
+                .GroupBy(item => NormalizeCandidateTitle(item.SourceTitle), StringComparer.Ordinal)
+                .Select(group => group
+                    .OrderBy(item => coverageScoreByProduct.GetValueOrDefault(item.ProductId, int.MaxValue))
+                    .ThenBy(item => latestDecision.ContainsKey((item.ProductId, item.CurrentVersionNumber)) ? 1 : 0)
+                    .ThenByDescending(item => item.AiCreatedUtc)
+                    .First())
+                .OrderBy(item => coverageScoreByProduct.GetValueOrDefault(item.ProductId, int.MaxValue))
+                .ThenBy(item => latestDecision.ContainsKey((item.ProductId, item.CurrentVersionNumber)) ? 1 : 0)
+                .ThenBy(item => latestDecision.GetValueOrDefault((item.ProductId, item.CurrentVersionNumber))?.EvaluatedUtc)
                 .ThenByDescending(item => item.AiCreatedUtc)
                 .Take(policy.MaximumCandidatesPerRun)
                 .ToArray();
@@ -207,6 +260,7 @@ public sealed class AutonomousCatalogueEvaluationService(
                 item.Action == AutonomousCatalogueAction.Published &&
                 item.EvaluatedUtc >= StartOfUtcDay(now), cancellationToken);
             var records = new List<AutonomousCatalogueDecisionRecord>(selected.Length);
+            var retired = 0;
 
             foreach (var item in selected)
             {
@@ -230,8 +284,39 @@ public sealed class AutonomousCatalogueEvaluationService(
                 var action = policy.Mode == AutonomousCatalogueMode.Shadow || !autonomousOptions.AutomaticPublishingEnabled
                     ? AutonomousCatalogueAction.ShadowRecorded
                     : AutonomousCatalogueAction.None;
+                var retirementReasons = CatalogueAutonomousTriagePolicy.RetirementReasons(item.QualityFlags);
 
-                if (policy.Mode == AutonomousCatalogueMode.Automatic &&
+                if (retirementReasons.Count > 0)
+                {
+                    assessment = new AutonomousCatalogueAssessment(
+                        AutonomousCatalogueDecision.Hold,
+                        0m,
+                        retirementReasons.Select(code => $"retirement.{code}").ToArray(),
+                        $"Permanent catalogue-scope failure: {string.Join(", ", retirementReasons)}.");
+                    if (policy.Mode == AutonomousCatalogueMode.Automatic && autonomousOptions.AutomaticPublishingEnabled)
+                    {
+                        var retirement = await editorialService.RetireAutomaticallyAsync(
+                            shopSlug,
+                            item.ProductId,
+                            retirementReasons,
+                            cancellationToken);
+                        if (retirement.Succeeded)
+                        {
+                            retired++;
+                        }
+                        else
+                        {
+                            assessment = assessment with
+                            {
+                                ReasonCodes = ["retirement.final-gate"],
+                                Summary = $"Automatic retirement was held by its final gate: {retirement.Message}"
+                            };
+                        }
+                    }
+                }
+
+                if (retirementReasons.Count == 0 &&
+                    policy.Mode == AutonomousCatalogueMode.Automatic &&
                     autonomousOptions.AutomaticPublishingEnabled &&
                     assessment.Decision == AutonomousCatalogueDecision.WouldPublish)
                 {
@@ -286,7 +371,7 @@ public sealed class AutonomousCatalogueEvaluationService(
                 preparation?.EstimatedCostUsd ?? 0m,
                 policy.Mode == AutonomousCatalogueMode.Shadow || !autonomousOptions.AutomaticPublishingEnabled
                     ? $"Shadow evaluation recorded {wouldPublish} would-publish and {records.Count - wouldPublish} hold decisions. Nothing was published."
-                    : $"Automatic evaluation published {published} products and held {records.Count - published}.");
+                    : $"Automatic evaluation published {published}, retired {retired} permanent scope failures, and held {records.Count - published - retired} for later review.");
         }
         finally
         {
@@ -357,6 +442,43 @@ public sealed class AutonomousCatalogueEvaluationService(
 
     private static DateTimeOffset StartOfUtcDay(DateTimeOffset value) =>
         new(value.Year, value.Month, value.Day, 0, 0, 0, TimeSpan.Zero);
+
+    private static bool ShouldEvaluate(
+        PreviousDecision? previous,
+        AutonomousCataloguePolicy policy,
+        DateTimeOffset now)
+    {
+        if (previous is null) return true;
+        if (previous.ReasonCodes.Contains("publication.daily-limit", StringComparer.Ordinal))
+        {
+            return previous.EvaluatedUtc < StartOfUtcDay(now);
+        }
+
+        var retryHours = previous.Decision == AutonomousCatalogueDecision.Hold
+            ? Math.Max(24, policy.ReviewEveryHours)
+            : Math.Max(1, policy.ReviewEveryHours);
+        return previous.EvaluatedUtc <= now.AddHours(-retryHours);
+    }
+
+    private static IReadOnlyList<string> ReadReasonCodes(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<string[]>(json) ?? []; }
+        catch (JsonException) { return []; }
+    }
+
+    private static string NormalizeCandidateTitle(string title)
+    {
+        var normalized = title.ToLowerInvariant();
+        normalized = Regex.Replace(normalized, @"\b(new|hot|sale|wholesale|dropshipping)\b", " ", RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(normalized, @"[^a-z0-9]+", " ", RegexOptions.CultureInvariant);
+        return Regex.Replace(normalized, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
+    }
+
+    private sealed record PreviousDecision(
+        AutonomousCatalogueDecision Decision,
+        IReadOnlyList<string> ReasonCodes,
+        DateTimeOffset EvaluatedUtc);
 
     private static AutonomousCatalogueEvaluationResult Empty(
         string shopSlug,

@@ -305,6 +305,45 @@ public sealed class CatalogueEditorialService(
         });
     }
 
+    public async Task<CatalogueCommandResult> RetireAutomaticallyAsync(
+        string shopSlug,
+        string productId,
+        IReadOnlyCollection<string> reasonCodes,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(shopSlug);
+        ArgumentException.ThrowIfNullOrWhiteSpace(productId);
+        ArgumentNullException.ThrowIfNull(reasonCodes);
+        var acceptedReasons = reasonCodes
+            .Where(CatalogueAutonomousTriagePolicy.IsRetirementCode)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (acceptedReasons.Length == 0)
+        {
+            return Failure("Automatic retirement requires at least one permanent catalogue-policy reason.");
+        }
+
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var item = await FindProductAsync(context, shopSlug, productId, cancellationToken);
+        if (item is null) return Failure("The catalogue product could not be found.");
+
+        ApplyQualityAssessment(item);
+        var currentReasons = ProductQualityAssessmentService.ReadFlags(item.AutomatedReviewFlags)
+            .Select(flag => flag.Code)
+            .ToHashSet(StringComparer.Ordinal);
+        var stillPresent = acceptedReasons.Where(currentReasons.Contains).ToArray();
+        if (stillPresent.Length == 0)
+        {
+            return Failure("The permanent catalogue-policy reason is no longer present; the product was left in review.");
+        }
+
+        item.ReviewStatus = ProductReviewStatus.Rejected;
+        item.DisabledReason = $"{CatalogueAutonomousTriagePolicy.AutomaticRetirementReasonPrefix}: {string.Join(", ", stillPresent)}.";
+        await context.SaveChangesAsync(cancellationToken);
+        return Success($"Product automatically retired for {string.Join(", ", stillPresent)}. It can be returned to review by an administrator.");
+    }
+
     private EditorialValidationResult ValidateEditorial(ShopProductRecord item, string? title, string? description) =>
         editorialValidator.Validate(new EditorialValidationInput(
             item.Product.Title,

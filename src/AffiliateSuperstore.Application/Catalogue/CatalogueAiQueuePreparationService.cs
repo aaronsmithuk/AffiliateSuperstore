@@ -303,7 +303,7 @@ public sealed class CatalogueAiQueuePreparationService(
             items.Sum(item => item.SuggestionResult.Suggestion?.OutputTokens ?? 0),
             items.Sum(item => item.EstimatedCostUsd),
             items,
-            $"Prepared {saved} review draft{(saved == 1 ? "" : "s")}. Nothing was approved or published automatically.");
+            $"Prepared {saved} review draft{(saved == 1 ? "" : "s")}. Nothing was approved or published during queue preparation.");
     }
 
     private static CatalogueAiQueuePreparationResult Empty(int requestedCount, string message) =>
@@ -322,7 +322,7 @@ public sealed class CatalogueAiQueuePreparationService(
 
     private static string BuildChangeReason(ProductEditorialSuggestionOutput suggestion)
     {
-        var reason = $"AI-assisted review draft ({suggestion.Provider}/{suggestion.Model}, {CatalogueAiSuggestionService.PromptVersion}, invocation {suggestion.InvocationId?.ToString() ?? "cache"}); requires administrator approval.";
+        var reason = $"AI-assisted review draft ({suggestion.Provider}/{suggestion.Model}, {CatalogueAiSuggestionService.PromptVersion}, invocation {suggestion.InvocationId?.ToString() ?? "cache"}); requires administrator approval unless every configured deterministic autonomous gate passes.";
         return reason.Length <= CatalogueEditorialService.MaximumChangeReasonLength
             ? reason
             : reason[..CatalogueEditorialService.MaximumChangeReasonLength];
