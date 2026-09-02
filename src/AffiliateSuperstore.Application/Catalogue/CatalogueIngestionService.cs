@@ -79,7 +79,7 @@ public sealed class CatalogueIngestionService(
         try
         {
             var page = await FetchPageAsync(request, keywords, cancellationToken);
-            var eligible = page.Items.Where(CatalogueProductEligibility.IsMinimallyEligible).ToArray();
+            var eligible = page.Items.Where(IsMinimallyEligible).ToArray();
             var sourceUrls = eligible
                 .Select(product => product.ProductDetailUrl)
                 .Where(url => !string.IsNullOrWhiteSpace(url))
@@ -290,6 +290,14 @@ public sealed class CatalogueIngestionService(
         decimal.TryParse(value?.Trim().TrimEnd('%'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : null;
+
+    private static bool IsMinimallyEligible(AliExpressProduct product) =>
+        !string.IsNullOrWhiteSpace(product.ProductId) &&
+        !string.IsNullOrWhiteSpace(product.Title) &&
+        !string.IsNullOrWhiteSpace(product.ProductDetailUrl) &&
+        !string.IsNullOrWhiteSpace(product.MainImageUrl) &&
+        ParseDecimal(product.TargetSalePrice) is > 0 &&
+        string.Equals(product.Currency, "GBP", StringComparison.OrdinalIgnoreCase);
 
     private Task<AliExpressPage<AliExpressProduct>> FetchPageAsync(
         CatalogueIngestionRequest request,
