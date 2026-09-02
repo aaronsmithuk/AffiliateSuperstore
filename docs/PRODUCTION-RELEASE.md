@@ -671,6 +671,39 @@ the administrator login. `circlesofstone.co.uk`, `www.iloveplushies.co.uk`,
 `www.animesuperstore.co.uk` and `propertiesandhomes.co.uk` all returned HTTP
 200 after the release.
 
+## Sixteenth production release and catalogue-growth acceleration
+
+Application commit `51edbda` was deployed on 2 September 2026. The release
+adds a reviewed, shop-scoped batch-assignment workflow for strong collection
+candidates and permits administrator-triggered AI draft preparation to include
+products assigned to unpublished collections. Autonomous preparation still
+requires a published collection; product approval, collection publication,
+duplicate controls, readiness checks, AI budgets and the daily publication cap
+remain unchanged.
+
+A clean detached Release build passed all 229 tests. Both the project and the
+published root `web.config` validated as OutOfProcess. The release contains no
+database migration, package/runtime change, configuration change or automatic-
+publication policy change.
+
+The site-only archive was uploaded and expanded only in `/wonderaisle` while a
+target-scoped `app_offline.htm` marker held Wonder Aisle offline. `App_Data`
+and its persistent Data Protection key ring were preserved. Provider
+decompression completed successfully, after which the marker was renamed to
+the inactive recovery record `app_offline-20260902-51edbda.done.htm`. The
+uploaded archive was retained for recovery. No application-pool restart or
+account-wide action was performed.
+
+`/health/live`, `/health/ready`, `/`, `/plushies`, a representative product,
+`/robots.txt`, `/sitemap.xml` and both published collection pages returned HTTP
+200. The sitemap still contained 29 URLs. Anonymous access to
+`/admin/catalogue`, `/admin/collections` and `/admin/automation` redirected to
+the administrator login, and unauthenticated S2S remained disabled with HTTP
+404. `circlesofstone.co.uk`, `www.iloveplushies.co.uk`,
+`www.ilovefnaf.co.uk`, `www.ilovewitchcraft.co.uk`,
+`www.animesuperstore.co.uk` and `propertiesandhomes.co.uk` all returned HTTP
+200 after the release.
+
 ## Build a release bundle
 
 From the repository root:
