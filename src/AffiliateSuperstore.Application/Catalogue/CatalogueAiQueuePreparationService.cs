@@ -54,10 +54,7 @@ public sealed class CatalogueAiQueuePreparationService(
                 "Duplicate hold confidence must be between zero and one.");
         }
         var batchSize = Math.Clamp(requestedCount, 1, MaximumBatchSize);
-        if (!await Gate.WaitAsync(0, cancellationToken))
-        {
-            return Empty(batchSize, "Another AI approval-queue preparation run is already in progress.");
-        }
+        await Gate.WaitAsync(cancellationToken);
 
         try
         {
