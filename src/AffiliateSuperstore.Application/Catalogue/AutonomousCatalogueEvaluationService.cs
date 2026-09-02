@@ -133,6 +133,7 @@ public sealed class AutonomousCatalogueEvaluationService(
                     preparationCount,
                     $"autonomous {policy.Mode.ToString().ToLowerInvariant()}",
                     duplicateHoldConfidence: policy.DuplicateHoldConfidence,
+                    requirePublishedCollection: true,
                     cancellationToken: cancellationToken);
             }
 

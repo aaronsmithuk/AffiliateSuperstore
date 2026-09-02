@@ -68,7 +68,12 @@ available, collection-assigned products with an active affiliate link, no
 existing editorial copy, a pending/review status and a clear deterministic
 quality assessment. Strictly validated suggestions are saved as immutable
 editorial drafts with the provider, model, prompt version and invocation in the
-audit note; warnings, blocked output and provider failures are left unsaved.
+audit trail; warnings, blocked output and provider failures are left unsaved.
+The administrator batch may prepare products assigned to an
+unpublished collection so that several collection review queues can be built in
+parallel. Published-collection candidates are selected first. Autonomous queue
+preparation remains published-collection-only, and neither path changes product
+approval or collection publication state.
 The action never changes approval status or publishes content, rejects a
 concurrent run and reports item-level outcomes, token usage, cache use and
 estimated cost. The first production run completed on 1 September 2026 after a

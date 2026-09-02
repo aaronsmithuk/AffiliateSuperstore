@@ -29,7 +29,7 @@
         <button class="button refresh-button" type="button" @onclick="RefreshDetailsAsync" disabled="@IsBusy">@(IsEnriching ? "Refreshing details…" : "Refresh product details")</button>
         <button class="button refresh-button" type="button" @onclick="ReassessAsync" disabled="@IsBusy">@(IsAssessing ? "Checking…" : "Run quality checks")</button>
         <button class="button refresh-button" type="button" title="@AiSuggestionProvider.AvailabilityMessage" @onclick="RunAiShadowAsync" disabled="@(!AiSuggestionProvider.IsAvailable || IsBusy)">@(IsRunningAiShadow ? "Running AI sample…" : $"AI shadow sample ({CatalogueAiSuggestionService.MaximumShadowSampleSize})")</button>
-        <button class="button button-primary" type="button" title="Prepare validated copy as review drafts; never approves or publishes" @onclick="PrepareAiQueueAsync" disabled="@(!AiSuggestionProvider.IsAvailable || IsBusy)">@(IsPreparingAiQueue ? "Preparing AI drafts…" : $"Prepare AI review drafts ({CatalogueAiQueuePreparationService.MaximumBatchSize})")</button>
+        <button class="button button-primary" type="button" title="Prepare validated copy for products assigned to published or draft collections; never approves or publishes" @onclick="PrepareAiQueueAsync" disabled="@(!AiSuggestionProvider.IsAvailable || IsBusy)">@(IsPreparingAiQueue ? "Preparing AI drafts…" : $"Prepare AI review drafts ({CatalogueAiQueuePreparationService.MaximumBatchSize})")</button>
         <a class="public-site-link" href="/plushies">View shop shell <span aria-hidden="true">↗</span></a>
     </div>
 </header>

@@ -45,6 +45,7 @@ public sealed class CatalogueAiQueuePreparationService(
         int requestedCount = MaximumBatchSize,
         string actor = "administrator",
         decimal? duplicateHoldConfidence = null,
+        bool requirePublishedCollection = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(shopSlug);
@@ -67,6 +68,7 @@ public sealed class CatalogueAiQueuePreparationService(
                 shopSlug,
                 batchSize,
                 duplicateHoldConfidence,
+                requirePublishedCollection,
                 cancellationToken);
             if (candidates.Count == 0)
             {
@@ -149,10 +151,11 @@ public sealed class CatalogueAiQueuePreparationService(
         string shopSlug,
         int batchSize,
         decimal? duplicateHoldConfidence,
+        bool requirePublishedCollection,
         CancellationToken cancellationToken)
     {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
-        var pool = await context.ShopProducts
+        var eligibleProducts = context.ShopProducts
             .AsNoTracking()
             .Where(item => item.Shop.Slug == shopSlug &&
                 item.IsActive &&
@@ -167,9 +170,22 @@ public sealed class CatalogueAiQueuePreparationService(
                     link.Status == AffiliateLinkStatus.Active) &&
                 context.CollectionProducts.Any(membership =>
                     membership.ProductId == item.ProductId &&
+                    membership.Collection.ShopId == item.ShopId));
+        if (requirePublishedCollection)
+        {
+            eligibleProducts = eligibleProducts.Where(item =>
+                context.CollectionProducts.Any(membership =>
+                    membership.ProductId == item.ProductId &&
                     membership.Collection.ShopId == item.ShopId &&
-                    membership.Collection.IsPublished))
-            .OrderBy(item => item.ReviewStatus == ProductReviewStatus.Pending ? 0 : 1)
+                    membership.Collection.IsPublished));
+        }
+
+        var pool = await eligibleProducts
+            .OrderByDescending(item => context.CollectionProducts.Any(membership =>
+                membership.ProductId == item.ProductId &&
+                membership.Collection.ShopId == item.ShopId &&
+                membership.Collection.IsPublished))
+            .ThenBy(item => item.ReviewStatus == ProductReviewStatus.Pending ? 0 : 1)
             .ThenByDescending(item => context.CollectionProducts.Count(membership =>
                 membership.ProductId == item.ProductId &&
                 membership.Collection.ShopId == item.ShopId))

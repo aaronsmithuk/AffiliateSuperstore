@@ -76,6 +76,98 @@ public sealed class CatalogueAiQueuePreparationServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_IncludesDraftCollectionCandidatesForReviewOnlyPreparation()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedQueueAsync(factory, 1, collectionIsPublished: false);
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Highland Cow Plush",
+            "A Highland cow plush with a shaggy character-inspired look and rounded styling for a cheerful collectable display.",
+            [], [], [], "en-GB", "fake", "test-model", Hash("draft-collection"), 80, 20));
+        var service = CreateService(factory, provider);
+
+        var result = await service.RunAsync("plushies", 1, "queue tester");
+
+        Assert.Equal(1, result.DraftsSaved);
+        Assert.Single(provider.Requests);
+        await using var context = factory.CreateDbContext();
+        var product = await context.ShopProducts.SingleAsync();
+        Assert.Equal(ProductReviewStatus.Pending, product.ReviewStatus);
+        Assert.NotNull(product.EditorialTitle);
+        Assert.False((await context.Collections.SingleAsync()).IsPublished);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenPublishedCollectionIsRequired_SkipsDraftCollectionCandidates()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedQueueAsync(factory, 1, collectionIsPublished: false);
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Highland Cow Plush",
+            "A Highland cow plush with a shaggy character-inspired look and rounded styling for a cheerful collectable display.",
+            [], [], [], "en-GB", "fake", "test-model", Hash("published-only"), 80, 20));
+        var service = CreateService(factory, provider);
+
+        var result = await service.RunAsync(
+            "plushies",
+            1,
+            "automatic queue",
+            duplicateHoldConfidence: .75m,
+            requirePublishedCollection: true);
+
+        Assert.Equal(0, result.SelectedCount);
+        Assert.Equal(0, result.DraftsSaved);
+        Assert.Empty(provider.Requests);
+        await using var context = factory.CreateDbContext();
+        Assert.Empty(await context.EditorialVersions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task RunAsync_PrioritisesPublishedCollectionCandidatesBeforeDraftCollections()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedQueueAsync(factory, 2, collectionIsPublished: false);
+        await using (var context = factory.CreateDbContext())
+        {
+            var shop = await context.Shops.SingleAsync();
+            var publishedCollectionId = Guid.CreateVersion7();
+            context.Collections.Add(new CollectionRecord
+            {
+                Id = publishedCollectionId,
+                ShopId = shop.Id,
+                Slug = "published-priority",
+                DisplayName = "Published priority",
+                ShortDescription = "A published collection used to verify queue priority.",
+                IntroductoryCopy = "Published candidates should be prepared before candidates assigned only to draft collections.",
+                SeoTitle = "Published priority collection",
+                SeoDescription = "A published test collection used to verify deterministic candidate priority.",
+                DiscoveryQueriesJson = "[]",
+                IsPublished = true,
+                CreatedUtc = DateTimeOffset.UtcNow,
+                UpdatedUtc = DateTimeOffset.UtcNow
+            });
+            context.CollectionProducts.Add(new CollectionProductRecord
+            {
+                CollectionId = publishedCollectionId,
+                ProductId = "queue-02",
+                AssignedUtc = DateTimeOffset.UtcNow,
+                AssignedBy = "test"
+            });
+            await context.SaveChangesAsync();
+        }
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Highland Cow Plush",
+            "A Highland cow plush with a shaggy character-inspired look and rounded styling for a cheerful collectable display.",
+            [], [], [], "en-GB", "fake", "test-model", Hash("published-priority"), 80, 20));
+        var service = CreateService(factory, provider);
+
+        var result = await service.RunAsync("plushies", 1, "queue tester");
+
+        Assert.Equal(1, result.DraftsSaved);
+        Assert.Equal("queue-02", Assert.Single(provider.Requests).ProductId);
+    }
+
+    [Fact]
     public async Task RunAsync_SkipsUnchangedRejectedInputAndAdvancesToNextCandidate()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
@@ -200,7 +292,8 @@ public sealed class CatalogueAiQueuePreparationServiceTests
         InMemoryFactory factory,
         int count,
         int? flaggedProductIndex = null,
-        int? unassignedProductIndex = null)
+        int? unassignedProductIndex = null,
+        bool collectionIsPublished = true)
     {
         await using var context = factory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
@@ -232,7 +325,7 @@ public sealed class CatalogueAiQueuePreparationServiceTests
             SeoTitle = "Animal Plush Toys and Soft Companions",
             SeoDescription = "Browse an editorially reviewed collection of animal plush toys and soft companions from active marketplace sellers.",
             DiscoveryQueriesJson = "[]",
-            IsPublished = true,
+            IsPublished = collectionIsPublished,
             CreatedUtc = now,
             UpdatedUtc = now
         });
