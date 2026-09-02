@@ -47,7 +47,7 @@
 <section class="metric-grid" aria-label="Collection totals">
     <article class="metric-card"><strong>@CollectionRows.Count</strong><span>Collections</span></article>
     <article class="metric-card"><strong>@CollectionRows.Count(item => item.IsPublished)</strong><span>Published</span></article>
-    <article class="metric-card"><strong>@CollectionRows.Sum(item => item.AssignedProducts)</strong><span>Assignments</span></article>
+    <article class="metric-card"><strong>@CollectionRows.Sum(item => item.ApprovedProducts)</strong><span>Approved assignments</span></article>
     <article class="metric-card"><strong>@CollectionRows.Count(item => item.CanPublish && !item.IsPublished)</strong><span>Ready to publish</span></article>
 </section>
 
@@ -66,7 +66,7 @@
                     <li>
                         <button class="collection-admin-card @(SelectedCollectionId == collection.Id ? "is-selected" : null)" type="button" @onclick="() => SelectAsync(collection)">
                             <span><strong>@collection.DisplayName</strong><small>/plushies/@collection.Slug</small></span>
-                            <span class="collection-admin-counts"><strong>@collection.IndexableProducts / @collection.MinimumProductsForIndexing</strong><small>indexable</small></span>
+                            <span class="collection-admin-counts"><strong>@collection.AssignedProducts · @collection.ApprovedProducts · @collection.IndexableProducts</strong><small>candidates · approved · indexable</small></span>
                             <span class="validation-state @(collection.IsPublished ? "passed" : collection.CanPublish ? "warning" : "note")">@(collection.IsPublished ? "Published" : collection.CanPublish ? "Ready" : "Draft")</span>
                         </button>
                     </li>
@@ -110,10 +110,36 @@
 
 @if (SelectedSummary is not null)
 {
+    <section class="panel" aria-labelledby="collection-readiness-heading">
+        <div class="panel-heading"><div><p class="eyebrow">Publication readiness</p><h2 id="collection-readiness-heading">@SelectedSummary.DisplayName pipeline</h2><p>Each stage narrows the assigned candidates. Publishing remains a separate owner action after the target is met.</p></div><span class="validation-state @(SelectedSummary.CanPublish ? "passed" : "warning")">@(SelectedSummary.CanPublish ? "Target met" : $"{SelectedSummary.MinimumProductsForIndexing - SelectedSummary.IndexableProducts} needed")</span></div>
+        <div class="metric-grid" aria-label="Selected collection readiness counts">
+            <article class="metric-card"><strong>@SelectedSummary.AssignedProducts</strong><span>Candidates assigned</span></article>
+            <article class="metric-card"><strong>@SelectedSummary.ApprovedProducts</strong><span>Editorially approved</span></article>
+            <article class="metric-card"><strong>@SelectedSummary.PublicProducts</strong><span>Publicly eligible</span></article>
+            <article class="metric-card"><strong>@SelectedSummary.IndexableProducts / @SelectedSummary.MinimumProductsForIndexing</strong><span>Indexable target</span></article>
+        </div>
+        @if (SelectedSummary.AwaitingApprovalProducts > 0 ||
+            SelectedSummary.ApprovedButNotPublicProducts > 0 ||
+            SelectedSummary.EditorialBlockerProducts > 0 ||
+            SelectedSummary.ImageBlockerProducts > 0 ||
+            SelectedSummary.PriceBlockerProducts > 0 ||
+            SelectedSummary.FreshnessBlockerProducts > 0)
+        {
+            <ul class="validation-findings">
+                @if (SelectedSummary.AwaitingApprovalProducts > 0) { <li><strong>@SelectedSummary.AwaitingApprovalProducts</strong> assigned candidate(s) still need editorial approval.</li> }
+                @if (SelectedSummary.ApprovedButNotPublicProducts > 0) { <li><strong>@SelectedSummary.ApprovedButNotPublicProducts</strong> approved product(s) are inactive, ineligible or missing an active affiliate link.</li> }
+                @if (SelectedSummary.EditorialBlockerProducts > 0) { <li><strong>@SelectedSummary.EditorialBlockerProducts</strong> public product(s) need an index-quality title or description.</li> }
+                @if (SelectedSummary.ImageBlockerProducts > 0) { <li><strong>@SelectedSummary.ImageBlockerProducts</strong> public product(s) are missing an image.</li> }
+                @if (SelectedSummary.PriceBlockerProducts > 0) { <li><strong>@SelectedSummary.PriceBlockerProducts</strong> public product(s) lack a current positive price.</li> }
+                @if (SelectedSummary.FreshnessBlockerProducts > 0) { <li><strong>@SelectedSummary.FreshnessBlockerProducts</strong> public product(s) have stale source snapshots.</li> }
+            </ul>
+        }
+    </section>
+
     <section class="panel catalogue-table-panel collection-products-panel">
         <div class="panel-heading catalogue-table-heading">
             <div><p class="eyebrow">Membership</p><h2>@SelectedSummary.DisplayName products</h2><p>Products may be organised while still awaiting editorial approval; only approved, eligible and actively linked products appear publicly.</p></div>
-            <div class="catalogue-filters"><label>Find product <input @bind="ProductSearch" @bind:event="oninput" placeholder="Title or product ID" /></label><button class="button" type="button" disabled="@IsBusy" @onclick="LoadCandidatesAsync">Search</button><button class="button button-primary" type="button" disabled="@(IsBusy || SelectedSummary.DiscoveryQueries.Count == 0)" @onclick="DiscoverAsync">@(IsDiscovering ? "Discovering…" : $"Discover products ({SelectedSummary.DiscoveryQueries.Count} searches)")</button><span class="count-badge">@Candidates.Count</span></div>
+            <div class="catalogue-filters"><label>Show <InputSelect @bind-Value="CandidateFilter"><option value="@CollectionCandidateFilter.All">All candidates</option><option value="@CollectionCandidateFilter.Assigned">Assigned</option><option value="@CollectionCandidateFilter.Unassigned">Unassigned</option><option value="@CollectionCandidateFilter.NeedsAttention">Assigned needs work</option></InputSelect></label><label>Find product <input @bind="ProductSearch" @bind:event="oninput" placeholder="Title or product ID" /></label><button class="button" type="button" disabled="@IsBusy" @onclick="LoadCandidatesAsync">Apply</button><button class="button button-primary" type="button" disabled="@(IsBusy || SelectedSummary.DiscoveryQueries.Count == 0)" @onclick="DiscoverAsync">@(IsDiscovering ? "Discovering…" : $"Discover products ({SelectedSummary.DiscoveryQueries.Count} searches)")</button><span class="count-badge">@Candidates.Count</span></div>
         </div>
         @if (Candidates.Count == 0)
         {
@@ -121,14 +147,14 @@
         }
         else
         {
-            <div class="table-scroll"><table class="admin-table collection-products-table"><thead><tr><th>Product</th><th>Source category</th><th>Price</th><th>Review</th><th>Membership</th></tr></thead><tbody>
+            <div class="table-scroll"><table class="admin-table collection-products-table"><thead><tr><th>Product</th><th>Source category</th><th>Price</th><th>Readiness</th><th>Membership</th></tr></thead><tbody>
             @foreach (var product in Candidates)
             {
                 <tr>
                     <td><div class="catalogue-product-cell">@if (!string.IsNullOrWhiteSpace(product.ImageUrl)) { <img src="@product.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /> }<div><strong>@product.Title</strong><small>@product.ProductId</small></div></div></td>
                     <td>@(product.SourceCategory ?? "Uncategorised")</td>
                     <td>@Money(product.Price, product.Currency)</td>
-                    <td><span class="validation-state @product.ReviewStatus.ToString().ToLowerInvariant()">@product.ReviewStatus</span></td>
+                    <td><span class="validation-state @(product.IsIndexable ? "passed" : product.IsPublic ? "warning" : "note")">@(product.IsIndexable ? "Indexable" : product.IsPublic ? "Needs SEO" : product.ReviewStatus.ToString())</span>@if (product.ReadinessIssues.Count > 0) { <small>@string.Join(" · ", product.ReadinessIssues)</small> }</td>
                     <td><button class="button @(product.IsAssigned ? null : "button-primary")" type="button" disabled="@IsBusy" @onclick="() => ToggleMembershipAsync(product)">@(product.IsAssigned ? "Remove" : "Add")</button></td>
                 </tr>
             }
@@ -147,6 +173,7 @@
     private CollectionCommandResult? Result { get; set; }
     private CollectionDiscoveryResult? DiscoveryResult { get; set; }
     private string ProductSearch { get; set; } = string.Empty;
+    private CollectionCandidateFilter CandidateFilter { get; set; } = CollectionCandidateFilter.All;
     private bool IsBusy { get; set; }
     private bool IsDiscovering { get; set; }
 
@@ -177,6 +204,7 @@
     {
         SelectedCollectionId = null;
         Candidates = [];
+        CandidateFilter = CollectionCandidateFilter.All;
         Editor = new CollectionForm();
         Result = null;
         DiscoveryResult = null;
@@ -241,7 +269,7 @@
     {
         Candidates = SelectedCollectionId is null
             ? []
-            : await CollectionService.GetProductCandidatesAsync(ShopSlug, SelectedCollectionId.Value, ProductSearch);
+            : await CollectionService.GetProductCandidatesAsync(ShopSlug, SelectedCollectionId.Value, ProductSearch, CandidateFilter);
     }
 
     private async Task ToggleMembershipAsync(CollectionProductCandidate product)

@@ -104,8 +104,143 @@ public sealed class CatalogueCollectionServiceTests
 
         Assert.True(result.Succeeded);
         Assert.Equal(1, summary.AssignedProducts);
+        Assert.Equal(0, summary.ApprovedProducts);
         Assert.Equal(0, summary.PublicProducts);
         Assert.Equal(0, summary.IndexableProducts);
+        Assert.Equal(1, summary.AwaitingApprovalProducts);
+    }
+
+    [Fact]
+    public async Task GetProductCandidatesAsync_SearchesProductIdAndExplainsReadiness()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddPendingProduct(context, shopId, "distinct-product-417");
+            await context.SaveChangesAsync();
+        }
+
+        var products = await service.GetProductCandidatesAsync(
+            "plushies", saved.CollectionId!.Value, "417");
+
+        var product = Assert.Single(products);
+        Assert.Equal("distinct-product-417", product.ProductId);
+        Assert.False(product.IsPublic);
+        Assert.False(product.IsIndexable);
+        Assert.Contains("Awaiting editorial approval", product.ReadinessIssues);
+        Assert.Contains("No active affiliate link", product.ReadinessIssues);
+    }
+
+    [Fact]
+    public async Task GetCollectionsAsync_ReportsEachReadinessStageAndActionableBlockers()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddIndexableProduct(context, shopId, saved.CollectionId!.Value, "ready-product", 10);
+            AddIndexableProduct(context, shopId, saved.CollectionId.Value, "thin-copy-product", 20);
+            await context.SaveChangesAsync();
+            var thinCopy = await context.ShopProducts.SingleAsync(item => item.ProductId == "thin-copy-product");
+            thinCopy.EditorialDescription = "Too short";
+            AddPendingProduct(context, shopId, "pending-product");
+            context.CollectionProducts.Add(new CollectionProductRecord
+            {
+                CollectionId = saved.CollectionId.Value,
+                ProductId = "pending-product",
+                AssignedUtc = Now,
+                AssignedBy = "owner@example.test"
+            });
+            AddApprovedProductWithoutLink(context, shopId, saved.CollectionId.Value, "unlinked-product");
+            await context.SaveChangesAsync();
+        }
+
+        var summary = Assert.Single(await service.GetCollectionsAsync("plushies"));
+
+        Assert.Equal(4, summary.AssignedProducts);
+        Assert.Equal(3, summary.ApprovedProducts);
+        Assert.Equal(2, summary.PublicProducts);
+        Assert.Equal(1, summary.IndexableProducts);
+        Assert.Equal(1, summary.AwaitingApprovalProducts);
+        Assert.Equal(1, summary.ApprovedButNotPublicProducts);
+        Assert.Equal(1, summary.EditorialBlockerProducts);
+        Assert.Equal(0, summary.ImageBlockerProducts);
+        Assert.Equal(0, summary.PriceBlockerProducts);
+        Assert.Equal(0, summary.FreshnessBlockerProducts);
+    }
+
+    [Fact]
+    public async Task GetProductCandidatesAsync_PrioritisesAssignedProductsBeforeResultLimit()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddPendingProduct(context, shopId, "unassigned-product");
+            AddPendingProduct(context, shopId, "assigned-product");
+            context.CollectionProducts.Add(new CollectionProductRecord
+            {
+                CollectionId = saved.CollectionId!.Value,
+                ProductId = "assigned-product",
+                AssignedUtc = Now,
+                AssignedBy = "owner@example.test"
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var products = await service.GetProductCandidatesAsync(
+            "plushies",
+            saved.CollectionId!.Value,
+            maximumResults: 1);
+
+        var product = Assert.Single(products);
+        Assert.Equal("assigned-product", product.ProductId);
+        Assert.True(product.IsAssigned);
+    }
+
+    [Fact]
+    public async Task SetMembershipAsync_CanRemoveAnAssignedProductAfterItBecomesIneligible()
+    {
+        var factory = await CreateDatabaseAsync();
+        var service = CreateService(factory);
+        var saved = await service.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            AddPendingProduct(context, shopId, "withdrawn-product");
+            context.CollectionProducts.Add(new CollectionProductRecord
+            {
+                CollectionId = saved.CollectionId!.Value,
+                ProductId = "withdrawn-product",
+                AssignedUtc = Now,
+                AssignedBy = "owner@example.test"
+            });
+            await context.SaveChangesAsync();
+            var shopProduct = await context.ShopProducts.SingleAsync(item => item.ProductId == "withdrawn-product");
+            shopProduct.IsActive = false;
+            var product = await context.Products.SingleAsync(item => item.AliExpressProductId == "withdrawn-product");
+            product.IsEligible = false;
+            await context.SaveChangesAsync();
+        }
+
+        var visible = await service.GetProductCandidatesAsync(
+            "plushies", saved.CollectionId!.Value, filter: CollectionCandidateFilter.Assigned);
+        var result = await service.SetMembershipAsync(
+            "plushies", saved.CollectionId.Value, "withdrawn-product", false, false, 0, "owner@example.test");
+
+        Assert.Single(visible);
+        Assert.Contains("Inactive in this shop", visible[0].ReadinessIssues);
+        Assert.Contains("Held by catalogue eligibility", visible[0].ReadinessIssues);
+        Assert.True(result.Succeeded);
+        await using var verification = factory.CreateDbContext();
+        Assert.Empty(verification.CollectionProducts);
     }
 
     [Fact]
@@ -253,6 +388,49 @@ public sealed class CatalogueCollectionServiceTests
             ReviewStatus = ProductReviewStatus.Pending,
             FirstIncludedUtc = Now,
             LastIncludedUtc = Now
+        });
+    }
+
+    private static void AddApprovedProductWithoutLink(
+        AffiliateSuperstoreDbContext context,
+        Guid shopId,
+        Guid collectionId,
+        string productId)
+    {
+        context.Products.Add(new ProductRecord
+        {
+            AliExpressProductId = productId,
+            Title = $"Source {productId}",
+            MainImageUrl = $"https://example.test/{productId}.jpg",
+            IsEligible = true,
+            FirstSeenUtc = Now.AddDays(-2),
+            LastSeenUtc = Now,
+            LastRefreshedUtc = Now
+        });
+        context.ShopProducts.Add(new ShopProductRecord
+        {
+            ShopId = shopId,
+            ProductId = productId,
+            IsActive = true,
+            ReviewStatus = ProductReviewStatus.Approved,
+            EditorialTitle = "Curated unlinked animal plush",
+            EditorialDescription = "A carefully selected soft animal companion with clear details to help shoppers compare the available marketplace options.",
+            FirstIncludedUtc = Now,
+            LastIncludedUtc = Now
+        });
+        context.ProductSnapshots.Add(new ProductSnapshotRecord
+        {
+            ProductId = productId,
+            FetchedUtc = Now.AddDays(-1),
+            SalePrice = 8.99m,
+            Currency = "GBP"
+        });
+        context.CollectionProducts.Add(new CollectionProductRecord
+        {
+            CollectionId = collectionId,
+            ProductId = productId,
+            AssignedUtc = Now,
+            AssignedBy = "owner@example.test"
         });
     }
 

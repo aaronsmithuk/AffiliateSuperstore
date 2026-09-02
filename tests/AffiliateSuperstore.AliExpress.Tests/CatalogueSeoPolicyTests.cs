@@ -24,6 +24,24 @@ public sealed class CatalogueSeoPolicyTests
         Assert.False(policy.IsProductIndexable("Useful title", new string('a', 70), "image", 8.89m, Now.AddDays(-15)));
     }
 
+    [Fact]
+    public void AssessProduct_ExplainsEveryFailedIndexingGate()
+    {
+        var assessment = policy.AssessProduct(
+            "Thin",
+            "Too short",
+            null,
+            0,
+            Now.AddDays(-15));
+
+        Assert.False(assessment.IsIndexable);
+        Assert.True(assessment.Has(CatalogueProductIndexingIssue.EditorialTitle));
+        Assert.True(assessment.Has(CatalogueProductIndexingIssue.EditorialDescription));
+        Assert.True(assessment.Has(CatalogueProductIndexingIssue.Image));
+        Assert.True(assessment.Has(CatalogueProductIndexingIssue.Price));
+        Assert.True(assessment.Has(CatalogueProductIndexingIssue.Freshness));
+    }
+
     [Theory]
     [InlineData(11, false)]
     [InlineData(12, true)]

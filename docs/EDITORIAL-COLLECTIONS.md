@@ -26,6 +26,17 @@ The names and discovery phrases deliberately avoid marketplace, entertainment-fr
 5. Add or remove products manually where the search results need correction.
 6. Publish the collection only when its indexable-product target is met. The default target is 12.
 
+The collection list shows the curation funnel for every collection: assigned
+candidates, editorially approved products and products that pass every indexing
+gate. Selecting a collection adds the publicly eligible stage and separates the
+remaining blockers into approval, catalogue/link eligibility, editorial copy,
+image, current price and snapshot freshness counts.
+
+Use the membership filters to focus on assigned, unassigned or assigned products
+that still need work. Assigned products are kept visible even if they later
+become inactive or ineligible so an editor can remove stale memberships. Product
+search accepts either title text or any part of the AliExpress product ID.
+
 Discovery stops on an API failure and reports the completed work. Successful results found before the failure remain non-public candidates so they are not lost. Running discovery again is safe: existing product and collection memberships are reused rather than duplicated.
 
 ## Publication and SEO safeguards
