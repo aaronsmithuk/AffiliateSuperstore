@@ -44,9 +44,15 @@ public sealed class CatalogueAiQueuePreparationService(
         string shopSlug,
         int requestedCount = MaximumBatchSize,
         string actor = "administrator",
+        decimal? duplicateHoldConfidence = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(shopSlug);
+        if (duplicateHoldConfidence is < 0m or > 1m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duplicateHoldConfidence),
+                "Duplicate hold confidence must be between zero and one.");
+        }
         var batchSize = Math.Clamp(requestedCount, 1, MaximumBatchSize);
         if (!await Gate.WaitAsync(0, cancellationToken))
         {
@@ -60,7 +66,11 @@ public sealed class CatalogueAiQueuePreparationService(
                 return Empty(batchSize, options.AvailabilityMessage);
             }
 
-            var candidates = await SelectCandidatesAsync(shopSlug, batchSize, cancellationToken);
+            var candidates = await SelectCandidatesAsync(
+                shopSlug,
+                batchSize,
+                duplicateHoldConfidence,
+                cancellationToken);
             if (candidates.Count == 0)
             {
                 return Empty(batchSize,
@@ -141,6 +151,7 @@ public sealed class CatalogueAiQueuePreparationService(
     private async Task<IReadOnlyList<QueueCandidate>> SelectCandidatesAsync(
         string shopSlug,
         int batchSize,
+        decimal? duplicateHoldConfidence,
         CancellationToken cancellationToken)
     {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
@@ -192,6 +203,31 @@ public sealed class CatalogueAiQueuePreparationService(
         if (qualityClear.Length == 0) return [];
 
         var productIds = qualityClear.Select(candidate => candidate.ProductId).ToArray();
+        var duplicateProductIds = new HashSet<string>(StringComparer.Ordinal);
+        if (duplicateHoldConfidence is not null)
+        {
+            duplicateProductIds.UnionWith(await context.CanonicalProductMembers.AsNoTracking()
+                .Where(member => productIds.Contains(member.ProductId) &&
+                    member.Relationship == ProductRelationship.Duplicate)
+                .Select(member => member.ProductId)
+                .ToArrayAsync(cancellationToken));
+
+            var probableDuplicates = await context.ProductMatchCandidates.AsNoTracking()
+                .Where(candidate => candidate.IsCurrent &&
+                    candidate.ReviewStatus == ProductMatchReviewStatus.Pending &&
+                    candidate.SuggestedRelationship == ProductRelationship.Duplicate &&
+                    candidate.Confidence >= duplicateHoldConfidence.Value &&
+                    (productIds.Contains(candidate.LeftProductId) ||
+                     productIds.Contains(candidate.RightProductId)))
+                .Select(candidate => new { candidate.LeftProductId, candidate.RightProductId })
+                .ToArrayAsync(cancellationToken);
+            foreach (var duplicate in probableDuplicates)
+            {
+                duplicateProductIds.Add(duplicate.LeftProductId);
+                duplicateProductIds.Add(duplicate.RightProductId);
+            }
+        }
+
         var rejectedInputs = await context.AiInvocations.AsNoTracking()
             .Where(invocation => productIds.Contains(invocation.ProductId) &&
                 invocation.Purpose == AiInvocationAuditService.ProductCopyPurpose &&
@@ -208,6 +244,7 @@ public sealed class CatalogueAiQueuePreparationService(
                 StringComparer.Ordinal);
 
         return qualityClear
+            .Where(candidate => !duplicateProductIds.Contains(candidate.ProductId))
             .Where(candidate => !rejectedHashesByProduct.TryGetValue(candidate.ProductId, out var hashes) ||
                 !hashes.Contains(candidate.InputHash))
             .Take(batchSize)

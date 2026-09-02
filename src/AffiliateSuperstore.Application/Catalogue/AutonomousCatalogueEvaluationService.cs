@@ -126,7 +126,8 @@ public sealed class AutonomousCatalogueEvaluationService(
                     shopSlug,
                     preparationCount,
                     $"autonomous {policy.Mode.ToString().ToLowerInvariant()}",
-                    cancellationToken);
+                    duplicateHoldConfidence: policy.DuplicateHoldConfidence,
+                    cancellationToken: cancellationToken);
             }
 
             var dashboard = await reviewService.GetAsync(shopSlug, cancellationToken);

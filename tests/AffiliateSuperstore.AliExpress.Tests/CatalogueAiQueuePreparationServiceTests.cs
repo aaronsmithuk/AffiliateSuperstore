@@ -114,6 +114,45 @@ public sealed class CatalogueAiQueuePreparationServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_WithAutomaticDuplicateThreshold_SkipsProbableDuplicatesBeforeCallingAi()
+    {
+        var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
+        await SeedQueueAsync(factory, 3);
+        await using (var context = factory.CreateDbContext())
+        {
+            context.ProductMatchCandidates.Add(new ProductMatchCandidateRecord
+            {
+                Id = Guid.CreateVersion7(),
+                LeftProductId = "queue-01",
+                RightProductId = "queue-03",
+                SuggestedRelationship = ProductRelationship.Duplicate,
+                ReviewStatus = ProductMatchReviewStatus.Pending,
+                IsCurrent = true,
+                Confidence = .90m,
+                BlockingReason = "Probable duplicate",
+                EvidenceJson = "{}",
+                MatcherVersion = "test",
+                GeneratedUtc = DateTimeOffset.UtcNow
+            });
+            await context.SaveChangesAsync();
+        }
+        var provider = new FakeProvider(new ProductEditorialSuggestionOutput(
+            "Highland Cow Plush",
+            "A Highland cow plush with a shaggy character-inspired look and rounded styling for a cheerful collectable display.",
+            [], [], [], "en-GB", "fake", "test-model", Hash("duplicate-skip"), 80, 20));
+        var service = CreateService(factory, provider);
+
+        var result = await service.RunAsync(
+            "plushies",
+            1,
+            "automatic queue",
+            duplicateHoldConfidence: .75m);
+
+        Assert.Equal(1, result.DraftsSaved);
+        Assert.Equal(["queue-02"], provider.Requests.Select(request => request.ProductId));
+    }
+
+    [Fact]
     public async Task RunAsync_TruncatesLongAuditIdentityWithoutLosingTheDraft()
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
