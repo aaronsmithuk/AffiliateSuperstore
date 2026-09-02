@@ -601,6 +601,42 @@ neighbouring production sites returned HTTP 200. This was a database policy
 change only: no application files were deployed, no `app_offline.htm` was
 created and no application-pool action was taken.
 
+## Fourteenth production release and autonomous safety circuit
+
+Application commit `b647bf8` was deployed on 2 September 2026. The release
+adds a fail-closed circuit around automatic publication: a recent autonomous-
+review dead letter or three consecutive product-copy AI failures within the
+configured 24-hour window changes the affected shop from Automatic to Shadow
+mode before another product can be published. The admin automation page shows
+the reason and the deliberate owner action needed to acknowledge the incident
+and re-arm Automatic mode.
+
+A clean detached Release build passed all 192 tests. Both the project and the
+published root `web.config` validated as OutOfProcess. This application-only
+release contained no database migration. It was uploaded and expanded only in
+`/wonderaisle` through the hosting file manager while a target-scoped
+`app_offline.htm` marker was active. `App_Data` was preserved. After successful
+expansion, the marker was renamed to the recoverable inactive file
+`app_offline-20260902-b647bf8.done.htm`; the uploaded release archive was
+retained for recovery. No application-pool restart or account-wide action was
+performed.
+
+Production remained in the owner-approved Automatic pilot: hourly review,
+at most two candidates per run, at most two publications per UTC day,
+readiness 1.00, duplicate holds from confidence 0.75, a USD 0.25 daily AI
+allowance and the shared USD 5.00 monthly hard cap. The post-release audit
+found no autonomous-review dead letters in the preceding 24 hours and the
+latest three product-copy AI calls had all succeeded. The catalogue still had
+19 approved active products and exactly two automatic publications for the
+day, with USD 0.009517 month-to-date AI spend.
+
+`/health/live`, `/health/ready`, `/`, `/plushies`, `/sitemap.xml` and three
+representative product pages returned HTTP 200. Anonymous access to
+`/admin/automation` redirected to `/admin/login`. `circlesofstone.co.uk`,
+`www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after the release.
+
 ## Build a release bundle
 
 From the repository root:
