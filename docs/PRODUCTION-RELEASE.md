@@ -533,6 +533,50 @@ Aisle home and catalogue pages, and all six neighbouring sites returned HTTP
 200. The recoverable offline marker is retained as
 `app_offline-20260902-13321cc.done.htm`; no pool restart was performed.
 
+## Thirteenth production release and budgeted AI discovery record
+
+Application commit `518771d` was deployed on 2 September 2026 after the
+autonomous catalogue, advanced discovery and collection-suggestion work in
+commits `2dd3824`, `7169172` and `43c2a91`. A clean detached release build
+passed all 189 tests, and both the project and published `web.config` validated
+as OutOfProcess. A fresh isolated production database backup completed before
+the additive collection-suggestion migration and application deployment.
+
+The shared application-enforced monthly AI limit is now USD 5.00. The
+dedicated production pool has no environment-variable override for that
+setting, so the deployed configuration is authoritative. Product editorial
+and collection suggestions debit the same transactional monthly ledger.
+Production also retains a USD 0.25 daily product-AI limit beneath that hard
+monthly ceiling. The automatic product policy is limited to one candidate per
+hour, one publication per UTC day, readiness 1.00 and duplicate holds from
+confidence 0.75.
+
+The first production collection-suggestion attempt failed closed before any
+provider spend because its 120-product evidence packet exceeded the configured
+input limit. Commit `518771d` made evidence-packet selection dynamically obey
+that limit while retaining enough catalogue evidence for validation. The
+automatic retry then succeeded with 4,311 input and 726 output tokens at an
+estimated cost of USD 0.0017334. It saved exactly one evidence-backed
+suggestion in Draft status; it did not create or publish a public collection.
+
+A supervised discovery cycle then completed 12 standard searches reading 192
+items and six seeded Smart Match searches reading 114 items. All six Smart
+Match calls used approved product `1005011692664194` as their seed. The cycle
+found 30 genuinely new products and recorded no rejected provider calls. The
+AI ledger subsequently reported USD 0.0084732 estimated month-to-date spend
+against the USD 5.00 cap, with zero budget-blocked calls.
+
+The production safety audit found one collection suggestion awaiting review
+and exactly one automatic product publication for the UTC day, so the daily
+publication cap held. `/health/live`, `/health/ready`, `/`, `/plushies`, the
+representative product and `/sitemap.xml` returned HTTP 200. The sitemap has
+28 URLs and includes both the shop and representative product. Anonymous
+access to `/admin/collection-suggestions` redirected to `/admin/login`.
+`circlesofstone.co.uk`, `www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after canonical redirects.
+No application-pool or account-wide restart was performed.
+
 ## Build a release bundle
 
 From the repository root:
