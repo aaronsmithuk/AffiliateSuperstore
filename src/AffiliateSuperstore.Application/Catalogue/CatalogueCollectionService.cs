@@ -14,6 +14,7 @@ public sealed class CatalogueCollectionService(
     public const int MaximumDiscoveryQueries = 8;
     public const int MinimumIndexingTarget = 8;
     public const int MaximumIndexingTarget = 48;
+    public const int CandidateScoringPoolLimit = 2000;
 
     private static readonly string[] RestrictedBrandTerms =
     [
@@ -206,20 +207,26 @@ public sealed class CatalogueCollectionService(
         {
             CollectionCandidateFilter.Assigned or CollectionCandidateFilter.NeedsAttention => query.Where(item =>
                 item.Product.Collections.Any(membership => membership.CollectionId == collectionId)),
-            CollectionCandidateFilter.Unassigned => query.Where(item =>
+            CollectionCandidateFilter.Unassigned or CollectionCandidateFilter.Suggested => query.Where(item =>
                 !item.Product.Collections.Any(membership => membership.CollectionId == collectionId)),
             _ => query
         };
 
+        var poolLimit = normalisedSearch is not null
+            ? maximumResults
+            : filter is CollectionCandidateFilter.Assigned or CollectionCandidateFilter.NeedsAttention
+                ? 500
+                : CandidateScoringPoolLimit;
         var candidateRows = await query
             .OrderByDescending(item => item.Product.Collections.Any(membership => membership.CollectionId == collectionId))
             .ThenBy(item => item.ReviewStatus == ProductReviewStatus.Approved ? 0 : 1)
             .ThenByDescending(item => item.IsFeatured)
             .ThenByDescending(item => item.Product.Snapshots.Max(snapshot => snapshot.RecentSalesVolume))
-            .Take(filter == CollectionCandidateFilter.NeedsAttention ? 500 : maximumResults)
+            .Take(poolLimit)
             .Select(item => new CollectionProductCandidateRow(
                 item.ProductId,
                 item.EditorialTitle ?? item.Product.Title,
+                item.Product.Title,
                 item.Product.MainImageUrl,
                 item.ReviewStatus,
                 item.IsActive,
@@ -229,12 +236,14 @@ public sealed class CatalogueCollectionService(
                 item.EditorialTitle,
                 item.EditorialDescription,
                 item.Product.SecondLevelCategoryName,
+                item.Product.IdentityProfile == null ? null : item.Product.IdentityProfile.NormalizedTitle,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
                     .Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
                     .Select(snapshot => snapshot.Currency).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
                     .Select(snapshot => snapshot.FetchedUtc).FirstOrDefault(),
+                item.Product.Snapshots.Max(snapshot => snapshot.RecentSalesVolume),
                 item.Product.Collections.Any(membership => membership.CollectionId == collectionId),
                 item.Product.Collections.Where(membership => membership.CollectionId == collectionId)
                     .Select(membership => membership.IsFeatured).FirstOrDefault(),
@@ -242,11 +251,39 @@ public sealed class CatalogueCollectionService(
                     .Select(membership => membership.DisplayOrder).FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
-        var candidates = candidateRows.Select(ToProductCandidate);
-        if (filter == CollectionCandidateFilter.NeedsAttention)
+        var discoveryQueries = ReadQueries(collection.DiscoveryQueriesJson);
+        var candidates = candidateRows.Select(item => ToProductCandidate(item, collection, discoveryQueries));
+        candidates = filter switch
         {
-            candidates = candidates.Where(item => item.IsAssigned && !item.IsIndexable);
-        }
+            CollectionCandidateFilter.Suggested => candidates
+                .Where(item => !item.IsAssigned && item.IsSuggested)
+                .OrderByDescending(item => item.CollectionMatchScore)
+                .ThenByDescending(item => item.IsIndexable)
+                .ThenByDescending(item => item.RecentSalesVolume)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
+            CollectionCandidateFilter.Assigned => candidates
+                .OrderBy(item => item.DisplayOrder)
+                .ThenByDescending(item => item.CollectionMatchScore)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
+            CollectionCandidateFilter.NeedsAttention => candidates
+                .Where(item => item.IsAssigned && !item.IsIndexable)
+                .OrderByDescending(item => item.CollectionMatchScore)
+                .ThenBy(item => item.DisplayOrder)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
+            CollectionCandidateFilter.Unassigned => candidates
+                .OrderByDescending(item => item.IsSuggested)
+                .ThenByDescending(item => item.CollectionMatchScore)
+                .ThenByDescending(item => item.ReviewStatus == ProductReviewStatus.Approved)
+                .ThenByDescending(item => item.RecentSalesVolume)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
+            _ => candidates
+                .OrderByDescending(item => item.IsAssigned)
+                .ThenByDescending(item => item.IsSuggested)
+                .ThenByDescending(item => item.CollectionMatchScore)
+                .ThenByDescending(item => item.ReviewStatus == ProductReviewStatus.Approved)
+                .ThenByDescending(item => item.RecentSalesVolume)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+        };
         return candidates.Take(maximumResults).ToArray();
     }
 
@@ -451,7 +488,10 @@ public sealed class CatalogueCollectionService(
             candidate.Price,
             candidate.LastCheckedUtc);
 
-    private CollectionProductCandidate ToProductCandidate(CollectionProductCandidateRow item)
+    private CollectionProductCandidate ToProductCandidate(
+        CollectionProductCandidateRow item,
+        CollectionRecord collection,
+        IReadOnlyList<string> discoveryQueries)
     {
         var isPublic = item.IsActive && item.IsEligible && item.ReviewStatus == ProductReviewStatus.Approved && item.HasActiveLink;
         var assessment = seoPolicy.AssessProduct(
@@ -470,6 +510,14 @@ public sealed class CatalogueCollectionService(
         if (assessment.Has(CatalogueProductIndexingIssue.Image)) issues.Add("Missing image");
         if (assessment.Has(CatalogueProductIndexingIssue.Price)) issues.Add("Missing current price");
         if (assessment.Has(CatalogueProductIndexingIssue.Freshness)) issues.Add("Snapshot is stale");
+        var match = CollectionCandidateMatcher.Assess(
+            collection.DisplayName,
+            collection.ShortDescription,
+            discoveryQueries,
+            item.SourceTitle,
+            item.EditorialTitle,
+            item.SourceCategory,
+            item.NormalizedIdentityTitle);
         return new CollectionProductCandidate(
             item.ProductId,
             item.Title,
@@ -483,7 +531,11 @@ public sealed class CatalogueCollectionService(
             item.DisplayOrder,
             isPublic,
             isPublic && assessment.IsIndexable,
-            issues);
+            issues,
+            match.Score,
+            match.IsSuggested,
+            match.Reasons,
+            item.RecentSalesVolume);
     }
 
     private static List<string> Validate(CollectionUpdate update)
@@ -547,6 +599,7 @@ public sealed class CatalogueCollectionService(
     private sealed record CollectionProductCandidateRow(
         string ProductId,
         string Title,
+        string SourceTitle,
         string? ImageUrl,
         ProductReviewStatus ReviewStatus,
         bool IsActive,
@@ -555,9 +608,11 @@ public sealed class CatalogueCollectionService(
         string? EditorialTitle,
         string? EditorialDescription,
         string? SourceCategory,
+        string? NormalizedIdentityTitle,
         decimal? Price,
         string? Currency,
         DateTimeOffset LastCheckedUtc,
+        long? RecentSalesVolume,
         bool IsAssigned,
         bool IsFeatured,
         int DisplayOrder);
@@ -612,14 +667,19 @@ public sealed record CollectionProductCandidate(
     int DisplayOrder,
     bool IsPublic,
     bool IsIndexable,
-    IReadOnlyList<string> ReadinessIssues);
+    IReadOnlyList<string> ReadinessIssues,
+    int CollectionMatchScore,
+    bool IsSuggested,
+    IReadOnlyList<string> CollectionMatchReasons,
+    long? RecentSalesVolume);
 
 public enum CollectionCandidateFilter
 {
     All,
     Assigned,
     Unassigned,
-    NeedsAttention
+    NeedsAttention,
+    Suggested
 }
 
 public sealed record CollectionUpdate(

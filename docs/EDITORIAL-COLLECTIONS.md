@@ -37,6 +37,32 @@ that still need work. Assigned products are kept visible even if they later
 become inactive or ineligible so an editor can remove stale memberships. Product
 search accepts either title text or any part of the AliExpress product ID.
 
+### Suggested matches from the existing catalogue
+
+Selecting a collection opens **Suggested matches** by default. This view does
+not call AliExpress, use a model or change membership. It ranks unassigned,
+active and eligible products already held in the shop catalogue, up to a bounded
+2,000-product scoring pool.
+
+The deterministic matcher:
+
+- normalises case, simple plurals and common mini-plush terms such as
+  `keyring`/`keychain`;
+- ignores generic wording such as `plush`, `toy`, `soft` and `cute`;
+- compares each product's source and editorial titles plus normalized identity
+  title with the collection's discovery queries and short description; and
+- uses the source category only as supporting evidence when a product title has
+  already matched a discovery-query term.
+
+Each row shows a relevance score and the query, scope or category terms that
+contributed to it. The score is a lexical shortlist signal, not a probability or
+approval decision. A score of 65 or more enters the suggested view. The operator
+must still inspect the product and choose **Add**; recommendations create no
+membership, approval or publication records by themselves. Editing the
+collection wording changes the next ranking, so keep discovery queries specific
+and generic-brand-safe. If no strong existing match is available, use **All
+candidates** or run **Discover products**.
+
 Discovery stops on an API failure and reports the completed work. Successful results found before the failure remain non-public candidates so they are not lost. Running discovery again is safe: existing product and collection memberships are reused rather than duplicated.
 
 ## Publication and SEO safeguards
