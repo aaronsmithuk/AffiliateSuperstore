@@ -120,6 +120,7 @@ public sealed class CatalogueCollectionService(
             where collectionIds.Contains(collection.Id)
             select new CollectionProductSeoCandidate(
                 collection.Id,
+                shopProduct.ReviewStatus == ProductReviewStatus.Approved,
                 shopProduct.IsActive &&
                     shopProduct.ReviewStatus == ProductReviewStatus.Approved &&
                     shopProduct.Product.IsEligible &&
@@ -137,8 +138,12 @@ public sealed class CatalogueCollectionService(
         return collections.Select(collection =>
         {
             var assigned = candidates.Where(item => item.CollectionId == collection.Id).ToArray();
+            var approvedProducts = assigned.Where(item => item.IsApproved).ToArray();
             var publicProducts = assigned.Where(item => item.IsPublic).ToArray();
-            var indexable = publicProducts.Count(IsIndexable);
+            var assessments = publicProducts
+                .Select(item => (Candidate: item, Assessment: AssessIndexability(item)))
+                .ToArray();
+            var indexable = assessments.Count(item => item.Assessment.IsIndexable);
             return new CollectionAdminSummary(
                 collection.Id,
                 collection.Slug,
@@ -153,8 +158,17 @@ public sealed class CatalogueCollectionService(
                 collection.IsFeatured,
                 collection.IsPublished,
                 assigned.Length,
+                approvedProducts.Length,
                 publicProducts.Length,
                 indexable,
+                assigned.Length - approvedProducts.Length,
+                approvedProducts.Length - publicProducts.Length,
+                assessments.Count(item =>
+                    item.Assessment.Has(CatalogueProductIndexingIssue.EditorialTitle) ||
+                    item.Assessment.Has(CatalogueProductIndexingIssue.EditorialDescription)),
+                assessments.Count(item => item.Assessment.Has(CatalogueProductIndexingIssue.Image)),
+                assessments.Count(item => item.Assessment.Has(CatalogueProductIndexingIssue.Price)),
+                assessments.Count(item => item.Assessment.Has(CatalogueProductIndexingIssue.Freshness)),
                 indexable >= collection.MinimumProductsForIndexing,
                 collection.RowVersion);
         }).ToArray();
@@ -164,6 +178,7 @@ public sealed class CatalogueCollectionService(
         string shopSlug,
         Guid collectionId,
         string? search = null,
+        CollectionCandidateFilter filter = CollectionCandidateFilter.All,
         int maximumResults = 250,
         CancellationToken cancellationToken = default)
     {
@@ -175,35 +190,64 @@ public sealed class CatalogueCollectionService(
         if (collection is null) return [];
 
         var query = context.ShopProducts.AsNoTracking()
-            .Where(item => item.ShopId == collection.ShopId && item.IsActive && item.Product.IsEligible);
+            .Where(item =>
+                item.ShopId == collection.ShopId &&
+                ((item.IsActive && item.Product.IsEligible) ||
+                    item.Product.Collections.Any(membership => membership.CollectionId == collectionId)));
         if (normalisedSearch is not null)
         {
             query = query.Where(item =>
+                item.ProductId.Contains(normalisedSearch) ||
                 item.Product.Title.Contains(normalisedSearch) ||
                 (item.EditorialTitle != null && item.EditorialTitle.Contains(normalisedSearch)));
         }
 
-        return await query
-            .OrderBy(item => item.ReviewStatus == ProductReviewStatus.Approved ? 0 : 1)
+        query = filter switch
+        {
+            CollectionCandidateFilter.Assigned or CollectionCandidateFilter.NeedsAttention => query.Where(item =>
+                item.Product.Collections.Any(membership => membership.CollectionId == collectionId)),
+            CollectionCandidateFilter.Unassigned => query.Where(item =>
+                !item.Product.Collections.Any(membership => membership.CollectionId == collectionId)),
+            _ => query
+        };
+
+        var candidateRows = await query
+            .OrderByDescending(item => item.Product.Collections.Any(membership => membership.CollectionId == collectionId))
+            .ThenBy(item => item.ReviewStatus == ProductReviewStatus.Approved ? 0 : 1)
             .ThenByDescending(item => item.IsFeatured)
             .ThenByDescending(item => item.Product.Snapshots.Max(snapshot => snapshot.RecentSalesVolume))
-            .Take(maximumResults)
-            .Select(item => new CollectionProductCandidate(
+            .Take(filter == CollectionCandidateFilter.NeedsAttention ? 500 : maximumResults)
+            .Select(item => new CollectionProductCandidateRow(
                 item.ProductId,
                 item.EditorialTitle ?? item.Product.Title,
                 item.Product.MainImageUrl,
                 item.ReviewStatus,
+                item.IsActive,
+                item.Product.IsEligible,
+                item.Product.AffiliateLinks.Any(link =>
+                    link.ShopId == item.ShopId && link.Status == AffiliateLinkStatus.Active),
+                item.EditorialTitle,
+                item.EditorialDescription,
                 item.Product.SecondLevelCategoryName,
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
                     .Select(snapshot => snapshot.SalePrice).FirstOrDefault(),
                 item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
                     .Select(snapshot => snapshot.Currency).FirstOrDefault(),
+                item.Product.Snapshots.OrderByDescending(snapshot => snapshot.FetchedUtc)
+                    .Select(snapshot => snapshot.FetchedUtc).FirstOrDefault(),
                 item.Product.Collections.Any(membership => membership.CollectionId == collectionId),
                 item.Product.Collections.Where(membership => membership.CollectionId == collectionId)
                     .Select(membership => membership.IsFeatured).FirstOrDefault(),
                 item.Product.Collections.Where(membership => membership.CollectionId == collectionId)
                     .Select(membership => membership.DisplayOrder).FirstOrDefault()))
             .ToListAsync(cancellationToken);
+
+        var candidates = candidateRows.Select(ToProductCandidate);
+        if (filter == CollectionCandidateFilter.NeedsAttention)
+        {
+            candidates = candidates.Where(item => item.IsAssigned && !item.IsIndexable);
+        }
+        return candidates.Take(maximumResults).ToArray();
     }
 
     public async Task<CollectionCommandResult> SeedRecommendedAsync(
@@ -352,11 +396,6 @@ public sealed class CatalogueCollectionService(
         var collection = await context.Collections.SingleOrDefaultAsync(item =>
             item.Id == collectionId && item.Shop.Slug == shopSlug, cancellationToken);
         if (collection is null) return CollectionCommandResult.Failure("The collection was not found.");
-        var belongsToShop = await context.ShopProducts.AnyAsync(item =>
-            item.ShopId == collection.ShopId && item.ProductId == productId && item.IsActive && item.Product.IsEligible,
-            cancellationToken);
-        if (!belongsToShop) return CollectionCommandResult.Failure("This product is not an active, eligible product in the selected shop.");
-
         var membership = await context.CollectionProducts.SingleOrDefaultAsync(item =>
             item.CollectionId == collectionId && item.ProductId == productId, cancellationToken);
         if (!assigned)
@@ -365,6 +404,11 @@ public sealed class CatalogueCollectionService(
             await context.SaveChangesAsync(cancellationToken);
             return CollectionCommandResult.Success("Product removed from the collection.", collectionId);
         }
+
+        var belongsToShop = await context.ShopProducts.AnyAsync(item =>
+            item.ShopId == collection.ShopId && item.ProductId == productId && item.IsActive && item.Product.IsEligible,
+            cancellationToken);
+        if (!belongsToShop) return CollectionCommandResult.Failure("This product is not an active, eligible product in the selected shop.");
 
         if (membership is null)
         {
@@ -399,13 +443,48 @@ public sealed class CatalogueCollectionService(
         }
     }
 
-    private bool IsIndexable(CollectionProductSeoCandidate candidate) =>
-        candidate.IsPublic && seoPolicy.IsProductIndexable(
+    private CatalogueProductIndexingAssessment AssessIndexability(CollectionProductSeoCandidate candidate) =>
+        seoPolicy.AssessProduct(
             candidate.EditorialTitle,
             candidate.EditorialDescription,
             candidate.ImageUrl,
             candidate.Price,
             candidate.LastCheckedUtc);
+
+    private CollectionProductCandidate ToProductCandidate(CollectionProductCandidateRow item)
+    {
+        var isPublic = item.IsActive && item.IsEligible && item.ReviewStatus == ProductReviewStatus.Approved && item.HasActiveLink;
+        var assessment = seoPolicy.AssessProduct(
+            item.EditorialTitle,
+            item.EditorialDescription,
+            item.ImageUrl,
+            item.Price,
+            item.LastCheckedUtc);
+        var issues = new List<string>();
+        if (item.ReviewStatus != ProductReviewStatus.Approved) issues.Add("Awaiting editorial approval");
+        if (!item.IsActive) issues.Add("Inactive in this shop");
+        if (!item.IsEligible) issues.Add("Held by catalogue eligibility");
+        if (!item.HasActiveLink) issues.Add("No active affiliate link");
+        if (assessment.Has(CatalogueProductIndexingIssue.EditorialTitle)) issues.Add("Editorial title needs work");
+        if (assessment.Has(CatalogueProductIndexingIssue.EditorialDescription)) issues.Add("Editorial description needs work");
+        if (assessment.Has(CatalogueProductIndexingIssue.Image)) issues.Add("Missing image");
+        if (assessment.Has(CatalogueProductIndexingIssue.Price)) issues.Add("Missing current price");
+        if (assessment.Has(CatalogueProductIndexingIssue.Freshness)) issues.Add("Snapshot is stale");
+        return new CollectionProductCandidate(
+            item.ProductId,
+            item.Title,
+            item.ImageUrl,
+            item.ReviewStatus,
+            item.SourceCategory,
+            item.Price,
+            item.Currency,
+            item.IsAssigned,
+            item.IsFeatured,
+            item.DisplayOrder,
+            isPublic,
+            isPublic && assessment.IsIndexable,
+            issues);
+    }
 
     private static List<string> Validate(CollectionUpdate update)
     {
@@ -457,12 +536,31 @@ public sealed class CatalogueCollectionService(
 
     private sealed record CollectionProductSeoCandidate(
         Guid CollectionId,
+        bool IsApproved,
         bool IsPublic,
         string? EditorialTitle,
         string? EditorialDescription,
         string? ImageUrl,
         decimal? Price,
         DateTimeOffset LastCheckedUtc);
+
+    private sealed record CollectionProductCandidateRow(
+        string ProductId,
+        string Title,
+        string? ImageUrl,
+        ProductReviewStatus ReviewStatus,
+        bool IsActive,
+        bool IsEligible,
+        bool HasActiveLink,
+        string? EditorialTitle,
+        string? EditorialDescription,
+        string? SourceCategory,
+        decimal? Price,
+        string? Currency,
+        DateTimeOffset LastCheckedUtc,
+        bool IsAssigned,
+        bool IsFeatured,
+        int DisplayOrder);
 }
 
 public sealed record RecommendedCollectionDefinition(
@@ -489,8 +587,15 @@ public sealed record CollectionAdminSummary(
     bool IsFeatured,
     bool IsPublished,
     int AssignedProducts,
+    int ApprovedProducts,
     int PublicProducts,
     int IndexableProducts,
+    int AwaitingApprovalProducts,
+    int ApprovedButNotPublicProducts,
+    int EditorialBlockerProducts,
+    int ImageBlockerProducts,
+    int PriceBlockerProducts,
+    int FreshnessBlockerProducts,
     bool CanPublish,
     byte[] RowVersion);
 
@@ -504,7 +609,18 @@ public sealed record CollectionProductCandidate(
     string? Currency,
     bool IsAssigned,
     bool IsFeatured,
-    int DisplayOrder);
+    int DisplayOrder,
+    bool IsPublic,
+    bool IsIndexable,
+    IReadOnlyList<string> ReadinessIssues);
+
+public enum CollectionCandidateFilter
+{
+    All,
+    Assigned,
+    Unassigned,
+    NeedsAttention
+}
 
 public sealed record CollectionUpdate(
     Guid? CollectionId,
