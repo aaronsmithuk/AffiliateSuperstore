@@ -506,6 +506,33 @@ No active `app_offline.htm` remained, no additional file extraction was needed,
 and no application-pool or account-wide restart was performed during this
 verification.
 
+## Restricted AI automatic pilot evidence (2 September 2026)
+
+The owner-approved `plushies` automatic pilot is live from application release
+`13321cc`. Its policy remains deliberately narrow: one candidate per run, one
+automatic publication per UTC day, a USD 0.02 daily AI budget, readiness 1.00,
+and duplicate holds from confidence 0.75. Product copy is the only generative
+action; category creation, identity merging, expiry and non-product editorial
+content remain outside automatic mode.
+
+Two initial runs demonstrated fail-closed behaviour: thin copy was not saved,
+and a valid draft for a probable duplicate was held without publication. The
+deployed selector now removes confirmed and probable duplicates before an AI
+call. A labelled production run then advanced to product `1005011692664194`,
+created validated `product-editorial-v3` copy with OpenAI `gpt-5.6-luna`, passed
+all deterministic gates at readiness 1.00, recorded the invocation and decision
+audit, and published editorial version 1. The public product page returned HTTP
+200 with canonical metadata, Product structured data, a live image, and a
+`sponsored nofollow noopener` handoff that redirected to
+`s.click.aliexpress.com`; the product is also present in the sitemap.
+
+A fresh SQL backup completed successfully immediately before release. The
+published revision passed 175 clean Release tests and validated OutOfProcess.
+After target-scoped deployment, `/health/live`, `/health/ready`, the Wonder
+Aisle home and catalogue pages, and all six neighbouring sites returned HTTP
+200. The recoverable offline marker is retained as
+`app_offline-20260902-13321cc.done.htm`; no pool restart was performed.
+
 ## Build a release bundle
 
 From the repository root:
