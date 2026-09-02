@@ -2,6 +2,7 @@ using AffiliateSuperstore.Application.Catalogue;
 using AffiliateSuperstore.Persistence;
 using AffiliateSuperstore.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace AffiliateSuperstore.AliExpress.Tests;
 
@@ -61,6 +62,29 @@ public sealed class CollectionAiSuggestionServiceTests
         Assert.Empty(await context.CollectionSuggestions.ToListAsync());
     }
 
+    [Fact]
+    public async Task GenerateAsync_TrimsLargeCataloguePacketWithoutDroppingBelowMinimum()
+    {
+        var factory = await CreateDatabaseAsync(120, 900);
+        var provider = new FakeProvider(ValidOutput());
+        var service = CreateService(factory, provider);
+
+        var result = await service.GenerateAsync("plushies", 3);
+
+        Assert.True(result.Succeeded, result.Message);
+        var request = Assert.IsType<CollectionSuggestionRequest>(provider.LastRequest);
+        var serialized = JsonSerializer.Serialize(new
+        {
+            task = "Suggest evidence-backed, generic collection drafts for administrator review.",
+            shop = new { slug = request.ShopSlug, name = request.ShopName },
+            maximumSuggestions = request.MaximumSuggestions,
+            existingCollections = request.ExistingCollections,
+            products = request.Products
+        });
+        Assert.InRange(request.Products.Count, 6, 119);
+        Assert.True(serialized.Length <= 16_000);
+    }
+
     private static CollectionAiSuggestionService CreateService(InMemoryFactory factory, ICollectionSuggestionProvider provider)
     {
         var clock = new FixedTimeProvider(Now);
@@ -90,7 +114,7 @@ public sealed class CollectionAiSuggestionServiceTests
         50,
         Guid.CreateVersion7());
 
-    private static async Task<InMemoryFactory> CreateDatabaseAsync()
+    private static async Task<InMemoryFactory> CreateDatabaseAsync(int productCount = 6, int titlePadding = 0)
     {
         var factory = new InMemoryFactory(Guid.NewGuid().ToString("N"));
         var shopId = Guid.CreateVersion7();
@@ -110,13 +134,13 @@ public sealed class CollectionAiSuggestionServiceTests
             CreatedUtc = Now,
             UpdatedUtc = Now
         });
-        for (var index = 1; index <= 6; index++)
+        for (var index = 1; index <= productCount; index++)
         {
             var productId = $"product-{index}";
             context.Products.Add(new ProductRecord
             {
                 AliExpressProductId = productId,
-                Title = $"Animal plush toy {index}",
+                Title = $"Animal plush toy {index} {new string('x', titlePadding)}".Trim(),
                 FirstLevelCategoryName = "Toys",
                 SecondLevelCategoryName = "Plush Animals",
                 IsEligible = true,
@@ -131,7 +155,7 @@ public sealed class CollectionAiSuggestionServiceTests
                 ProductId = productId,
                 IsActive = true,
                 ReviewStatus = ProductReviewStatus.Approved,
-                EditorialTitle = $"Curated animal plush {index}",
+                EditorialTitle = $"Curated animal plush {index} {new string('x', titlePadding)}".Trim(),
                 FirstIncludedUtc = Now,
                 LastIncludedUtc = Now
             });
@@ -144,8 +168,13 @@ public sealed class CollectionAiSuggestionServiceTests
     {
         public bool IsAvailable => true;
         public string AvailabilityMessage => "Available";
-        public Task<CollectionSuggestionOutput> SuggestCollectionsAsync(CollectionSuggestionRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(output);
+        public CollectionSuggestionRequest? LastRequest { get; private set; }
+
+        public Task<CollectionSuggestionOutput> SuggestCollectionsAsync(CollectionSuggestionRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            return Task.FromResult(output);
+        }
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

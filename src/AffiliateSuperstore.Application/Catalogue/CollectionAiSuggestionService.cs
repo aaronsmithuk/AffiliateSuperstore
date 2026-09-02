@@ -190,12 +190,25 @@ public sealed class CollectionAiSuggestionService(
                 $"At least {MinimumEvidenceProducts} eligible products are required before suggesting collection drafts.");
         }
 
-        var inputHash = ComputeInputHash(shopSlug, existingCollections, products, maximumSuggestions);
-        var request = new CollectionSuggestionRequest(
+        var boundedProducts = FitEvidenceToInputLimit(
             shopSlug,
             shop.DisplayName,
             existingCollections,
             products,
+            maximumSuggestions,
+            aiOptions.MaximumInputCharacters);
+        if (boundedProducts.Count < MinimumEvidenceProducts)
+        {
+            return new(false, products.Length, 0, 0, 0m,
+                $"The collection evidence packet could not fit at least {MinimumEvidenceProducts} products inside the configured AI input limit.");
+        }
+
+        var inputHash = ComputeInputHash(shopSlug, existingCollections, boundedProducts, maximumSuggestions);
+        var request = new CollectionSuggestionRequest(
+            shopSlug,
+            shop.DisplayName,
+            existingCollections,
+            boundedProducts,
             maximumSuggestions,
             PromptVersion,
             inputHash);
@@ -214,7 +227,7 @@ public sealed class CollectionAiSuggestionService(
                 $"The AI provider could not produce collection suggestions: {SafeMessage(exception.Message)}");
         }
 
-        var productIds = products.Select(item => item.ProductId).ToHashSet(StringComparer.Ordinal);
+        var productIds = boundedProducts.Select(item => item.ProductId).ToHashSet(StringComparer.Ordinal);
         var existingSlugs = (await context.Collections.AsNoTracking()
             .Where(item => item.ShopId == shop.Id)
             .Select(item => item.Slug)
@@ -359,6 +372,35 @@ public sealed class CollectionAiSuggestionService(
                 $"{item.ProductId}|{item.Title}|{item.FirstCategory}|{item.SecondCategory}"))
         });
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+
+    internal static IReadOnlyList<CollectionSuggestionEvidence> FitEvidenceToInputLimit(
+        string shopSlug,
+        string shopName,
+        IReadOnlyList<string> existingCollections,
+        IReadOnlyList<CollectionSuggestionEvidence> products,
+        int maximumSuggestions,
+        int maximumInputCharacters)
+    {
+        var count = products.Count;
+        while (count >= MinimumEvidenceProducts)
+        {
+            var candidate = products.Take(count).ToArray();
+            var request = new CollectionSuggestionRequest(
+                shopSlug,
+                shopName,
+                existingCollections,
+                candidate,
+                maximumSuggestions,
+                PromptVersion,
+                string.Empty);
+            if (CollectionSuggestionInputSerializer.Serialize(request).Length <= maximumInputCharacters)
+            {
+                return candidate;
+            }
+            count--;
+        }
+        return [];
     }
 
     private static IReadOnlyList<string> ReadStringArray(string value)

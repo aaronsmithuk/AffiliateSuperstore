@@ -138,14 +138,7 @@ public sealed class OpenAiStructuredSuggestionProvider(
         if (!options.AreCollectionSuggestionsAvailable)
             throw new InvalidOperationException(options.CollectionSuggestionAvailabilityMessage);
 
-        var input = JsonSerializer.Serialize(new
-        {
-            task = "Suggest evidence-backed, generic collection drafts for administrator review.",
-            shop = new { slug = request.ShopSlug, name = request.ShopName },
-            maximumSuggestions = request.MaximumSuggestions,
-            existingCollections = request.ExistingCollections,
-            products = request.Products
-        });
+        var input = CollectionSuggestionInputSerializer.Serialize(request);
         if (input.Length > options.MaximumInputCharacters)
             throw new InvalidOperationException($"The collection evidence packet exceeded the configured {options.MaximumInputCharacters:N0}-character AI input limit.");
 
@@ -456,6 +449,18 @@ public sealed class OpenAiStructuredSuggestionProvider(
         [JsonPropertyName("rationale")] public string Rationale { get; init; } = string.Empty;
         [JsonPropertyName("evidenceProductIds")] public string[] EvidenceProductIds { get; init; } = [];
     }
+}
+
+internal static class CollectionSuggestionInputSerializer
+{
+    public static string Serialize(CollectionSuggestionRequest request) => JsonSerializer.Serialize(new
+    {
+        task = "Suggest evidence-backed, generic collection drafts for administrator review.",
+        shop = new { slug = request.ShopSlug, name = request.ShopName },
+        maximumSuggestions = request.MaximumSuggestions,
+        existingCollections = request.ExistingCollections,
+        products = request.Products
+    });
 }
 
 public sealed class OpenAiProviderException : Exception
