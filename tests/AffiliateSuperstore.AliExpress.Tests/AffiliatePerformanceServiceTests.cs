@@ -23,7 +23,10 @@ public sealed class AffiliatePerformanceServiceTests
         Assert.Equal(2, report.ConvertingClicks);
         Assert.Equal(2, report.AttributedOrders);
         Assert.Equal(1, report.InvalidOrders);
-        Assert.Equal(1, report.S2sEvents);
+        Assert.Equal(2, report.S2sEvents);
+        Assert.Equal(1, report.UnattributedOrders);
+        Assert.Equal(1, report.UnattributedS2sEvents);
+        Assert.Equal(1, report.AwaitingSettlementOrders);
         Assert.Equal(2m / 3m, report.ClickToOrderRate);
         Assert.Equal(3m / 120m, report.ClickThroughRate);
         var commission = Assert.Single(report.Commission);
@@ -123,14 +126,34 @@ public sealed class AffiliatePerformanceServiceTests
                 EstimatedPaidCommission = 99m,
                 FirstSeenUtc = Now.AddDays(-1),
                 LastSeenUtc = Now
+            },
+            new AffiliateOrderRecord
+            {
+                SubOrderId = "order-unattributed",
+                Status = AliExpressOrderStatuses.PaymentCompleted,
+                SettledCurrency = "USD",
+                EstimatedPaidCommission = .75m,
+                PaidUtc = Now.AddHours(-12),
+                FirstSeenUtc = Now.AddHours(-12),
+                LastSeenUtc = Now
             });
         context.AffiliateS2sEvents.Add(new AffiliateS2sEventRecord
         {
             Id = Guid.CreateVersion7(),
             EventKey = "event-1",
             SubOrderId = "order-valid",
+            ClickId = "click-valid",
             ReceivedUtc = Now.AddDays(-2),
             ProcessedUtc = Now.AddDays(-2),
+            PayloadJson = "{}"
+        });
+        context.AffiliateS2sEvents.Add(new AffiliateS2sEventRecord
+        {
+            Id = Guid.CreateVersion7(),
+            EventKey = "event-2",
+            SubOrderId = "order-unattributed",
+            ReceivedUtc = Now.AddHours(-12),
+            ProcessedUtc = Now.AddHours(-12),
             PayloadJson = "{}"
         });
         context.ProductImpressions.AddRange(

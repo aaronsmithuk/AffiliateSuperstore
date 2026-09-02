@@ -275,39 +275,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapOperationalHealthEndpoints();
 app.MapAffiliateImpressionEndpoint();
-
-app.MapMethods("/integrations/aliexpress/s2s", ["GET", "POST"], async (
-    HttpRequest request,
-    AffiliateS2sIngestionService ingestion,
-    CancellationToken cancellationToken) =>
-{
-    if (!ingestion.IsEnabled) return Results.NotFound();
-    if (!ingestion.IsConfigured) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
-
-    var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    foreach (var pair in request.Query)
-    {
-        if (pair.Value.Count > 0) values[pair.Key] = pair.Value[0] ?? string.Empty;
-    }
-
-    if (request.HasFormContentType)
-    {
-        var form = await request.ReadFormAsync(cancellationToken);
-        foreach (var pair in form)
-        {
-            if (pair.Value.Count > 0) values[pair.Key] = pair.Value[0] ?? string.Empty;
-        }
-    }
-
-    values.TryGetValue("verification_token", out var suppliedToken);
-    if (!ingestion.IsAuthorized(suppliedToken)) return Results.Unauthorized();
-    values.Remove("verification_token");
-
-    var result = await ingestion.IngestAsync(values, cancellationToken);
-    return result.Disposition == AffiliateS2sDisposition.Rejected
-        ? Results.BadRequest(new { error = result.Error })
-        : Results.Text("ok", "text/plain");
-});
+app.MapAffiliateS2sEndpoint();
 
 app.MapGet("/admin/orders/export.csv", async (
     IWebHostEnvironment environment,
