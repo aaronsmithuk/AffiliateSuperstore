@@ -1,6 +1,6 @@
 # Affiliate Superstore project plan
 
-Last updated: 1 September 2026
+Last updated: 2 September 2026
 
 ## Product objective
 
@@ -49,7 +49,7 @@ be reusable for additional shops without another application runtime.
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
 | Catalogue intelligence | Extend the existing .NET/SQL pipeline; deterministic identity, lifecycle and quality rules first, embeddings/LLM/vision only for ambiguous cases |
-| AI publication policy | Product rewrites, replacement choices and all blog content remain human-approved; AI can never set source facts such as price, availability, SKU, pack size or delivery |
+| AI publication policy | A restricted `plushies` product-copy pilot may publish at most two fully gated products per UTC day from at most two candidates per hourly run. Collections, replacements, guides and articles remain human-approved; AI can never set source facts such as price, availability, SKU, pack size or delivery. |
 | AI cost policy | Hash/cache unchanged inputs, use asynchronous batches where suitable, enforce purpose-level switches and keep all hosted-AI work inside one transactional $5 calendar-month cap |
 
 ## Tracking taxonomy
@@ -144,7 +144,7 @@ standing [`SEARCH-CONTENT-GOVERNANCE.md`](SEARCH-CONTENT-GOVERNANCE.md) policy.
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Live in production from release `0ad6ba8`: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, SmarterASP signals it every 15 minutes, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Core complete locally 31 August 2026; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
-| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters with controlled product-copy publication | AI-3 gold set, admin authentication, data-handling review and budget controls | Restricted product-copy automation is live for `plushies`: one candidate/run, one publication/UTC day, readiness 1.00 and duplicate holds at 0.75. Production trials proved thin-copy and duplicate holds, then release `13321cc` automatically produced, validated, audited and published product `1005011692664194`. A shared transactional $5 calendar-month cap now covers product and collection calls. Weekly collection suggestions use catalogue evidence and remain a separate review queue; acceptance creates an unpublished collection draft only. Guides, recommendations, identity merges and expiry remain review-only. |
+| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters with controlled product-copy publication | AI-3 gold set, admin authentication, data-handling review and budget controls | Restricted product-copy automation is live for `plushies`: two candidates/hourly run, two publications/UTC day, readiness 1.00 and duplicate holds at 0.75. Production trials proved thin-copy, source-change, duplicate and daily-limit holds, and two fully gated automatic publications. A shared transactional $5 calendar-month cap covers product and collection calls. The automatic safety circuit downgrades faulting publication to Shadow after an autonomous dead letter or three consecutive product-copy AI failures. Weekly collection suggestions use catalogue evidence and remain a separate review queue; acceptance creates an unpublished collection draft only. Guides, recommendations, identity merges and expiry remain review-only. |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
 
 ### Main-build acceptance gates
@@ -304,9 +304,9 @@ remaining plan. Every result still passes the persisted quality gate.
 Active product links older than 120 hours are revalidated in batches of 50;
 changed URLs replace and expire the previous link through an audited
 `LinkRefresh` job. The worker reads SQL job history on startup, so restarting
-the app does not trigger duplicate work. Production automation remains disabled
-until the hardened release, protected wake token and scheduled URL are deployed
-and verified.
+the app does not trigger duplicate work. Production automation is now live
+behind the protected wake token and verified 15-minute scheduled URL. Its
+restricted product-publication policy remains independently bounded in SQL.
 
 Canonical URLs collapse all search, price, category and sort variants back to
 the unfiltered shop URL; filtered variants remain `noindex,follow`. Product
@@ -359,25 +359,27 @@ endpoint and protected production configuration exist. See `docs/S2S-SETUP.md`.
 ## Next milestone
 
 Managed custom-domain TLS, HTTP-to-HTTPS redirection and HSTS are now verified.
-AI-1 freshness, AI-2 durable work leasing, AI-3 deterministic identity/review
-and AI-4 versioned editorial quality are deployed through release `0ad6ba8`.
-Protected recurring production automation now wakes every 15 minutes. Its first
-supervised cycle expanded the manual review queue to 190 candidates and
-refreshed all 12 published products without failures or automatic publication.
-Search indexing is enabled for the quality-gated shop and product URLs. The
-identity gold set now has 12 owner-authorized first-review
-tuning labels, but still needs an independent second reviewer, adjudication and
-progress toward the 500-label target before any automatic canonical linking can
-be considered. Lifecycle/copy evaluation sets, production S2S setup and later
-hosted/local model trials remain gated follow-on work.
+AI-1 freshness, AI-2 durable work leasing, AI-3 deterministic identity/review,
+AI-4 versioned editorial quality and the restricted AI-5 product-copy pilot are
+deployed. Protected recurring production automation wakes every 15 minutes.
+The current policy considers at most two candidates per hourly autonomous run
+and publishes at most two fully gated products per UTC day. Live trials have
+correctly held probable duplicates, changed source evidence and daily-limit
+overflow while publishing two qualified products. Search indexing is enabled
+for the quality-gated shop and product URLs. The automatic safety circuit now
+downgrades Automatic mode to Shadow after an autonomous dead letter or three
+consecutive product-copy AI failures since the latest owner acknowledgement.
+The identity gold set still needs an independent second reviewer, adjudication
+and progress toward 500 labels before automatic canonical linking is considered.
+Production S2S setup and broader identity/replacement automation remain gated.
 
-Privacy-minimised product impression tracking and CTR reporting are deployed
-in release `652eb04`; live antiforgery-protected recording, SQL aggregation and
-the authenticated performance dashboard are verified. The AI-5 product-copy
-shadow foundation is complete locally with audit, cache and hard-budget
-controls, but remains disabled and unconfigured in production. Its first
-owner-authorized local model call is the next gated trial. The catalogue-depth
-and SEO launch gates have been met, and the provider-hosted production release
-is live and indexable over the canonical HTTPS origin. The next release adds
-the completed consent banner and GA4 integration. Search Console verification
-and sitemap submission are complete; GA4 linking and Bing import follow.
+Privacy-minimised product impression tracking and CTR reporting are deployed;
+live antiforgery-protected recording, SQL aggregation and the authenticated
+performance dashboard are verified. The AI-5 product-copy pipeline is live
+with audit, cache, strict validation, a USD 5 transactional monthly cap and the
+fail-safe Shadow downgrade. Weekly collection suggestions remain review-only
+and cannot create a published collection. The catalogue-depth and SEO launch
+gates have been met, and the provider-hosted production release is live and
+indexable over the canonical HTTPS origin. Search Console verification and
+sitemap submission are complete; production S2S and later evidence-led
+editorial work remain follow-ons.

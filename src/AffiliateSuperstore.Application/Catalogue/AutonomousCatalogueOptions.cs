@@ -12,6 +12,9 @@ public sealed class AutonomousCatalogueOptions
     public decimal DefaultMinimumReadinessScore { get; set; } = .98m;
     public decimal DefaultDuplicateHoldConfidence { get; set; } = .85m;
     public decimal DefaultDailyAiBudgetUsd { get; set; } = .10m;
+    public bool AutomaticSafetyCircuitEnabled { get; set; } = true;
+    public int AutomaticPauseLookbackHours { get; set; } = 24;
+    public int AutomaticPauseConsecutiveFailedAiCalls { get; set; } = 3;
     public bool CollectionSuggestionsEnabled { get; set; }
     public int CollectionSuggestionEveryDays { get; set; } = 7;
     public int MaximumCollectionSuggestionsPerRun { get; set; } = 3;

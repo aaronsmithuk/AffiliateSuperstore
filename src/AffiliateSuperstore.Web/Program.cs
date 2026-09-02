@@ -209,6 +209,7 @@ builder.Services.AddTransient<CollectionAiSuggestionService>();
 builder.Services.AddTransient<CatalogueAiQueuePreparationService>();
 builder.Services.AddTransient<CatalogueAiReviewService>();
 builder.Services.AddTransient<AutonomousCataloguePolicyService>();
+builder.Services.AddTransient<AutonomousCatalogueSafetyService>();
 builder.Services.AddTransient<AutonomousCatalogueEvaluationService>();
 builder.Services.AddTransient<CatalogueSeoPolicy>();
 builder.Services.AddTransient<CatalogueCollectionService>();

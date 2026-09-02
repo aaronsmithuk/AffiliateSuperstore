@@ -1,6 +1,6 @@
 # AI-assisted catalogue and content automation plan
 
-Status: production review assistance active; automatic approval and publication disabled
+Status: restricted product publication pilot active; collections and broader content remain review-only
 
 Prepared: 30 August 2026
 
@@ -75,8 +75,12 @@ suggestions were saved as drafts awaiting human review, four were held on
 warnings, one was blocked, and none failed. The run used 4,650 input and 3,160
 output tokens at an estimated USD 0.004722. Database verification found five AI
 editorial versions, all five still awaiting human review and zero approved.
-Automatic approval, publication and unattended AI queue execution remain
-disabled.
+The historical review-only rollout above has since advanced to the
+owner-approved restricted `plushies` pilot: two candidates per hourly run, two
+fully gated product publications per UTC day, a USD 5 shared monthly cap, and
+an automatic downgrade to Shadow after an autonomous dead letter or three
+consecutive product-copy AI failures. Collections, replacements, identity
+merges, expiry and articles remain review-only.
 
 ## Executive decision
 
@@ -117,7 +121,7 @@ This plan covers suggestions and workflow changes only. It does not authorize:
 - deployment, indexing, publication or modification of live catalogue data;
 - a paid model, vector database, queue or SEO subscription;
 - scraping AliExpress product pages or Google result pages;
-- automatic publication of generated product copy or articles; or
+- automatic publication outside the owner-approved restricted product-copy pilot, or any automatic article publication; or
 - applying for additional AliExpress permissions without an owner decision.
 
 ## Repository-aware current state
@@ -676,11 +680,13 @@ quality. Do not optimize for raw word count or publication volume.
 
 Owner decision, 2 September 2026: the individual product-copy workflow may move
 from shadow to a tightly capped production pilot before the broader four-week
-identity/replacement rollout completes. The exception is limited to one
-`plushies` product per UTC day, one candidate per run, the current audited prompt,
+identity/replacement rollout completes. The exception is limited to two
+`plushies` products per UTC day, two candidates per hourly run, the current audited prompt,
 and all gates recorded in `SEARCH-CONTENT-GOVERNANCE.md`. New categories,
 collections, articles, comparisons, recommendations, canonical merges and
-expiry actions remain outside this exception.
+expiry actions remain outside this exception. An automatic safety circuit
+downgrades the policy to Shadow after an autonomous dead letter or three
+consecutive product-copy AI failures since the latest owner acknowledgement.
 
 1. Offline POC and gold-set baselines.
 2. Shadow mode: compute flags/matches/lifecycle actions but change nothing.

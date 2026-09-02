@@ -83,6 +83,7 @@ public sealed class AutonomousCatalogueEvaluationService(
     CatalogueAiQueuePreparationService queuePreparationService,
     CatalogueAiReviewService reviewService,
     CatalogueEditorialService editorialService,
+    AutonomousCatalogueSafetyService safetyService,
     AutonomousCatalogueOptions autonomousOptions,
     CatalogueAutomationOptions automationOptions,
     AiAutomationOptions aiOptions,
@@ -101,6 +102,11 @@ public sealed class AutonomousCatalogueEvaluationService(
         if (!autonomousOptions.Enabled || policy.Mode == AutonomousCatalogueMode.Off)
         {
             return Empty(shopSlug, policy.Mode, "Autonomous catalogue evaluation is off for this shop.");
+        }
+        var safety = await safetyService.EnsureSafeAsync(policy, workItemId, cancellationToken);
+        if (safety.Blocked)
+        {
+            return Empty(shopSlug, safety.EffectiveMode, safety.Message);
         }
         if (!await Gate.WaitAsync(0, cancellationToken))
         {

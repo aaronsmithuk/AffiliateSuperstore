@@ -33,8 +33,8 @@ pilot for individual product listings in the `plushies` shop. This does not
 permit automatic shops, collections, guides, comparisons, recommendations or
 keyword pages.
 
-During the initial live pilot the system may publish at most one product per UTC
-day and evaluate at most one candidate per autonomous run. A candidate must pass
+During the current live pilot the system may publish at most two products per UTC
+day and evaluate at most two candidates per hourly autonomous run. A candidate must pass
 every deterministic gate: active and eligible; directly checked within the
 freshness window; currently available with positive source price; working
 affiliate link; usable product URL and image; membership of a published
@@ -48,6 +48,10 @@ accountable reviewer for the pilot, samples all initial publications, and may
 return the shop to Shadow or Off immediately. A production unsupported claim,
 broken destination, wrong product scope, duplicate, or unexplained decision
 pauses automatic publication pending correction and regression coverage.
+The application also downgrades the shop to Shadow after an autonomous dead
+letter or three consecutive product-copy AI failures since the most recent
+owner policy acknowledgement. The owner must inspect the audit and explicitly
+save Automatic mode to re-arm publication.
 
 ## Assessment of the video
 
