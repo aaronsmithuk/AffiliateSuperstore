@@ -838,6 +838,62 @@ remained disabled with HTTP 404. `circlesofstone.co.uk`,
 `www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
 `propertiesandhomes.co.uk` all returned HTTP 200 after the release.
 
+## Twentieth production release and automatic collection governance
+
+Application commit `952f085` was deployed on 3 September 2026. The release
+raises the owner-approved automatic review batch to six candidates per hourly
+run, allows a draft collection assignment to satisfy the product collection
+gate only when deterministic semantic fit is strong, and adds durable six-
+hourly collection-growth work. That work assigns at most 12 strong matches per
+run and publishes a private collection only after a fresh final check finds 12
+currently indexable products. It also adds immutable collection-publication
+audit events and a compact daily owner brief to `/admin/growth`.
+
+A clean Release build passed all 239 tests and Entity Framework reported no
+unmodelled schema changes. Both the project and the published root `web.config`
+validated as OutOfProcess. The target-only archive
+`wonderaisle-site-952f085.zip` had SHA-256
+`3001EF5C38C0896B7CA2260324226FA8BD5A21714025459C9A5E10179EF5234B`.
+
+The production database `db_a34d03_wonderaisle` was verified as the isolated
+Wonder Aisle database and a provider backup completed successfully before the
+idempotent `20260903000817_AddAutomaticCollectionGovernance` migration was
+applied. Post-migration checks found the migration history row and
+`CollectionPublicationEvents` table, plus the persisted Automatic policy with
+an hourly review interval, six candidates per run and two publications per UTC
+day. The authenticated database page subsequently reported 21 applied
+migrations and zero pending migrations.
+
+The archive was uploaded and expanded only in `/wonderaisle` while a target-
+scoped `app_offline.htm` marker held Wonder Aisle offline. `App_Data` and its
+persistent Data Protection key ring were preserved. Provider decompression
+completed successfully, after which the marker was renamed to the inactive
+audit record `app_offline-20260903-952f085.done.htm`. The uploaded archive was
+retained for recovery. No application-pool restart or account-wide action was
+performed.
+
+Authenticated production verification showed the new daily owner brief with
+no anomalies, Automatic mode running hourly at six candidates per run,
+readiness 1.00, duplicate hold 0.75, a two-publication UTC-day cap, USD 0.25
+daily product-copy allowance and the shared USD 5.00 monthly hard cap. The new
+`CollectionGrowth` durable work type had already completed successfully with
+no recorded error. The growth dashboard reported 17 of 50 public products,
+nine ready candidates and eight collection coverage rows; published
+collections remain at the 12-indexable-product target while private
+collections continue growing automatically.
+
+`/health/live`, `/health/ready`, `/`, `/plushies`, a representative product,
+`/robots.txt` and `/sitemap.xml` returned HTTP 200; both health responses
+reported `healthy`, and the sitemap contained 27 URLs. Anonymous access to
+`/admin/growth`, `/admin/automation` and `/admin/database` redirected to the
+administrator login, and unauthenticated S2S remained disabled with HTTP 404.
+`circlesofstone.co.uk`, `www.iloveplushies.co.uk`, `www.ilovefnaf.co.uk`,
+`www.ilovewitchcraft.co.uk`, `www.animesuperstore.co.uk` and
+`propertiesandhomes.co.uk` all returned HTTP 200 after the release.
+`ilovefitness.co.uk` retained its pre-release HTTP 301 redirect to an external
+expired-domain landing page; following that unrelated redirect returns HTTP
+404.
+
 ## Build a release bundle
 
 From the repository root:
