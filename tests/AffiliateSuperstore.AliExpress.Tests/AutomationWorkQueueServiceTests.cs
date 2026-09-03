@@ -52,6 +52,37 @@ public sealed class AutomationWorkQueueServiceTests
     }
 
     [Fact]
+    public async Task PlanDueAsync_AddsCollectionGrowthOnlyForAutomaticPolicy()
+    {
+        var (factory, clock, shopId) = await CreateDatabaseAsync();
+        await using (var context = factory.CreateDbContext())
+        {
+            context.AutonomousCataloguePolicies.Add(new AutonomousCataloguePolicyRecord
+            {
+                ShopId = shopId,
+                Mode = AutonomousCatalogueMode.Automatic,
+                ReviewEveryHours = 1,
+                CreatedUtc = clock.UtcNow,
+                UpdatedUtc = clock.UtcNow,
+                UpdatedBy = "test"
+            });
+            await context.SaveChangesAsync();
+        }
+        var service = Service(factory, clock, new AutonomousCatalogueOptions
+        {
+            Enabled = true,
+            AutomaticCollectionGrowthEnabled = true,
+            CollectionGrowthEveryHours = 6
+        });
+
+        Assert.Equal(6, await service.PlanDueAsync(Options()));
+        await using var verification = factory.CreateDbContext();
+        var work = await verification.AutomationWorkItems.SingleAsync(
+            item => item.Type == AutomationWorkType.CollectionGrowth);
+        Assert.Equal(55, work.Priority);
+    }
+
+    [Fact]
     public async Task PlanDueAsync_AddsWeeklyCollectionSuggestionWorkWhenEnabled()
     {
         var (factory, clock, _) = await CreateDatabaseAsync();

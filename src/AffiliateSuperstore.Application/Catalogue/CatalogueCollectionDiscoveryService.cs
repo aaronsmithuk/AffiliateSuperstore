@@ -36,6 +36,7 @@ public sealed class CatalogueCollectionDiscoveryService(
         Guid collectionId,
         int pageSize,
         string actor,
+        int maximumAssignments = CatalogueCollectionService.MaximumBatchAssignments,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(shopSlug);
@@ -46,7 +47,11 @@ public sealed class CatalogueCollectionDiscoveryService(
         {
             seed = await context.Collections.AsNoTracking()
                 .Where(item => item.Id == collectionId && item.Shop.Slug == shopSlug && item.Shop.IsEnabled)
-                .Select(item => new CollectionSeed(item.Id, item.DisplayName, item.DiscoveryQueriesJson))
+                .Select(item => new CollectionSeed(
+                    item.Id,
+                    item.DisplayName,
+                    item.ShortDescription,
+                    item.DiscoveryQueriesJson))
                 .SingleOrDefaultAsync(cancellationToken)
                 ?? throw new InvalidOperationException($"Collection '{collectionId}' was not found for shop '{shopSlug}'.");
         }
@@ -81,7 +86,13 @@ public sealed class CatalogueCollectionDiscoveryService(
                 if (result.Status == IngestionJobStatus.Failed) break;
             }
 
-            var assigned = await AssignProductsAsync(shopSlug, seed.Id, productIds, actor, cancellationToken);
+            var assigned = await AssignProductsAsync(
+                shopSlug,
+                seed,
+                productIds,
+                actor,
+                Math.Clamp(maximumAssignments, 1, CatalogueCollectionService.MaximumBatchAssignments),
+                cancellationToken);
             var failed = runs.Any(item => item.Status == IngestionJobStatus.Failed);
             return new CollectionDiscoveryResult(
                 seed.Id,
@@ -105,9 +116,10 @@ public sealed class CatalogueCollectionDiscoveryService(
 
     private async Task<int> AssignProductsAsync(
         string shopSlug,
-        Guid collectionId,
+        CollectionSeed seed,
         IReadOnlySet<string> productIds,
         string actor,
+        int maximumAssignments,
         CancellationToken cancellationToken)
     {
         if (productIds.Count == 0) return 0;
@@ -115,15 +127,47 @@ public sealed class CatalogueCollectionDiscoveryService(
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
         var collection = await context.Collections
             .Include(item => item.Products)
-            .SingleAsync(item => item.Id == collectionId && item.Shop.Slug == shopSlug, cancellationToken);
-        var assignableIds = await context.ShopProducts.AsNoTracking()
+            .SingleAsync(item => item.Id == seed.Id && item.Shop.Slug == shopSlug, cancellationToken);
+        var queries = ReadQueries(seed.DiscoveryQueriesJson);
+        var assignableRows = await context.ShopProducts.AsNoTracking()
             .Where(item =>
                 item.ShopId == collection.ShopId &&
                 item.IsActive &&
                 item.Product.IsEligible &&
                 productIds.Contains(item.ProductId))
-            .Select(item => item.ProductId)
+            .Select(item => new
+            {
+                item.ProductId,
+                SourceTitle = item.Product.Title,
+                item.EditorialTitle,
+                SourceCategory = item.Product.SecondLevelCategoryName,
+                NormalizedIdentityTitle = item.Product.IdentityProfile == null
+                    ? null
+                    : item.Product.IdentityProfile.NormalizedTitle,
+                RecentSalesVolume = item.Product.Snapshots.Max(snapshot => snapshot.RecentSalesVolume)
+            })
             .ToListAsync(cancellationToken);
+        var assignableIds = assignableRows
+            .Select(item => new
+            {
+                item.ProductId,
+                item.RecentSalesVolume,
+                Match = CollectionCandidateMatcher.Assess(
+                    seed.DisplayName,
+                    seed.ShortDescription,
+                    queries,
+                    item.SourceTitle,
+                    item.EditorialTitle,
+                    item.SourceCategory,
+                    item.NormalizedIdentityTitle)
+            })
+            .Where(item => item.Match.IsSuggested)
+            .OrderByDescending(item => item.Match.Score)
+            .ThenByDescending(item => item.RecentSalesVolume)
+            .ThenBy(item => item.ProductId, StringComparer.Ordinal)
+            .Select(item => item.ProductId)
+            .Take(maximumAssignments)
+            .ToArray();
         var existing = collection.Products.Select(item => item.ProductId).ToHashSet(StringComparer.Ordinal);
         var nextOrder = collection.Products.Count == 0 ? 10 : collection.Products.Max(item => item.DisplayOrder) + 10;
         var now = timeProvider.GetUtcNow();
@@ -167,5 +211,9 @@ public sealed class CatalogueCollectionDiscoveryService(
     private static CollectionDiscoveryResult Empty(CollectionSeed seed, string message) =>
         new(seed.Id, seed.DisplayName, 0, 0, 0, 0, 0, [], message, false);
 
-    private sealed record CollectionSeed(Guid Id, string DisplayName, string DiscoveryQueriesJson);
+    private sealed record CollectionSeed(
+        Guid Id,
+        string DisplayName,
+        string ShortDescription,
+        string DiscoveryQueriesJson);
 }

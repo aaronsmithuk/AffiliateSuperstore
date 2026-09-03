@@ -94,6 +94,36 @@ public sealed class CollectionRecord
 
     public ShopRecord Shop { get; set; } = null!;
     public ICollection<CollectionProductRecord> Products { get; set; } = [];
+    public ICollection<CollectionPublicationEventRecord> PublicationEvents { get; set; } = [];
+}
+
+public enum CollectionPublicationAction
+{
+    Published,
+    ReturnedToDraft
+}
+
+public enum CollectionPublicationMode
+{
+    Manual,
+    Automatic
+}
+
+public sealed class CollectionPublicationEventRecord
+{
+    public Guid Id { get; set; }
+    public Guid CollectionId { get; set; }
+    public Guid ShopId { get; set; }
+    public CollectionPublicationAction Action { get; set; }
+    public CollectionPublicationMode Mode { get; set; }
+    public string Actor { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public int IndexableProducts { get; set; }
+    public int RequiredProducts { get; set; }
+    public DateTimeOffset OccurredUtc { get; set; }
+
+    public CollectionRecord Collection { get; set; } = null!;
+    public ShopRecord Shop { get; set; } = null!;
 }
 
 public sealed class CollectionProductRecord

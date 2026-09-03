@@ -88,7 +88,7 @@ public sealed class AutonomousCatalogueDecisionEngineTests
         Assert.Equal(AutonomousCatalogueDecision.Hold, assessment.Decision);
         Assert.Contains("product-url.missing", assessment.ReasonCodes);
         Assert.Contains("media.missing", assessment.ReasonCodes);
-        Assert.Contains("published-collection.missing", assessment.ReasonCodes);
+        Assert.Contains("collection.semantic-fit", assessment.ReasonCodes);
         Assert.Contains("editorial.version-missing", assessment.ReasonCodes);
     }
 
@@ -106,7 +106,7 @@ public sealed class AutonomousCatalogueDecisionEngineTests
         Assert.Equal(0, await service.EnsureDefaultsAsync());
         var policy = Assert.Single(await service.GetAllAsync());
         Assert.Equal(AutonomousCatalogueMode.Shadow, policy.Mode);
-        Assert.Equal(5, policy.MaximumCandidatesPerRun);
+        Assert.Equal(6, policy.MaximumCandidatesPerRun);
 
         var update = await service.UpdateAsync(new AutonomousCataloguePolicyUpdate(
             policy.ShopSlug,

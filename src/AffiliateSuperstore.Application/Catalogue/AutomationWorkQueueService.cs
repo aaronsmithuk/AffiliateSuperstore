@@ -45,7 +45,7 @@ public sealed class AutomationWorkQueueService(
         var autonomousPolicies = autonomousOptions.Enabled
             ? await context.AutonomousCataloguePolicies.AsNoTracking()
                 .Where(policy => policy.Mode != AutonomousCatalogueMode.Off)
-                .Select(policy => new { policy.ShopId, policy.ReviewEveryHours })
+                .Select(policy => new { policy.ShopId, policy.Mode, policy.ReviewEveryHours })
                 .ToDictionaryAsync(policy => policy.ShopId, cancellationToken)
             : [];
 
@@ -65,6 +65,14 @@ public sealed class AutomationWorkQueueService(
                 TimeSpan.FromHours(options.LinkRefreshHours), 60, options.MaximumAttempts, now, cancellationToken);
             if (autonomousPolicies.TryGetValue(shop.Id, out var policy))
             {
+                if (policy.Mode == AutonomousCatalogueMode.Automatic &&
+                    autonomousOptions.AutomaticCollectionGrowthEnabled)
+                {
+                    planned += await EnqueueIfDueAsync(
+                        shop.Id, shop.Slug, AutomationWorkType.CollectionGrowth,
+                        TimeSpan.FromHours(Math.Clamp(autonomousOptions.CollectionGrowthEveryHours, 1, 168)), 55,
+                        options.MaximumAttempts, now, cancellationToken);
+                }
                 planned += await EnqueueIfDueAsync(
                     shop.Id, shop.Slug, AutomationWorkType.AutonomousReview,
                     TimeSpan.FromHours(Math.Clamp(policy.ReviewEveryHours, 1, 720)), 50,

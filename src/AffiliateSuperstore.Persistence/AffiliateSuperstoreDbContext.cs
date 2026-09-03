@@ -13,6 +13,7 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
     public DbSet<ShopProductRecord> ShopProducts => Set<ShopProductRecord>();
     public DbSet<CollectionRecord> Collections => Set<CollectionRecord>();
     public DbSet<CollectionProductRecord> CollectionProducts => Set<CollectionProductRecord>();
+    public DbSet<CollectionPublicationEventRecord> CollectionPublicationEvents => Set<CollectionPublicationEventRecord>();
     public DbSet<EditorialVersionRecord> EditorialVersions => Set<EditorialVersionRecord>();
     public DbSet<ProductSnapshotRecord> ProductSnapshots => Set<ProductSnapshotRecord>();
     public DbSet<ProductMediaRecord> ProductMedia => Set<ProductMediaRecord>();
@@ -246,6 +247,20 @@ public sealed class AffiliateSuperstoreDbContext(DbContextOptions<AffiliateSuper
             .HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Cascade);
         membership.HasIndex(item => new { item.CollectionId, item.IsFeatured, item.DisplayOrder });
         membership.HasIndex(item => item.ProductId);
+
+        var publication = modelBuilder.Entity<CollectionPublicationEventRecord>();
+        publication.ToTable("CollectionPublicationEvents");
+        publication.HasKey(item => item.Id);
+        publication.Property(item => item.Action).HasConversion<string>().HasMaxLength(30);
+        publication.Property(item => item.Mode).HasConversion<string>().HasMaxLength(30);
+        publication.Property(item => item.Actor).HasMaxLength(256).IsRequired();
+        publication.Property(item => item.Reason).HasMaxLength(1000).IsRequired();
+        publication.HasOne(item => item.Collection).WithMany(item => item.PublicationEvents)
+            .HasForeignKey(item => item.CollectionId).OnDelete(DeleteBehavior.Cascade);
+        publication.HasOne(item => item.Shop).WithMany()
+            .HasForeignKey(item => item.ShopId).OnDelete(DeleteBehavior.Restrict);
+        publication.HasIndex(item => new { item.ShopId, item.OccurredUtc });
+        publication.HasIndex(item => new { item.CollectionId, item.OccurredUtc });
     }
 
     private static void ConfigureProductSnapshot(ModelBuilder modelBuilder)

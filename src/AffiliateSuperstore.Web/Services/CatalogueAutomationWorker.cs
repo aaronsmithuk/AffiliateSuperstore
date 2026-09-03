@@ -9,6 +9,7 @@ public sealed class CatalogueAutomationWorker(
     AutomationWorkQueueService workQueue,
     CatalogueAutomationWakeSignal wakeSignal,
     IOptions<CatalogueAutomationOptions> options,
+    AutonomousCatalogueOptions autonomousOptions,
     TimeProvider timeProvider,
     ILogger<CatalogueAutomationWorker> logger) : BackgroundService
 {
@@ -144,110 +145,133 @@ public sealed class CatalogueAutomationWorker(
         switch (lease.Type)
         {
             case AutomationWorkType.CatalogueDiscovery:
-            {
-                var service = scope.ServiceProvider.GetRequiredService<CatalogueDiscoveryPlanService>();
-                var result = await service.RunAsync(lease.ShopSlug, _options.PageSize, cancellationToken);
-                if (result.Status is IngestionJobStatus.Failed or IngestionJobStatus.Running)
                 {
-                    throw new InvalidOperationException(result.Error ?? $"Discovery finished with {result.Status}.");
-                }
+                    var service = scope.ServiceProvider.GetRequiredService<CatalogueDiscoveryPlanService>();
+                    var result = await service.RunAsync(lease.ShopSlug, _options.PageSize, cancellationToken);
+                    if (result.Status is IngestionJobStatus.Failed or IngestionJobStatus.Running)
+                    {
+                        throw new InvalidOperationException(result.Error ?? $"Discovery finished with {result.Status}.");
+                    }
 
-                logger.LogInformation(
-                    "Durable discovery for {ShopSlug} completed {Completed}/{Planned} requests and wrote {Written} products.",
-                    lease.ShopSlug,
-                    result.RequestsCompleted,
-                    result.RequestsPlanned,
-                    result.ProductsWritten);
-                return result.Runs.LastOrDefault()?.JobId;
-            }
+                    logger.LogInformation(
+                        "Durable discovery for {ShopSlug} completed {Completed}/{Planned} requests and wrote {Written} products.",
+                        lease.ShopSlug,
+                        result.RequestsCompleted,
+                        result.RequestsPlanned,
+                        result.ProductsWritten);
+                    return result.Runs.LastOrDefault()?.JobId;
+                }
             case AutomationWorkType.ProductRefresh:
-            {
-                var service = scope.ServiceProvider.GetRequiredService<CatalogueProductEnrichmentService>();
-                var result = await service.RunAsync(lease.ShopSlug, cancellationToken: cancellationToken);
-                if (result.Status == IngestionJobStatus.Failed)
                 {
-                    throw new InvalidOperationException(result.Error ?? "Product refresh failed.");
-                }
+                    var service = scope.ServiceProvider.GetRequiredService<CatalogueProductEnrichmentService>();
+                    var result = await service.RunAsync(lease.ShopSlug, cancellationToken: cancellationToken);
+                    if (result.Status == IngestionJobStatus.Failed)
+                    {
+                        throw new InvalidOperationException(result.Error ?? "Product refresh failed.");
+                    }
 
-                logger.LogInformation(
-                    "Durable product refresh {JobId} for {ShopSlug} checked {Enriched}/{Selected} products.",
-                    result.JobId,
-                    lease.ShopSlug,
-                    result.ProductsEnriched,
-                    result.ProductsSelected);
-                return result.JobId;
-            }
+                    logger.LogInformation(
+                        "Durable product refresh {JobId} for {ShopSlug} checked {Enriched}/{Selected} products.",
+                        result.JobId,
+                        lease.ShopSlug,
+                        result.ProductsEnriched,
+                        result.ProductsSelected);
+                    return result.JobId;
+                }
             case AutomationWorkType.IdentityRefresh:
-            {
-                var service = scope.ServiceProvider.GetRequiredService<ProductIdentityService>();
-                var result = await service.RebuildAsync(lease.ShopSlug, cancellationToken: cancellationToken);
-                logger.LogInformation(
-                    "Durable identity refresh for {ShopSlug} read {ProductsRead} products, fingerprinted {ImagesFingerprinted} images, updated {ProfilesUpdated} profiles and created {CandidatesCreated} candidates.",
-                    lease.ShopSlug,
-                    result.ProductsRead,
-                    result.ImageFingerprintsCreated,
-                    result.ProfilesUpdated,
-                    result.CandidatesCreated);
-                return null;
-            }
+                {
+                    var service = scope.ServiceProvider.GetRequiredService<ProductIdentityService>();
+                    var result = await service.RebuildAsync(lease.ShopSlug, cancellationToken: cancellationToken);
+                    logger.LogInformation(
+                        "Durable identity refresh for {ShopSlug} read {ProductsRead} products, fingerprinted {ImagesFingerprinted} images, updated {ProfilesUpdated} profiles and created {CandidatesCreated} candidates.",
+                        lease.ShopSlug,
+                        result.ProductsRead,
+                        result.ImageFingerprintsCreated,
+                        result.ProfilesUpdated,
+                        result.CandidatesCreated);
+                    return null;
+                }
             case AutomationWorkType.LinkRefresh:
-            {
-                var service = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
-                var result = await service.RunAsync(
-                    lease.ShopSlug,
-                    TimeSpan.FromHours(_options.LinkRefreshHours),
-                    _options.LinkBatchSize,
-                    cancellationToken);
-                if (result.Status == IngestionJobStatus.Failed)
                 {
-                    throw new InvalidOperationException(result.Error ?? "Link refresh failed.");
-                }
+                    var service = scope.ServiceProvider.GetRequiredService<AffiliateLinkRenewalService>();
+                    var result = await service.RunAsync(
+                        lease.ShopSlug,
+                        TimeSpan.FromHours(_options.LinkRefreshHours),
+                        _options.LinkBatchSize,
+                        cancellationToken);
+                    if (result.Status == IngestionJobStatus.Failed)
+                    {
+                        throw new InvalidOperationException(result.Error ?? "Link refresh failed.");
+                    }
 
-                logger.LogInformation(
-                    "Durable link refresh {JobId} for {ShopSlug} validated {Validated} and replaced {Replaced} links.",
-                    result.JobId,
-                    lease.ShopSlug,
-                    result.Validated,
-                    result.Replaced);
-                return result.JobId;
-            }
+                    logger.LogInformation(
+                        "Durable link refresh {JobId} for {ShopSlug} validated {Validated} and replaced {Replaced} links.",
+                        result.JobId,
+                        lease.ShopSlug,
+                        result.Validated,
+                        result.Replaced);
+                    return result.JobId;
+                }
+            case AutomationWorkType.CollectionGrowth:
+                {
+                    var service = scope.ServiceProvider.GetRequiredService<AutonomousCollectionGrowthService>();
+                    var result = await service.RunAsync(lease.ShopSlug, _options.PageSize, cancellationToken);
+                    if (!result.Succeeded)
+                    {
+                        throw new InvalidOperationException(result.Message);
+                    }
+
+                    logger.LogInformation(
+                        "Durable collection growth for {ShopSlug} targeted {Collection}, read {Read}, wrote {Written}, assigned {Assigned} and published {Published} collections.",
+                        lease.ShopSlug,
+                        result.TargetCollection ?? "no underfilled collection",
+                        result.ProductsRead,
+                        result.ProductsWritten,
+                        result.ProductsAssigned + result.ExistingCandidatesAssigned,
+                        result.CollectionsPublished);
+                    return null;
+                }
             case AutomationWorkType.AutonomousReview:
-            {
-                var service = scope.ServiceProvider.GetRequiredService<AutonomousCatalogueEvaluationService>();
-                var result = await service.RunAsync(lease.ShopSlug, lease.Id, cancellationToken);
-                logger.LogInformation(
-                    "Durable autonomous {Mode} review for {ShopSlug} prepared {DraftsPrepared} drafts, evaluated {Evaluated}, would publish {WouldPublish}, held {Held} and published {Published}.",
-                    result.Mode,
-                    lease.ShopSlug,
-                    result.DraftsPrepared,
-                    result.ProductsEvaluated,
-                    result.WouldPublish,
-                    result.Held,
-                    result.Published);
-                return null;
-            }
-            case AutomationWorkType.CollectionSuggestions:
-            {
-                var service = scope.ServiceProvider.GetRequiredService<CollectionAiSuggestionService>();
-                var result = await service.GenerateAsync(
-                    lease.ShopSlug,
-                    Math.Clamp(
-                        scope.ServiceProvider.GetRequiredService<AutonomousCatalogueOptions>().MaximumCollectionSuggestionsPerRun,
-                        1,
-                        5),
-                    cancellationToken);
-                if (!result.Succeeded)
                 {
-                    throw new InvalidOperationException(result.Message);
+                    var service = scope.ServiceProvider.GetRequiredService<AutonomousCatalogueEvaluationService>();
+                    var result = await service.RunAsync(lease.ShopSlug, lease.Id, cancellationToken);
+                    var collectionPublication = await scope.ServiceProvider
+                        .GetRequiredService<AutonomousCollectionPublicationService>()
+                        .RunAsync(lease.ShopSlug, cancellationToken);
+                    logger.LogInformation(
+                        "Durable autonomous {Mode} review for {ShopSlug} prepared {DraftsPrepared} drafts, evaluated {Evaluated}, would publish {WouldPublish}, held {Held}, published {Published} products and published {CollectionsPublished} collections.",
+                        result.Mode,
+                        lease.ShopSlug,
+                        result.DraftsPrepared,
+                        result.ProductsEvaluated,
+                        result.WouldPublish,
+                        result.Held,
+                        result.Published,
+                        collectionPublication.CollectionsPublished);
+                    return null;
                 }
+            case AutomationWorkType.CollectionSuggestions:
+                {
+                    var service = scope.ServiceProvider.GetRequiredService<CollectionAiSuggestionService>();
+                    var result = await service.GenerateAsync(
+                        lease.ShopSlug,
+                        Math.Clamp(
+                            scope.ServiceProvider.GetRequiredService<AutonomousCatalogueOptions>().MaximumCollectionSuggestionsPerRun,
+                            1,
+                            5),
+                        cancellationToken);
+                    if (!result.Succeeded)
+                    {
+                        throw new InvalidOperationException(result.Message);
+                    }
 
-                logger.LogInformation(
-                    "Durable AI collection review for {ShopSlug} considered {Products} products and saved {Drafts} review-only drafts.",
-                    lease.ShopSlug,
-                    result.ProductsConsidered,
-                    result.DraftsSaved);
-                return null;
-            }
+                    logger.LogInformation(
+                        "Durable AI collection review for {ShopSlug} considered {Products} products and saved {Drafts} review-only drafts.",
+                        lease.ShopSlug,
+                        result.ProductsConsidered,
+                        result.DraftsSaved);
+                    return null;
+                }
             default:
                 throw new ArgumentOutOfRangeException(nameof(lease), lease.Type, "Unsupported automation work type.");
         }
@@ -277,5 +301,8 @@ public sealed class CatalogueAutomationWorker(
         if (_options.ProductStaleAfterHours < _options.RefreshEveryHours || _options.ProductStaleAfterHours > 1440) throw new InvalidOperationException("CatalogueAutomation:ProductStaleAfterHours must be between RefreshEveryHours and 1440.");
         if (_options.QueueDelayWarningMinutes is < 1 or > 10080) throw new InvalidOperationException("CatalogueAutomation:QueueDelayWarningMinutes must be between 1 and 10080.");
         if (_options.FailureAlertHours is < 1 or > 720) throw new InvalidOperationException("CatalogueAutomation:FailureAlertHours must be between 1 and 720.");
+        if (autonomousOptions.CollectionGrowthEveryHours is < 1 or > 168) throw new InvalidOperationException("AutonomousCatalogue:CollectionGrowthEveryHours must be between 1 and 168.");
+        if (autonomousOptions.MaximumAutomaticCollectionAssignmentsPerRun is < 1 or > CatalogueCollectionService.MaximumBatchAssignments) throw new InvalidOperationException($"AutonomousCatalogue:MaximumAutomaticCollectionAssignmentsPerRun must be between 1 and {CatalogueCollectionService.MaximumBatchAssignments}.");
+        if (autonomousOptions.MinimumAutomaticCollectionProducts is < CatalogueCollectionService.MinimumIndexingTarget or > CatalogueCollectionService.MaximumIndexingTarget) throw new InvalidOperationException($"AutonomousCatalogue:MinimumAutomaticCollectionProducts must be between {CatalogueCollectionService.MinimumIndexingTarget} and {CatalogueCollectionService.MaximumIndexingTarget}.");
     }
 }

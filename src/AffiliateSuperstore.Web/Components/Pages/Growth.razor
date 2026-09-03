@@ -3,6 +3,7 @@
 @attribute [Authorize(Policy = AdminAuthorization.PolicyName)]
 @rendermode InteractiveServer
 @inject CatalogueGrowthPipelineService GrowthService
+@inject CatalogueGovernanceReportService GovernanceService
 
 <PageTitle>Catalogue growth pipeline</PageTitle>
 
@@ -25,6 +26,36 @@
 }
 else
 {
+    @if (Governance is not null)
+    {
+        <section class="panel" aria-labelledby="daily-governance-title">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Daily owner brief · @Governance.DateUtc.ToString("dd MMM yyyy") UTC</p>
+                    <h2 id="daily-governance-title">Autonomous governance report</h2>
+                    <p class="panel-copy">A compact exception-led report. Healthy routine work needs no owner action.</p>
+                </div>
+                <span class="result-badge @(Governance.IsHealthy ? "success" : "failure")">@(Governance.IsHealthy ? "No anomalies" : $"{Governance.Anomalies.Count} to inspect")</span>
+            </div>
+            <div class="metric-grid" aria-label="Today's autonomous activity">
+                <article class="metric-card"><strong>@Governance.ProductsPublished</strong><span>Products published</span></article>
+                <article class="metric-card"><strong>@Governance.ProductsRetired</strong><span>Products retired</span></article>
+                <article class="metric-card"><strong>@Governance.CollectionsPublished</strong><span>Collections published</span></article>
+                <article class="metric-card"><strong>@Governance.ProductsHeld</strong><span>Held safely</span></article>
+                <article class="metric-card"><strong>@Governance.AutomaticDecisions</strong><span>Automatic decisions</span></article>
+                <article class="metric-card"><strong>$@Governance.AiSpendUsd.ToString("0.0000")</strong><span>AI spend today</span></article>
+            </div>
+            @if (Governance.IsHealthy)
+            {
+                <div class="alert-card success-card"><strong>Routine operation is healthy</strong><span>No dead letters, AI failures, budget blocks, suppressed approved products or ready-but-private collections need owner attention.</span></div>
+            }
+            else
+            {
+                <div class="alert-card warning-card" role="alert"><strong>Review these anomalies</strong><ul class="validation-findings">@foreach (var anomaly in Governance.Anomalies) { <li>@anomaly</li> }</ul></div>
+            }
+        </section>
+    }
+
     <section class="panel growth-target" aria-labelledby="growth-target-title">
         <div class="panel-heading">
             <div><p class="eyebrow">First operating target</p><h2 id="growth-target-title">@Pipeline.PublicProducts of @Pipeline.TargetPublicProducts public products</h2></div>
@@ -41,12 +72,12 @@ else
         <article class="metric-card"><strong>@Pipeline.AutomaticallyRetiredProducts</strong><span>Auto-retired audit total</span></article>
         <article class="metric-card"><strong>@Pipeline.HeldForRepairOrReview</strong><span>Repair or human review</span></article>
         <article class="metric-card"><strong>@Pipeline.DeferredByDailyLimit</strong><span>Deferred until tomorrow</span></article>
-        <article class="metric-card"><strong>@Pipeline.DraftCollectionsReady</strong><span>Draft collections ready at 12</span></article>
+        <article class="metric-card"><strong>@Pipeline.DraftCollectionsReady</strong><span>Collections awaiting automatic publication</span></article>
     </section>
 
     <div class="alert-card success-card">
-        <strong>Bounded automatic mode</strong>
-        <span>Clear candidates may publish automatically. Permanent non-plush, pet and tobacco-scope failures are retired with a reversible audit reason. Ambiguous quantity, licensing, safety and duplicate questions remain held.</span>
+        <strong>Exception-led automatic mode</strong>
+        <span>Collection-assigned candidates with a strong semantic fit may publish after every deterministic and AI provenance gate passes. A private collection publishes automatically at 12 indexable products. Permanent non-plush, pet and tobacco-scope failures are retired reversibly; ambiguous quantity, licensing, safety and duplicate questions remain held.</span>
     </div>
 
     <section class="panel" aria-labelledby="collection-growth-title">
@@ -59,7 +90,7 @@ else
                     {
                         <tr>
                             <td><strong>@collection.DisplayName</strong><small>/@collection.Slug</small></td>
-                            <td><span class="table-status @(collection.IsPublished ? "ready" : collection.IsReadyToPublish ? "ready" : "missing")">@(collection.IsPublished ? "Published" : collection.IsReadyToPublish ? "Ready for owner" : "Draft")</span></td>
+                            <td><span class="table-status @(collection.IsPublished ? "ready" : collection.IsReadyToPublish ? "ready" : "missing")">@(collection.IsPublished ? "Published" : collection.IsReadyToPublish ? "Ready for automatic publication" : "Growing automatically")</span></td>
                             <td>@collection.AssignedProducts</td>
                             <td>@collection.PublicProducts</td>
                             <td><progress value="@collection.IndexableProducts" max="@collection.TargetProducts">@collection.IndexableProducts / @collection.TargetProducts</progress><small>@collection.IndexableProducts / @collection.TargetProducts</small></td>
@@ -116,6 +147,7 @@ else
 
 @code {
     private CatalogueGrowthPipeline? Pipeline;
+    private CatalogueGovernanceBrief? Governance;
     private bool IsLoading;
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -123,7 +155,14 @@ else
     private async Task LoadAsync()
     {
         IsLoading = true;
-        try { Pipeline = await GrowthService.GetAsync("plushies"); }
+        try
+        {
+            var pipelineTask = GrowthService.GetAsync("plushies");
+            var governanceTask = GovernanceService.GetTodayAsync("plushies");
+            await Task.WhenAll(pipelineTask, governanceTask);
+            Pipeline = await pipelineTask;
+            Governance = await governanceTask;
+        }
         finally { IsLoading = false; }
     }
 

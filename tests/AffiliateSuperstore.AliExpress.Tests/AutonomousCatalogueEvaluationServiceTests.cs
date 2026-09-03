@@ -379,6 +379,7 @@ public sealed class AutonomousCatalogueEvaluationServiceTests
             IntroductoryCopy = "A reviewed animal plush collection.",
             SeoTitle = "Animal plush toys",
             SeoDescription = "Reviewed animal plush toys.",
+            DiscoveryQueriesJson = "[\"highland cow plush\",\"animal plush\"]",
             IsPublished = true,
             CreatedUtc = now,
             UpdatedUtc = now

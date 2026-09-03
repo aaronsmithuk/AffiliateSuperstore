@@ -109,6 +109,7 @@ public enum AutomationWorkType
     ProductRefresh,
     IdentityRefresh,
     LinkRefresh,
+    CollectionGrowth,
     AutonomousReview,
     CollectionSuggestions
 }

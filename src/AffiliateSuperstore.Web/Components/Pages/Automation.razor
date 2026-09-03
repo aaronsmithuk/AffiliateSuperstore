@@ -132,7 +132,7 @@
                 <ul>
                     <li>Active, eligible and recently checked source product</li>
                     <li>Available offer with a positive price and active affiliate link</li>
-                    <li>Published-shop collection assignment</li>
+                    <li>Strong semantic fit with at least one configured collection</li>
                     <li>No quality, suitability or unsupported-claim flags</li>
                     <li>No confirmed or high-confidence probable duplicate</li>
                     <li>Audited AI provenance with an unchanged validated draft</li>
@@ -363,8 +363,8 @@
 else
 {
     <div class="alert-card success-card automation-note">
-        <strong>Restricted automatic mode is available</strong>
-        <span>Per-shop candidate, publication, readiness, duplicate and AI-budget limits remain authoritative. The safety circuit downgrades a faulting automatic policy to Shadow without stopping deterministic catalogue work.</span>
+        <strong>Exception-led automatic mode is available</strong>
+        <span>Per-shop candidate, publication, readiness, collection-fit, duplicate and AI-budget limits remain authoritative. Collections publish automatically only after 12 indexable products pass the final gate. The safety circuit downgrades a faulting automatic policy to Shadow without stopping deterministic catalogue work.</span>
     </div>
 }
 

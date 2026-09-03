@@ -8,7 +8,7 @@ namespace AffiliateSuperstore.Application.Catalogue;
 
 public sealed record AutonomousCatalogueCandidateEvidence(
     DateTimeOffset? SourceCheckedUtc,
-    bool HasPublishedCollection,
+    bool HasQualifyingCollection,
     bool HasSourceChangeAfterDraft,
     decimal? DuplicateCandidateConfidence,
     bool IsKnownDuplicate,
@@ -48,7 +48,7 @@ public static class AutonomousCatalogueDecisionEngine
         if (string.IsNullOrWhiteSpace(item.ProductDetailUrl)) reasons.Add("product-url.missing");
         if (string.IsNullOrWhiteSpace(item.ImageUrl)) reasons.Add("media.missing");
         if (!item.HasActiveLink) reasons.Add("affiliate-link.missing");
-        if (!evidence.HasPublishedCollection) reasons.Add("published-collection.missing");
+        if (!evidence.HasQualifyingCollection) reasons.Add("collection.semantic-fit");
         if (item.SalePrice is null or <= 0m) reasons.Add("price.missing");
         if (item.QualityFlags.Count > 0) reasons.Add("quality.flags");
         if (item.ValidationState != EditorialValidationState.Passed || item.ValidationFindings.Count > 0) reasons.Add("editorial.validation");
@@ -134,7 +134,7 @@ public sealed class AutonomousCatalogueEvaluationService(
                     preparationCount,
                     $"autonomous {policy.Mode.ToString().ToLowerInvariant()}",
                     duplicateHoldConfidence: policy.DuplicateHoldConfidence,
-                    requirePublishedCollection: true,
+                    requirePublishedCollection: false,
                     cancellationToken: cancellationToken);
             }
 
@@ -155,39 +155,57 @@ public sealed class AutonomousCatalogueEvaluationService(
             var sourceChecks = await context.Products.AsNoTracking()
                 .Where(item => productIds.Contains(item.AliExpressProductId))
                 .ToDictionaryAsync(item => item.AliExpressProductId, item => item.LastCheckedUtc, cancellationToken);
-            var publishedMemberships = await context.CollectionProducts.AsNoTracking()
-                .Where(item => productIds.Contains(item.ProductId) &&
-                    item.Collection.ShopId == shopId &&
-                    item.Collection.IsPublished)
-                .Select(item => new { item.ProductId, item.CollectionId })
+            var collectionMemberships = await context.CollectionProducts.AsNoTracking()
+                .Where(item => productIds.Contains(item.ProductId) && item.Collection.ShopId == shopId)
+                .Select(item => new
+                {
+                    item.ProductId,
+                    item.CollectionId,
+                    item.Collection.DisplayName,
+                    item.Collection.ShortDescription,
+                    item.Collection.DiscoveryQueriesJson,
+                    NormalizedIdentityTitle = item.Product.IdentityProfile == null
+                        ? null
+                        : item.Product.IdentityProfile.NormalizedTitle
+                })
                 .ToArrayAsync(cancellationToken);
-            var productsWithPublishedCollections = publishedMemberships
-                .Select(item => item.ProductId)
+            var productsWithQualifyingCollections = awaiting
+                .Where(product => collectionMemberships
+                    .Where(membership => membership.ProductId == product.ProductId)
+                    .Any(membership => CollectionCandidateMatcher.Assess(
+                        membership.DisplayName,
+                        membership.ShortDescription,
+                        CatalogueCollectionService.ReadQueries(membership.DiscoveryQueriesJson),
+                        product.SourceTitle,
+                        product.EditorialTitle,
+                        product.SecondLevelCategoryName,
+                        membership.NormalizedIdentityTitle).IsSuggested))
+                .Select(product => product.ProductId)
                 .ToHashSet(StringComparer.Ordinal);
-            var publishedCollectionIds = publishedMemberships
+            var collectionIds = collectionMemberships
                 .Select(item => item.CollectionId)
                 .Distinct()
                 .ToArray();
-            var approvedMemberships = publishedCollectionIds.Length == 0
+            var approvedMemberships = collectionIds.Length == 0
                 ? []
                 : await (
                     from membership in context.CollectionProducts.AsNoTracking()
                     join shopProduct in context.ShopProducts.AsNoTracking()
                         on new { ShopId = shopId, membership.ProductId }
                         equals new { shopProduct.ShopId, shopProduct.ProductId }
-                    where publishedCollectionIds.Contains(membership.CollectionId) &&
+                    where collectionIds.Contains(membership.CollectionId) &&
                         shopProduct.IsActive &&
                         shopProduct.ReviewStatus == ProductReviewStatus.Approved
                     select membership.CollectionId)
                     .ToArrayAsync(cancellationToken);
-            var publishedCollectionCoverage = approvedMemberships
+            var collectionCoverage = approvedMemberships
                 .GroupBy(collectionId => collectionId)
                 .ToDictionary(group => group.Key, group => group.Count());
-            var coverageScoreByProduct = publishedMemberships
+            var coverageScoreByProduct = collectionMemberships
                 .GroupBy(item => item.ProductId, StringComparer.Ordinal)
                 .ToDictionary(
                     group => group.Key,
-                    group => group.Min(item => publishedCollectionCoverage.GetValueOrDefault(item.CollectionId)),
+                    group => group.Min(item => collectionCoverage.GetValueOrDefault(item.CollectionId)),
                     StringComparer.Ordinal);
             var sourceChanges = await context.ProductChangeEvents.AsNoTracking()
                 .Where(item => productIds.Contains(item.ProductId) &&
@@ -270,7 +288,7 @@ public sealed class AutonomousCatalogueEvaluationService(
                     .SingleOrDefault();
                 var evidence = new AutonomousCatalogueCandidateEvidence(
                     sourceChecks.GetValueOrDefault(item.ProductId),
-                    productsWithPublishedCollections.Contains(item.ProductId),
+                    productsWithQualifyingCollections.Contains(item.ProductId),
                     sourceChanges.Any(change => change.ProductId == item.ProductId && change.OccurredUtc > item.AiCreatedUtc),
                     duplicateConfidence.GetValueOrDefault(item.ProductId),
                     knownDuplicates.Contains(item.ProductId),
@@ -395,50 +413,50 @@ public sealed class AutonomousCatalogueEvaluationService(
         AutonomousCatalogueAction action,
         Guid? workItemId,
         DateTimeOffset now) => new()
-    {
-        Id = Guid.CreateVersion7(),
-        ShopId = policy.ShopId,
-        ProductId = item.ProductId,
-        WorkItemId = workItemId,
-        EditorialVersionId = evidence.EditorialVersionId,
-        EditorialVersionNumber = item.CurrentVersionNumber,
-        Mode = policy.Mode,
-        Decision = assessment.Decision,
-        Action = action,
-        ReadinessScore = assessment.ReadinessScore,
-        ReasonCodesJson = JsonSerializer.Serialize(assessment.ReasonCodes),
-        Summary = assessment.Summary,
-        EvidenceJson = JsonSerializer.Serialize(new
         {
-            item.IsActive,
-            item.IsEligible,
-            item.AvailabilityState,
-            item.HasActiveLink,
-            CollectionCount = item.Collections.Count,
-            item.SalePrice,
-            item.Currency,
-            item.ValidationState,
-            QualityFlags = item.QualityFlags.Select(flag => flag.Code),
-            InvocationId = item.Invocation?.Id,
-            InvocationStatus = item.Invocation?.Status,
-            evidence.SourceCheckedUtc,
-            evidence.HasPublishedCollection,
-            evidence.HasSourceChangeAfterDraft,
-            evidence.DuplicateCandidateConfidence,
-            evidence.IsKnownDuplicate
-        }),
-        PolicySnapshotJson = JsonSerializer.Serialize(new
-        {
-            policy.Mode,
-            policy.ReviewEveryHours,
-            policy.MaximumCandidatesPerRun,
-            policy.MaximumAutoPublishesPerDay,
-            policy.MinimumReadinessScore,
-            policy.DuplicateHoldConfidence,
-            policy.DailyAiBudgetUsd
-        }),
-        EvaluatedUtc = now
-    };
+            Id = Guid.CreateVersion7(),
+            ShopId = policy.ShopId,
+            ProductId = item.ProductId,
+            WorkItemId = workItemId,
+            EditorialVersionId = evidence.EditorialVersionId,
+            EditorialVersionNumber = item.CurrentVersionNumber,
+            Mode = policy.Mode,
+            Decision = assessment.Decision,
+            Action = action,
+            ReadinessScore = assessment.ReadinessScore,
+            ReasonCodesJson = JsonSerializer.Serialize(assessment.ReasonCodes),
+            Summary = assessment.Summary,
+            EvidenceJson = JsonSerializer.Serialize(new
+            {
+                item.IsActive,
+                item.IsEligible,
+                item.AvailabilityState,
+                item.HasActiveLink,
+                CollectionCount = item.Collections.Count,
+                item.SalePrice,
+                item.Currency,
+                item.ValidationState,
+                QualityFlags = item.QualityFlags.Select(flag => flag.Code),
+                InvocationId = item.Invocation?.Id,
+                InvocationStatus = item.Invocation?.Status,
+                evidence.SourceCheckedUtc,
+                evidence.HasQualifyingCollection,
+                evidence.HasSourceChangeAfterDraft,
+                evidence.DuplicateCandidateConfidence,
+                evidence.IsKnownDuplicate
+            }),
+            PolicySnapshotJson = JsonSerializer.Serialize(new
+            {
+                policy.Mode,
+                policy.ReviewEveryHours,
+                policy.MaximumCandidatesPerRun,
+                policy.MaximumAutoPublishesPerDay,
+                policy.MinimumReadinessScore,
+                policy.DuplicateHoldConfidence,
+                policy.DailyAiBudgetUsd
+            }),
+            EvaluatedUtc = now
+        };
 
     private static DateTimeOffset StartOfUtcDay(DateTimeOffset value) =>
         new(value.Year, value.Month, value.Day, 0, 0, 0, TimeSpan.Zero);

@@ -393,6 +393,10 @@ public sealed class CatalogueCollectionService(
         string shopSlug,
         Guid collectionId,
         bool publish,
+        string actor = "administrator",
+        CollectionPublicationMode mode = CollectionPublicationMode.Manual,
+        string? reason = null,
+        int? requiredMinimumProducts = null,
         CancellationToken cancellationToken = default)
     {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
@@ -404,22 +408,65 @@ public sealed class CatalogueCollectionService(
             return CollectionCommandResult.Success(publish ? "Collection is already published." : "Collection is already a draft.", collection.Id);
         }
 
+        var summaries = await GetCollectionsAsync(shopSlug, cancellationToken);
+        var summary = summaries.Single(item => item.Id == collectionId);
+        var requiredProducts = Math.Max(
+            summary.MinimumProductsForIndexing,
+            Math.Max(0, requiredMinimumProducts ?? 0));
         if (publish)
         {
-            var summaries = await GetCollectionsAsync(shopSlug, cancellationToken);
-            var summary = summaries.Single(item => item.Id == collectionId);
-            if (!summary.CanPublish)
+            var contentErrors = Validate(new CollectionUpdate(
+                collection.Id,
+                shopSlug,
+                collection.Slug,
+                collection.DisplayName,
+                collection.ShortDescription,
+                collection.IntroductoryCopy,
+                collection.SeoTitle,
+                collection.SeoDescription,
+                ReadQueries(collection.DiscoveryQueriesJson),
+                collection.DisplayOrder,
+                collection.MinimumProductsForIndexing,
+                collection.IsFeatured));
+            if (contentErrors.Count > 0)
             {
                 return CollectionCommandResult.Failure(
-                    $"This collection needs {Math.Max(0, summary.MinimumProductsForIndexing - summary.IndexableProducts)} more indexable products before publication.");
+                    "Collection content failed the final publication validation.",
+                    contentErrors);
+            }
+            if (summary.IndexableProducts < requiredProducts)
+            {
+                return CollectionCommandResult.Failure(
+                    $"This collection needs {Math.Max(0, requiredProducts - summary.IndexableProducts)} more indexable products before publication.");
             }
         }
 
         collection.IsPublished = publish;
-        collection.UpdatedUtc = timeProvider.GetUtcNow();
+        var now = timeProvider.GetUtcNow();
+        collection.UpdatedUtc = now;
+        context.CollectionPublicationEvents.Add(new CollectionPublicationEventRecord
+        {
+            Id = Guid.CreateVersion7(),
+            CollectionId = collection.Id,
+            ShopId = collection.ShopId,
+            Action = publish ? CollectionPublicationAction.Published : CollectionPublicationAction.ReturnedToDraft,
+            Mode = mode,
+            Actor = Limit(string.IsNullOrWhiteSpace(actor) ? "administrator" : actor.Trim(), 256),
+            Reason = Limit(string.IsNullOrWhiteSpace(reason)
+                ? publish
+                    ? "Collection passed its final content and indexable-product gates."
+                    : "Collection returned to draft by an administrator."
+                : reason.Trim(), 1000),
+            IndexableProducts = summary.IndexableProducts,
+            RequiredProducts = requiredProducts,
+            OccurredUtc = now
+        });
         await context.SaveChangesAsync(cancellationToken);
         return CollectionCommandResult.Success(publish ? "Collection published." : "Collection returned to draft.", collection.Id);
     }
+
+    private static string Limit(string value, int maximumLength) =>
+        value.Length <= maximumLength ? value : value[..maximumLength];
 
     public async Task<CollectionCommandResult> SetMembershipAsync(
         string shopSlug,

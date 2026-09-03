@@ -3,7 +3,8 @@
 This runbook accelerates the live plushies catalogue without weakening product
 safety, duplicate, editorial, affiliate-link or indexing gates. It separates
 candidate throughput from public publication so a larger working queue cannot
-silently create a larger public risk.
+silently create a larger public risk. The target operating model is autonomous
+day-to-day merchandising with the owner governing exceptions and anomalies.
 
 ## Current baseline and targets
 
@@ -18,25 +19,24 @@ silently create a larger public risk.
 - Automatic publication remains limited by readiness 1.00, duplicate holds
   from confidence 0.75, the automatic safety circuit and the daily publication
   cap stored in the shop policy.
-- `/admin/growth` is the daily operating view. It explains the 50-product gap,
-  candidate disposition, blocker mix, next-day deferrals, reversible automatic
-  retirements and each collection's indexable-product shortfall.
+- `/admin/growth` is the governance view. Its daily brief reports products and
+  collections published, holds, reversible retirements, AI spend/failures,
+  dead letters, suppressed approved products and any anomaly requiring action.
 
 ## Safe acceleration order
 
 1. Grow the candidate pool through standard search and Smart Match while
    keeping API pacing, bounded pages and provider errors visible.
 2. Assign relevant existing and newly discovered candidates to draft
-   collections in bounded, reviewable batches. Assignment never approves a
-   product or publishes a collection.
-3. Prepare AI editorial drafts for suitable products assigned to either
-   published or draft collections. Manual batches prioritise draft-only
-   collection coverage and avoid paying twice for the same normalised source
-   title within one batch. This expands the human-review queue, not autonomous
-   publication eligibility.
-4. Keep autonomous preparation restricted to products assigned to a published
-   collection. Keep all readiness, duplicate, availability, price, link,
-   provenance and source-change checks unchanged.
+   collections in bounded batches only when deterministic semantic matching is
+   strong. Assignment never approves a product or by itself publishes a
+   collection.
+3. Prepare AI editorial drafts for suitable products assigned to either a
+   published or draft collection. Draft membership qualifies only when the
+   product strongly fits that collection; published state is not a shortcut.
+4. Let automatic product publication proceed only after all readiness,
+   duplicate, availability, price, link, provenance, semantic-fit and
+   source-change checks pass. A held product remains private.
 5. In Automatic mode, retire only permanent catalogue-scope failures with a
    reversible audit reason: non-plush products, pet products/categories,
    missing plush evidence and tobacco-themed products. Ambiguous quantities,
@@ -46,39 +46,41 @@ silently create a larger public risk.
 6. Prefer raising candidates considered per automatic run before raising the
    number that may publish per day. More consideration prevents held candidates
    from wasting capacity without increasing the daily public-change ceiling.
-7. Publish a draft collection only through the explicit owner action after it
-   reaches its configured minimum of indexable products and passes the existing
-   SEO assessment.
+7. In Automatic mode, publish a draft collection only when it has at least 12
+   currently indexable products and passes a fresh content/SEO validation at
+   the publication boundary. Record the count, threshold, actor, reason and
+   mode in an immutable publication event. The owner can return it to draft.
 
 ## Initial accelerated operating profile
 
 The first accelerated profile should use:
 
 - hourly automatic review;
-- five candidates considered per run;
+- six candidates considered per run;
 - no more than two automatic publications per UTC day;
 - minimum readiness 1.00;
 - duplicate hold confidence 0.75;
 - daily product-copy AI allowance USD 0.25;
 - shared monthly AI ceiling USD 5.00.
 
-The owner applied and verified the five-candidate setting in production on 2
-September 2026. The system must not raise that setting, the publication cap or
-either AI budget from configuration or a deployment.
+The owner approved six candidates per hourly run on 3 September 2026. The
+product publication cap and either AI budget must not be raised implicitly by
+configuration or deployment.
 
 ## Collection expansion loop
 
-For each draft collection:
+The six-hour collection-growth job performs this loop for one underfilled
+collection at a time:
 
-1. Review its generic, brand-safe discovery queries.
-2. Run bounded collection discovery and inspect API failures or rejected items.
-3. Review suggested matches and batch-assign only the visibly selected rows.
-4. Prepare or review product editorial copy through the normal approval queue.
-5. Confirm at least the configured minimum number of products are active,
-   approved, linked, image-complete, priced, fresh and indexable.
-6. Review the collection title, introduction, SEO metadata and product fit.
-7. Publish through the explicit collection control and verify its canonical,
-   sitemap entry, ItemList structured data and public product count.
+1. Select an unpublished, underfilled collection before a published one.
+2. Run bounded, brand-safe API discovery and assign at most 12 strong matches.
+3. Fill unused assignment capacity from existing strong, non-rejected matches.
+4. Let the hourly product pipeline prepare and approve only fully gated items.
+5. Recount active, approved, linked, image-complete, priced and fresh products.
+6. At 12 indexable products, rerun collection validation and publish
+   automatically; otherwise leave the collection private.
+7. Surface API failures, publication failures and threshold-ready private
+   collections in the governance brief.
 
 Suggested order after the two live collections is `ocean-friends`,
 `cute-food`, `plush-cushions`, `fantasy-friends`, `mini-plush`, then
@@ -86,7 +88,8 @@ Suggested order after the two live collections is `ocean-friends`,
 
 ## Daily evidence check
 
-During acceleration, review:
+The intended owner interaction is one daily review rather than queue operation.
+Check:
 
 - `/admin/growth` totals, permanent-retirement candidates and reversible audit
   count;

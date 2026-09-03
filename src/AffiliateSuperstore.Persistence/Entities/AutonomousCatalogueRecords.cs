@@ -25,7 +25,7 @@ public sealed class AutonomousCataloguePolicyRecord
     public Guid ShopId { get; set; }
     public AutonomousCatalogueMode Mode { get; set; } = AutonomousCatalogueMode.Shadow;
     public int ReviewEveryHours { get; set; } = 24;
-    public int MaximumCandidatesPerRun { get; set; } = 5;
+    public int MaximumCandidatesPerRun { get; set; } = 6;
     public int MaximumAutoPublishesPerDay { get; set; } = 5;
     public decimal MinimumReadinessScore { get; set; } = .98m;
     public decimal DuplicateHoldConfidence { get; set; } = .85m;

@@ -1,6 +1,6 @@
 # Affiliate Superstore project plan
 
-Last updated: 2 September 2026
+Last updated: 3 September 2026
 
 ## Product objective
 
@@ -49,7 +49,7 @@ be reusable for additional shops without another application runtime.
 | Plushies Tracking ID | Use existing durable ID `theplushyshop` |
 | Tracking scale | Optional durable Tracking ID per important shop, shared fallback for others; `cn`, `cv` and opaque `dp` provide detailed attribution |
 | Catalogue intelligence | Extend the existing .NET/SQL pipeline; deterministic identity, lifecycle and quality rules first, embeddings/LLM/vision only for ambiguous cases |
-| AI publication policy | A restricted `plushies` product-copy pilot may publish at most two fully gated products per UTC day from at most five candidates per hourly run. Collections, replacements, guides and articles remain human-approved; AI can never set source facts such as price, availability, SKU, pack size or delivery. |
+| AI publication policy | `plushies` is moving to exception-led autonomous merchandising: six candidates per hourly run, at most two fully gated product publications per UTC day, deterministic semantic collection fit, and automatic collection publication only at 12 indexable products after a fresh final validation. Every automatic product/collection action is audited and reversible. Replacements, guides, articles and identity merges remain human-approved; AI can never set source facts such as price, availability, SKU, pack size or delivery. |
 | AI cost policy | Hash/cache unchanged inputs, use asynchronous batches where suitable, enforce purpose-level switches and keep all hosted-AI work inside one transactional $5 calendar-month cap |
 
 ## Tracking taxonomy
@@ -99,7 +99,7 @@ The MVP is complete when:
 | 1. API foundation | Typed Affiliate API client, signing, response normalisation, test workbench and live smoke coverage | Complete |
 | 2. Shop and tracking model | Shop/path/theme configuration and hybrid tracking taxonomy | Complete |
 | 3. Persistence | SQL Server catalogue, snapshots, ordered product media, links, clicks, jobs and order state | Complete; additive freshness/lifecycle evidence and change history are included |
-| 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Operational in production; a protected 15-minute wake schedule, durable due-state, lease renewal, retry/dead-letter recovery, freshness alerts, supervised discovery, weekly collection suggestions and a restricted fail-closed automatic product-publication pilot are working |
+| 4. Automation | Scheduled discovery, product-detail refresh, curation, link renewal and failure recovery | Operational in production; the next release adds a bounded collection-growth work item, semantic assignment gates, automatic publication at 12 indexable products and a daily exception brief. The existing protected wake, durable due-state, leases, retry/dead-letter recovery and safety downgrade remain authoritative. |
 | 5. Public plushies MVP | Razor Pages catalogue, rich product pages, search/filtering and disclosures | Functionally complete and live with 17 approved active products after the latest relevance reassessment; approved-only catalogue/detail pages, API-backed galleries and richer facts, category/price/popularity filters, curated content, disclosure and click redirect are working. Catalogue depth is the next commercial milestone. |
 | 6. Shopping list | Anonymous basket-style experience and one-by-one hand-off | Functionally complete for MVP; protected 90-day list, count and next-item hand-off are working |
 | 7. Conversion operations | S2S, reconciliation, retention and monetisation dashboard | Functionally complete for local MVP; restart-safe pull reconciliation, monthly 180-day recovery, guarded S2S inbox, click attribution, durable SQL retention, safe CSV export and performance reporting are working; production S2S setup remains |
@@ -133,8 +133,10 @@ standing [`SEARCH-CONTENT-GOVERNANCE.md`](SEARCH-CONTENT-GOVERNANCE.md) policy.
   continue when a model provider is unavailable or its budget is exhausted.
 - Production model use is permitted only through the deployed purpose switches,
   transactional budget ledger, immutable audit, deterministic validators and
-  shop-specific policy. Product publication is the sole automatic model action;
-  collections, identity, expiry, replacements and articles remain review-only.
+  shop-specific policy. Product publication and threshold-based collection
+  publication are the only automatic public actions. Collection publication
+  requires 12 currently indexable products plus a fresh content validation;
+  identity, replacements, guides and articles remain review-only.
 
 ### Coordinated implementation sequence
 
@@ -145,7 +147,7 @@ standing [`SEARCH-CONTENT-GOVERNANCE.md`](SEARCH-CONTENT-GOVERNANCE.md) policy.
 | AI-2. Durable automation | Add SQL work items, unique idempotency keys, leases/checkpoints, bounded retries, independent job types, health metrics and a harmless wake endpoint | AI-1 schema; SmarterASP verification before production | Live in production from release `0ad6ba8`: long work renews its lease, cycle failures do not stop the host, the wake endpoint requires a fixed secret, SmarterASP signals it every 15 minutes, and admin exposes freshness/link/availability alerts, full run history and dead-letter retry |
 | AI-3. Deterministic identity and review | Add normalized identifiers/units/pack size, image metadata, candidate blocking, explainable confidence, gold-set evaluation and paged admin review | AI-1 observations and current approval gate | Core, exact-image evidence and calibration workflow deployed in release `fb68023`; immutable reviewer labels, protected tuning/threshold/final-test slices, disagreement/adjudication handling, Wilson confidence bounds and false-merge reporting are live; populating the 500-pair labelled set remains editorial work |
 | AI-4. Versioned content quality | Add mechanical quality rules, immutable editorial versions, claim provenance, diffs and rollback; no generative auto-approval | AI-1 facts and AI-3 review primitives | Live in production; immutable named revisions, optimistic edit protection, deterministic claim validation, approval gating, admin evidence/diffs and restore-as-new-revision are working |
-| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters with controlled product-copy publication | AI-3 gold set, admin authentication, data-handling review and budget controls | Restricted product-copy automation is live for `plushies`: five candidates/hourly run, two publications/UTC day, readiness 1.00 and duplicate holds at 0.75. Production trials proved thin-copy, source-change, duplicate and daily-limit holds, and two fully gated automatic publications. A shared transactional $5 calendar-month cap covers product and collection calls. Administrator-triggered batches prioritise draft-only collection coverage and spend at most once per normalised source title in a batch; autonomous preparation still requires a published collection and all existing publication gates. The automatic safety circuit downgrades faulting publication to Shadow after an autonomous dead letter or three consecutive product-copy AI failures. Weekly collection suggestions use catalogue evidence and remain a separate review queue; acceptance creates an unpublished collection draft only. Guides, recommendations, identity merges and expiry remain review-only. |
+| AI-5. Optional semantic escalation | Benchmark local versus hosted embeddings; add cached provider-neutral embedding/LLM/vision adapters with controlled product-copy publication | AI-3 gold set, admin authentication, data-handling review and budget controls | Product-copy automation is live for `plushies`; the next release raises consideration to six candidates/hourly while retaining two publications/UTC day, readiness 1.00, duplicate holds at 0.75 and the shared transactional $5 calendar-month cap. Autonomous preparation now accepts draft-collection membership only when deterministic semantic fit is strong, removing the collection/product approval deadlock without weakening public gates. A six-hour bounded collection-growth job assigns only strong matches and a collection auto-publishes at 12 indexable products after fresh content/indexability validation. Product and collection actions are audited, reversible and reported as anomalies; the safety circuit still downgrades faulting publication to Shadow. Guides, recommendations, identity merges and articles remain review-only. |
 | AI-6. Responsible editorial content | Add first-party demand aggregates, briefs, evidence, duplication/cannibalisation, disclosure, internal links, freshness and a separate human publish action | Phase 8 SEO foundations, AI-4 versioning and an accountable editor | Later; maximum four reviewed drafts per month during pilot |
 
 ### Main-build acceptance gates
@@ -386,11 +388,14 @@ The controlled operating sequence, initial accelerated profile and daily stop
 conditions are maintained in
 [`CATALOGUE-GROWTH-RUNBOOK.md`](CATALOGUE-GROWTH-RUNBOOK.md).
 
-The automatic product pilot remains capped at five candidates per hourly run and
-two publications per UTC day. Operate it for at least seven days before any cap
-increase. Review daily publications, holds, dead letters, provider failures,
-spend and unexpected source changes. Any safety downgrade stays in Shadow until
-the cause is reviewed and the owner deliberately re-arms Automatic mode.
+The owner-approved automatic profile considers six candidates per hourly run
+and remains capped at two product publications per UTC day. The application may
+grow a collection every six hours and publish it only once 12 products are
+currently indexable. Normal operation is high-level governance: inspect the
+daily brief and act on anomalies, dead letters, provider failures, budget
+blocks, suppressed approved products, unexpected source changes or a safety
+downgrade. Any downgrade stays in Shadow until its cause is reviewed and the
+owner deliberately re-arms Automatic mode.
 
 The admin now applies a conservative, deterministic limit-review policy. It can
 recommend owner review only after at least seven elapsed days, 14 automatic
@@ -413,7 +418,7 @@ suite and controls production releases.
 | Lane | Scope | Immediate acceptance gate | Exclusions |
 |---|---|---|---|
 | Main integration and autonomous operations | Monitor the restricted product pilot, improve cross-cutting automation reliability, keep roadmap/release evidence current, review both parallel branches and integrate verified work | Seven-day pilot evidence is queryable; failures and cap use are obvious; all merged work passes the full suite and a target-safe release review | Does not silently raise production caps or publish review-only content |
-| Parallel A — catalogue depth and collections | Collection-aware discovery and assignment, admin collection readiness, useful public collection pages, minimum-product/indexing gates and the path from 19 toward 50–100 approved products | Eight to ten coherent collections can show candidate, approved and indexable counts; collection publication remains an explicit owner action; thin collections stay out of the sitemap | No S2S/order work, no automatic collection publication and no production deployment without main-lane review |
+| Parallel A — catalogue depth and collections | Collection-aware discovery and assignment, semantic-fit gating, useful public collection pages and the path from 17 toward 50–100 approved products | Eight to ten coherent collections grow in bounded automatic runs; a collection publishes only at 12 indexable products after fresh validation; thin collections stay private and out of the sitemap | No S2S/order work, no relaxation of product/indexing gates and no production deployment without main-lane review |
 | Parallel B — conversion and evidence operations | Production S2S readiness, order reconciliation validation, commission/click observability, current affiliate agreement/quota/cache/commission evidence and operational runbooks | A controlled checklist proves paid-event ingestion and settlement reconciliation can be enabled safely, or records the precise external blocker; no callback can bypass the fixed-secret and duplicate controls | No collection/public catalogue UI changes, no new customer identity and no production enablement without explicit confirmation |
 
 Coordination rules:

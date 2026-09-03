@@ -86,6 +86,109 @@ public sealed class CatalogueCollectionServiceTests
     }
 
     [Fact]
+    public async Task AutomaticPublication_PublishesAtTwelveAndRecordsGovernanceEvent()
+    {
+        var factory = await CreateDatabaseAsync();
+        var collectionService = CreateService(factory);
+        var saved = await collectionService.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            context.AutonomousCataloguePolicies.Add(new AutonomousCataloguePolicyRecord
+            {
+                ShopId = shopId,
+                Mode = AutonomousCatalogueMode.Automatic,
+                ReviewEveryHours = 1,
+                MaximumCandidatesPerRun = 6,
+                MaximumAutoPublishesPerDay = 24,
+                MinimumReadinessScore = .98m,
+                DuplicateHoldConfidence = .85m,
+                DailyAiBudgetUsd = .20m,
+                CreatedUtc = Now,
+                UpdatedUtc = Now,
+                UpdatedBy = "test"
+            });
+            for (var index = 1; index <= 12; index++)
+            {
+                AddIndexableProduct(context, shopId, saved.CollectionId!.Value, $"automatic-product-{index}", index);
+            }
+            await context.SaveChangesAsync();
+        }
+        var options = new AutonomousCatalogueOptions
+        {
+            Enabled = true,
+            AutomaticPublishingEnabled = true,
+            AutomaticCollectionPublishingEnabled = true,
+            MinimumAutomaticCollectionProducts = 12
+        };
+        var service = new AutonomousCollectionPublicationService(
+            collectionService,
+            new AutonomousCataloguePolicyService(factory, options, new FixedTimeProvider(Now)),
+            options);
+
+        var result = await service.RunAsync("plushies");
+
+        Assert.Equal(1, result.CollectionsPublished);
+        Assert.True(Assert.Single(await collectionService.GetCollectionsAsync("plushies")).IsPublished);
+        await using var verification = factory.CreateDbContext();
+        var publication = await verification.CollectionPublicationEvents.SingleAsync();
+        Assert.Equal(CollectionPublicationMode.Automatic, publication.Mode);
+        Assert.Equal(CollectionPublicationAction.Published, publication.Action);
+        Assert.Equal(12, publication.IndexableProducts);
+        Assert.Equal(12, publication.RequiredProducts);
+        Assert.Equal("autonomous collection policy", publication.Actor);
+    }
+
+    [Fact]
+    public async Task AutomaticPublication_KeepsCollectionPrivateBelowTwelve()
+    {
+        var factory = await CreateDatabaseAsync();
+        var collectionService = CreateService(factory);
+        var saved = await collectionService.SaveAsync(ValidUpdate());
+        await using (var context = factory.CreateDbContext())
+        {
+            var shopId = await context.Shops.Select(item => item.Id).SingleAsync();
+            context.AutonomousCataloguePolicies.Add(new AutonomousCataloguePolicyRecord
+            {
+                ShopId = shopId,
+                Mode = AutonomousCatalogueMode.Automatic,
+                ReviewEveryHours = 1,
+                MaximumCandidatesPerRun = 6,
+                MaximumAutoPublishesPerDay = 24,
+                MinimumReadinessScore = .98m,
+                DuplicateHoldConfidence = .85m,
+                DailyAiBudgetUsd = .20m,
+                CreatedUtc = Now,
+                UpdatedUtc = Now,
+                UpdatedBy = "test"
+            });
+            for (var index = 1; index <= 11; index++)
+            {
+                AddIndexableProduct(context, shopId, saved.CollectionId!.Value, $"private-product-{index}", index);
+            }
+            await context.SaveChangesAsync();
+        }
+        var options = new AutonomousCatalogueOptions
+        {
+            Enabled = true,
+            AutomaticPublishingEnabled = true,
+            AutomaticCollectionPublishingEnabled = true,
+            MinimumAutomaticCollectionProducts = 12
+        };
+        var service = new AutonomousCollectionPublicationService(
+            collectionService,
+            new AutonomousCataloguePolicyService(factory, options, new FixedTimeProvider(Now)),
+            options);
+
+        var result = await service.RunAsync("plushies");
+
+        Assert.Equal(0, result.CollectionsPublished);
+        Assert.False(Assert.Single(await collectionService.GetCollectionsAsync("plushies")).IsPublished);
+        await using var verification = factory.CreateDbContext();
+        Assert.Empty(verification.CollectionPublicationEvents);
+    }
+
+    [Fact]
     public async Task SetMembershipAsync_AllowsPreclassificationButDoesNotCountPendingProductAsPublic()
     {
         var factory = await CreateDatabaseAsync();

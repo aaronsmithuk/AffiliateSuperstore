@@ -3,6 +3,7 @@
 **/obj/
 **/.build/
 artifacts/
+.artifacts/
 
 # Visual Studio / Rider / VS Code
 .vs/

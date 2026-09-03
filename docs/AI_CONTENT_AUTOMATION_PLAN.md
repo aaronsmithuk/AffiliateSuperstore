@@ -1,6 +1,6 @@
 # AI-assisted catalogue and content automation plan
 
-Status: restricted product publication pilot active; collections and broader content remain review-only
+Status: exception-led product automation active; threshold-based collection automation prepared for release; broader editorial content remains review-only
 
 Prepared: 30 August 2026
 
@@ -73,8 +73,10 @@ The administrator batch may prepare products assigned to an unpublished
 collection so that several collection review queues can be built in parallel.
 Products assigned solely to unpublished collections are selected first, and a
 single paid batch processes at most one candidate for each normalised source
-title. Autonomous queue preparation remains published-collection-only, and
-neither path changes product approval or collection publication state.
+title. Autonomous queue preparation now permits membership in a draft
+collection only when deterministic product-to-collection matching reaches the
+strong-match threshold. Membership alone changes neither product approval nor
+collection publication state.
 The action never changes approval status or publishes content, rejects a
 concurrent run and reports item-level outcomes, token usage, cache use and
 estimated cost. The first production run completed on 1 September 2026 after a
@@ -84,11 +86,14 @@ warnings, one was blocked, and none failed. The run used 4,650 input and 3,160
 output tokens at an estimated USD 0.004722. Database verification found five AI
 editorial versions, all five still awaiting human review and zero approved.
 The historical review-only rollout above has since advanced to the
-owner-approved restricted `plushies` pilot: five candidates per hourly run, two
+owner-approved `plushies` profile: six candidates per hourly run, two
 fully gated product publications per UTC day, a USD 5 shared monthly cap, and
 an automatic downgrade to Shadow after an autonomous dead letter or three
-consecutive product-copy AI failures. Collections, replacements, identity
-merges, expiry and articles remain review-only.
+consecutive product-copy AI failures. A bounded six-hour growth job may assign
+strong collection matches and publish a collection only after 12 currently
+indexable products and a fresh final content validation. Every automatic
+collection transition is audited and reversible. Replacements, identity
+merges and articles remain review-only.
 
 The 2 September production audit contains 562 source offers, 17 approved active
 products after a full relevance reassessment, eight collections, two published
@@ -98,7 +103,8 @@ The calendar-month AI ledger contains 33 charged calls at approximately USD
 0.0190 estimated spend with no budget block; two products have been published
 through the restricted automatic path. The active growth target is 50–100
 approved products across 8–10 useful collections while retaining the current
-five-candidate/two-publication profile for at least seven days of observation.
+six-candidate/two-product-publication profile and reviewing the daily anomaly
+brief rather than manually operating the approval queue.
 
 ## Executive decision
 
@@ -696,15 +702,18 @@ quality. Do not optimize for raw word count or publication volume.
 
 ### Staged rollout
 
-Owner decision, 2 September 2026: the individual product-copy workflow may move
-from shadow to a tightly capped production pilot before the broader four-week
-identity/replacement rollout completes. The exception is limited to two
-`plushies` products per UTC day, five candidates per hourly run, the current audited prompt,
-and all gates recorded in `SEARCH-CONTENT-GOVERNANCE.md`. New categories,
-collections, articles, comparisons, recommendations, canonical merges and
-expiry actions remain outside this exception. An automatic safety circuit
-downgrades the policy to Shadow after an autonomous dead letter or three
-consecutive product-copy AI failures since the latest owner acknowledgement.
+Owner decision, updated 3 September 2026: the `plushies` workflow runs as
+exception-led autonomous merchandising. It considers six candidates per hourly
+run, may publish at most two fully gated products per UTC day, and retains the
+current audited prompt and every gate in `SEARCH-CONTENT-GOVERNANCE.md`.
+A separate six-hour collection-growth job may add no more than 12 deterministic
+strong matches per run. It may publish a collection only when at least 12
+products are currently indexable and a fresh final collection validation
+passes. Automatic transitions are audited and reversible. Articles,
+comparisons, recommendations, canonical merges and replacement decisions remain
+outside this exception. An automatic safety circuit downgrades the product
+policy to Shadow after an autonomous dead letter or three consecutive
+product-copy AI failures since the latest owner acknowledgement.
 
 Cap increases remain an explicit owner decision. `/admin/automation` may mark
 the pilot ready for owner review only after seven elapsed days, at least 14

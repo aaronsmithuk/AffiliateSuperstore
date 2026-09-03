@@ -90,16 +90,34 @@ public sealed class CatalogueGrowthPipelineService(
             item.DisabledReason != null &&
             item.DisabledReason.StartsWith(CatalogueAutonomousTriagePolicy.AutomaticRetirementReasonPrefix),
             cancellationToken);
-        var productsInPublishedCollections = productIds.Length == 0
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : (await context.CollectionProducts.AsNoTracking()
-                .Where(item => productIds.Contains(item.ProductId) &&
-                    item.Collection.ShopId == shopId &&
-                    item.Collection.IsPublished)
-                .Select(item => item.ProductId)
-                .Distinct()
-                .ToArrayAsync(cancellationToken))
-                .ToHashSet(StringComparer.Ordinal);
+        var membershipRows = productIds.Length == 0
+            ? []
+            : await context.CollectionProducts.AsNoTracking()
+                .Where(item => productIds.Contains(item.ProductId) && item.Collection.ShopId == shopId)
+                .Select(item => new
+                {
+                    item.ProductId,
+                    item.Collection.DisplayName,
+                    item.Collection.ShortDescription,
+                    item.Collection.DiscoveryQueriesJson,
+                    NormalizedIdentityTitle = item.Product.IdentityProfile == null
+                        ? null
+                        : item.Product.IdentityProfile.NormalizedTitle
+                })
+                .ToArrayAsync(cancellationToken);
+        var productsInQualifyingCollections = awaiting
+            .Where(product => membershipRows
+                .Where(membership => membership.ProductId == product.ProductId)
+                .Any(membership => CollectionCandidateMatcher.Assess(
+                    membership.DisplayName,
+                    membership.ShortDescription,
+                    CatalogueCollectionService.ReadQueries(membership.DiscoveryQueriesJson),
+                    product.SourceTitle,
+                    product.EditorialTitle,
+                    product.SecondLevelCategoryName,
+                    membership.NormalizedIdentityTitle).IsSuggested))
+            .Select(product => product.ProductId)
+            .ToHashSet(StringComparer.Ordinal);
         var duplicateRows = productIds.Length == 0
             ? []
             : await context.ProductMatchCandidates.AsNoTracking()
@@ -141,7 +159,7 @@ public sealed class CatalogueGrowthPipelineService(
             if (!item.IsEligible) reasons.Add("product.ineligible");
             if (item.AvailabilityState != ProductAvailabilityState.Available) reasons.Add("product.unavailable");
             if (!item.HasActiveLink) reasons.Add("affiliate-link.missing");
-            if (!productsInPublishedCollections.Contains(item.ProductId)) reasons.Add("published-collection.missing");
+            if (!productsInQualifyingCollections.Contains(item.ProductId)) reasons.Add("collection.semantic-fit");
             if (probableDuplicates.GetValueOrDefault(item.ProductId)) reasons.Add("duplicate.probable");
             if (deferred.Contains(item.ProductId)) reasons.Add("publication.daily-limit");
             reasons = reasons.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
@@ -234,7 +252,7 @@ public sealed class CatalogueGrowthPipelineService(
     private static string Label(string code) => code switch
     {
         "publication.daily-limit" => "Daily publication limit",
-        "published-collection.missing" => "No published collection",
+        "collection.semantic-fit" => "No strong collection fit",
         "duplicate.probable" => "Probable duplicate",
         "affiliate-link.missing" => "Missing affiliate link",
         _ when code.StartsWith("scope.", StringComparison.Ordinal) => "Scope: " + code["scope.".Length..].Replace('-', ' '),
